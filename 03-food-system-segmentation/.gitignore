@@ -1,0 +1,14 @@
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+outputs/figures/*
+outputs/tables/*
+!outputs/figures/.gitkeep
+!outputs/tables/.gitkeep
+.DS_Store
+*.Rhistory
+*.RData
+__pycache__/
+*.pyc
+
