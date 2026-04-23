@@ -1,0 +1,827 @@
+---
+title: "07_MFA"
+author: "Heike Rolker"
+date: "2024-01-19"
+output: html_document
+---
+
+Final file runs in Chapter write-up.
+
+
+```{r set-up}
+# if(!require(devtools))
+#   install.packages("devtools", repos = "http://cran.rstudio.com")
+# if(!require(thesisdown))
+#   devtools::install_github("ismayc/thesisdown")
+# library(thesisdown)
+# if(!require(kableExtra))
+#   devtools::install_github("haozhu233/kableExtra")
+# library(kableExtra)
+# if(!require(tinytex))
+#   devtools::install_github('yihui/tinytex')
+# library(tinytex)
+# options(tinytex.verbose = TRUE)
+# if(!require(flextable))
+#   devtools::install_github("davidgohel/flextable")
+# library(flextable)
+# if(!require(dplyr))
+#   install.packages("dplyr", repos = "http://cran.rstudio.com")
+# library(dplyr)
+# if(!require(ggplot2))
+#   install.packages("ggplot2", repos = "http://cran.rstudio.com")
+# library(ggplot2)
+# if(!require(knitr))
+#   install.packages("knitr", repos = "http://cran.rstudio.com")
+# library(knitr)
+# 
+# library(easypackages)
+# libraries("rmarkdown", "tidyverse", "pander", "bookdown", "jpeg", "PRISMAstatement", "float", "pacman", "readxl", "kableExtra")
+library(tidyverse)
+library(data.table)
+library(Hmisc)
+library(gt)
+library(consort)
+library(stringr)
+library(viridis)
+library(hrbrthemes)
+library(dplyr)
+library(ggplot2)
+library(alluvial)
+library(ggalluvial)
+library(RColorBrewer)
+library(plotly)
+library(haven)
+```
+# Housekeeping
+
+```{r functions} 
+clear.labels <- (function(x) {
+  if(is.list(x)) {
+    for(i in seq_along(x)) {
+      class(x[[i]]) <- setdiff(class(x[[i]]), 'labelled')
+      attr(x[[i]],"label") <- NULL
+    }
+  } else {
+    class(x) <- setdiff(class(x), "labelled")
+    attr(x, "label") <- NULL
+  }
+  return(x)
+})
+
+
+sm <- function(x) sum(x, na.rm = TRUE)
+rd <- function(df) df %>% dplyr::mutate_if(is.numeric, round, 1)
+md <- function(x) median(x, na.rm=TRUE)
+mn <- function(x) mean(x, na.rm=TRUE)
+
+# formatting & other 
+sct <- function(x) x/1000 # scale to tonne
+scm <- function(x) x/1000000 # scale million (mostly for population)
+sc_mt <- function(x) x/1000000000 # scale to million metric ton
+mio <- 1000000
+ht <- 100000
+tt <- 10000
+t <- 1000
+
+tblfmt <- function(df){
+  df %>% 
+    opt_align_table_header(align = "left") %>%
+    tab_options(
+      table.font.size = px(13)
+    )
+}
+```
+
+Overview:
+
+File to be run before knitting Chapter 3a, data only applicable for this chapter.
+
+
+Steps for generating MFA/Sankey diagram:
+
+
+1) estimate missing values, i.e., conduct mass-balance analysis -> in summary file
+
+2) remove excluded households & apply weighting factors & complete lists with non producers - x
+
+3) find solution for NA in type/item when completing missing households
+
+4) re-organise each file as source-destination
+
+# 1) Remove excluded & weigh data for MFA
+
+```{r}
+# removal of excluded households -> not required if I weigh!
+excl_3a <- read_csv("2_data/final/excl_3a.csv", 
+    col_types = cols(...1 = col_skip())) %>% setDT() # should not need to skip, change write function at source
+
+rm_ex <- function(df){
+  setDT(df)
+  df[!excl_3a, on = .(y4_hhid)]
+}
+
+# weighting the data
+weighting <- readRDS("2_data/final/weighting.RDS") %>% 
+  clear.labels()
+
+weighting %>% inner_join(excl_3a, by = "y4_hhid") # no intersection as it should be!
+
+weigh <- function(df){
+ df %>% 
+   right_join(weighting, by = "y4_hhid") %>% # only keep households listed in weighting (i.e., those included)
+   mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>%
+   select(!c(clusterid)) 
+}
+
+# previous weighting function
+# weigh <- function(df){
+#   df <- weighting[df, on=.(y4_hhid)]
+#   df <- df %>% mutate(across(is.numeric & !contains("weight_adj"), ~. * weight_adj))
+# }
+
+sm <- function(x) sum(x, na.rm = TRUE)
+rd <- function(df) df %>% dplyr::mutate_if(is.numeric, round, 1)
+md <- function(x) median(x, na.rm=TRUE)
+mn <- function(x) mean(x, na.rm=TRUE)
+```
+
+
+```{r mfa data}
+# Weigh data, remove excluded households and fill 0 values for non producers (relevant for animal products only)
+mfa_crops <- readRDS("2_data/final/mfa_crops.RDS") %>% 
+  weigh() %>% 
+  mutate(across(c(produced:unallocated), ~. * weight_adj)) # adjust after balancing
+
+mfa_animals <- readRDS("2_data/final/mfa_animals.RDS") %>% 
+  ungroup() %>% 
+  weigh() %>% 
+  mutate(across(c(need:unallocated), ~. * weight_adj))
+
+mfa_eggs <- readRDS("2_data/final/mfa_eggs.RDS") %>% 
+  weigh() %>% 
+  mutate(across(c(feed:unallocated), ~. * weight_adj))
+
+mfa_milk <- readRDS("2_data/final/mfa_milk.RDS") %>% 
+  weigh() %>% 
+  mutate(across(c(produced:unallocated), ~. * weight_adj))
+
+mfa_hides <- readRDS("2_data/final/mfa_hides.RDS") %>% 
+  weigh() %>% 
+  mutate(across(c(slaughter:sold2), ~. * weight_adj))
+```
+
+# 2) Uncertainty
+
+Estimates of uncertainty should use unweighted data as it'll be expressed in %?
+
+```{r}
+
+```
+
+
+# Over and underestimates of allocation to reported production
+
+For crops and milk it is possible to estimate how well allocation and production are in relation to another. For others it may be less meaningful as too few flows are recorded (eggs). For slaughter it is pointless.
+
+Initial approach to generating an uncertainty estimate, will probably have to go through all files again and identify where this can be done and generate a mean where possible.
+
+*Milk*
+
+```{r}
+# use unweighted data
+milk <- readRDS("2_data/final/mfa_milk.RDS") 
+
+range_milk_fig <- milk %>% 
+    weigh() %>% # only included households
+  mutate(
+    unc = ifelse(uncertain<0, uncertain * -1, uncertain), # should result in positive value
+    p.unc = unc/produced,
+    p.uncspread = ifelse(uncertain<0, p.unc*-1, p.unc)
+  ) %>% 
+  select(y4_hhid, type, unc, p.unc, p.uncspread) %>%
+  filter(p.unc!=0) %>% 
+  dplyr::rename(value= p.uncspread, text = type) %>% 
+  ggplot( aes(x=value, color=text, fill=text)) +
+    geom_histogram() +
+    facet_wrap(~text)
+
+range_milk_fig
+```
+
+
+
+*Crops*
+
+Harvest as reported and with 2 new missing vars.
+
+```{r eval=FALSE}
+# use unweighted data
+crops <- readRDS("2_data/final/mfa_crops.RDS") 
+
+range_crops_data <- crops %>% 
+  weigh() %>% 
+  mutate(
+    unc = ifelse(uncertain<0, uncertain * -1, uncertain), # should result in positive value
+    p.unc = unc/produced,
+    p.uncspread = ifelse(uncertain<0, p.unc*-1, p.unc)
+  ) %>% 
+  select(y4_hhid, type, unc, p.unc, p.uncspread) %>%
+  filter(p.unc!=0) %>% 
+  dplyr::rename(value= p.uncspread, text = type) 
+
+write_csv(range_crops_data, "2_data/results/range_crops_data.csv")
+
+range_crops_fig <- range_crops_data %>% 
+  ggplot( aes(x=value, color=text, fill=text)) +
+    geom_histogram() +
+    facet_wrap(~text)
+
+range_crops_fig
+```
+
+# Estimate uncertainty
+
+Milk is estimated from average, highest and lowest month, additionally 2 new vars with negative and positive missing.
+
+```{r, eval=FALSE}
+uncertainty_milk_stats <- milk %>% 
+  mutate(
+    upper = ifelse(uncertain<0, uncertain*-1+produced, produced), # production insufficient to cover all disposition
+    lower = ifelse(uncertain>0, produced-uncertain, produced) # production lower than all disposition
+  ) %>% 
+  group_by(type) %>% 
+  summarise(
+    supper = sum(milk_hi),
+    slower = sum(milk_lo),
+    supper2 = sum(upper),
+    slower2 = sum(lower),
+    sum = sum(produced)
+  )
+
+uncertainty_milk_stats <- transform(uncertainty_milk_stats, row_stdev=apply(uncertainty_milk_stats, 1, sd, na.rm=TRUE))
+
+uncertainty_milk_stats$Mean <- rowMeans(uncertainty_milk_stats[,2:5])
+
+uncertainty_milk_stats
+
+write_csv(uncertainty_milk_stats, "2_data/results/uncertainty_milk_stats.csv")
+```
+
+
+```{r eval=FALSE}
+# 
+uncertainty_crops_stats <- crops %>% 
+  mutate(
+    upper = ifelse(uncertain<0, uncertain*-1+produced, produced), # production insufficient to cover all disposition
+    lower = ifelse(uncertain>0, produced-uncertain, produced),# production exceeds disposition, we assume production is lower than reported (this can never be true as the list of uses asked about is limited)
+    upper2 = ifelse(uncertain2<0, uncertain2*-1+produced, produced), # same as above, assume processing is a separate entity
+    lower2 = ifelse(uncertain2>0, produced-uncertain2, produced),
+    meanval = (upper+lower+upper2+lower2+produced)/5) %>% 
+  group_by(type) %>% 
+  summarise(
+    supper = sum(upper),
+    slower = sum(lower),
+    supper2 = sum(upper2),
+    slower2 = sum(lower2),
+    sum = sum(produced)
+  )
+
+uncertainty_crops_stats <- transform(uncertainty_crops_stats, row_stdev=apply(uncertainty_crops_stats, 1, sd, na.rm=TRUE))
+
+uncertainty_crops_stats$Mean <- rowMeans(uncertainty_crops_stats[,2:5])
+
+uncertainty_crops_stats
+
+write_csv(uncertainty_crops_stats, "2_data/results/uncertainty_crops_stats.csv")
+```
+
+
+# 3) Other data weighing etc.
+
+Total production, consumption and sales overview tables.
+
+```{r}
+produce_long <- readRDS("2_data/final/produce_long.RDS") %>% 
+  weigh() %>% 
+  mutate(across(c(produced:uncertain), ~. * weight_adj, .names = "w_{.col}")) 
+
+write_csv(produce_long, "2_data/results/produce_long.csv")
+# add households with no production for each type (TBD, could be another level... but this is the sankey level)
+all_types <- produce_long %>% 
+  select(category:item) %>% 
+  unique()
+
+allhhs <- weighting %>% 
+  select(y4_hhid) 
+```
+
+Sales and destinations.
+
+```{r}
+b1_w <- readRDS("2_data/final/b1.RDS") %>% 
+  weigh() %>% 
+  mutate(w_sold = sold * weight_adj) 
+```
+
+Preharvest losses
+
+```{r}
+prelost <- readRDS("2_data/processed/crops_prelost.RDS") %>% 
+  clear.labels() %>% 
+  weigh() %>% 
+  setDT()
+
+write_csv(prelost, "2_data/results/prelost.csv")
+```
+
+
+```{r}
+yieldgaps <- readRDS("2_data/processed/yieldgaps.RDS")
+yieldgaps <- yieldgaps %>% right_join(weighting, by = "y4_hhid") %>% 
+  mutate(
+    pyg = yield*100/YP, # yield as percentage of potential
+    w_area = area_planted_new * weight_adj, # total area
+    w_harvest = yield * w_area, # total harvest expected for total area, in tonnes!
+    w_yp = YP * w_area, # total yield potential for area
+    w_yg = w_yp-w_harvest, # total yield gap for area in tonnes
+    w_p_yield = w_harvest*100/w_yp # just for reference and checking
+  )
+
+write_csv(yieldgaps, "2_data/results/yieldgaps.csv")
+```
+
+# 4) MFA function
+
+Add empty households
+
+```{r}
+
+```
+
+
+Sankey function
+
+```{r}
+sankey <- function(data){
+  nodes <- data.frame(name=c(as.character(data$source), as.character(data$target)) %>% unique())
+  
+  data$IDsource <- match(data$source, nodes$name)-1 
+  data$IDtarget <- match(data$target, nodes$name)-1
+  
+  data <- data %>% 
+    mutate_if(is.character, str_to_sentence)
+  
+  nb.cols <- nrow(nodes)
+  mycolors <- colorRampPalette(brewer.pal(11, "PiYG"))(nb.cols)
+  
+  
+  fig <- plot_ly(
+    type = "sankey",
+    orientation = "h",
+    
+    node = list(
+      label = nodes$name,
+      color = mycolors,
+      pad = 15,
+      thickness = 20,
+      line = list(
+        color = "black",
+        width = 0.5
+      )
+    ),
+    
+    link = list(
+      source = data$IDsource,
+      target = data$IDtarget,
+      value =  data$value,
+      color = "light grey"
+      
+    )
+  )
+  # fig <- fig %>% layout(
+  #   title = "Material Flow LSMS-ISA TZA wave 4",
+  #   font = list(
+  #     size = 10
+  #   )
+  #)
+  fig
+}
+```
+
+```{r}
+# applicable to all
+calc <- function(df) df[, lapply(.SD, sm), .SDcols=is.numeric, by=.(type)] # change function and grouping as required; for 3c this could stay item; use groupsgroups for other aggregation levels
+# col sum
+cl <- function(df) df[, lapply(.SD, sm), .SDcols=is.numeric] # change function as required
+```
+
+Keep in separate chunks and not as function until all certain and final.
+
+## Crops
+```{r}
+cmfa <- copy(mfa_crops)
+
+df <- cmfa[!is.na(type)] # households that were "added" for completion, they will probably need a type and item across all df with 0 values to represent the full sample in all dfs - TBD
+
+
+  c1 <- calc(df)
+  c2 <- cl(df)
+  
+  # first flow: harvest
+  first <- c1[,. (source = type, value = produced)]
+  first[, target := "Produced"]
+  
+  # second flow: harvest onward
+  second <- c1[,.(source = type, 
+                  consumed, 
+                  sold, 
+                  payment,
+                  gifts,
+                  losses, 
+                  stored, 
+                  feed, 
+                  processing,
+                  unallocated, 
+                  missing)]
+  
+  second <- melt(second, id.vars = "source",
+                 measure.vars = c("consumed", "sold", "payment", "gifts", "losses", "stored", "feed", "processing", "unallocated", "missing"))
+  
+  second <- upData(second,
+                   rename = .q(variable = target))
+  
+  # third flow: processing
+  third <- data.table(
+    source = "processing",
+    target = c("sold", "consumed", "waste"),
+    value = c(pluck(c2$prodsold), pluck(c2$prodconsumed), pluck(c2$waste))
+  )
+  
+  fourth <- data.table(
+    source = "stored",
+    target = "seed",
+    value  = pluck(c2$seed)
+  )
+
+  
+  data <- rbind(second, third, fourth)
+  data <- data %>% select(target, source, value)
+
+  sankey(data)
+  
+  
+summary_crops <- c1 %>% 
+  mutate(
+    upper = produced + missing, # assumes production underestimated
+    lower = produced - unallocated, # assumes production overestimated (no waste)
+    mean = (produced + upper + lower)/3
+  ) %>% 
+  select(type, produced, upper, lower, mean, sold:uncertain, missing:unallocated)
+
+cropsd <- summary_crops %>% select(upper, lower, produced)
+cropsd <- transform(cropsd, row_stdev=apply(cropsd, 1, sd, na.rm=TRUE))
+
+summary_crops$sd <- cropsd$row_stdev
+
+summary_crops <- summary_crops %>% 
+  relocate(sd, .after = mean)
+
+write_csv(summary_crops, "2_data/results/summary_crops.csv")
+```
+
+## Animals
+
+```{r}
+df <- copy(mfa_animals)
+df2 <- copy(mfa_hides)
+
+# collapse and calculate
+  m1 <- calc(df)
+  m2 <- cl(df)
+  m22 <- cl(df2)
+  
+  # feed flow to total slaughter weight
+  feed <- melt(m1, id.vars = "type",
+               measure.vars = c("feed", "grazed"))
+  feed <- upData(feed, rename = .q(variable = source, type = target))
+  
+  # first flow types to slaughter
+  first <- m1[,.(source = type, value = total_weight)]
+  first[, target := "slaughter" ]
+  
+  # second flow from slaughter
+  second <- data.table(
+    source = "slaughter",
+    target = c("sold", "meat", "offal", "hides", "inedible"), # could include uncertain
+    value = c(pluck(m2$sold_weight), pluck(m2$meat), pluck(m2$offal), pluck(m2$hides), pluck(m2$inedible))
+  )
+
+  
+  # last flow from hides
+  # meat, offal to consumed
+  # hides to unused and processed
+  # processed hides to sold and consumed
+  third <- data.table(
+    source =  c("meat", "offal"),
+    target = "consumed",
+    value = c(pluck(m2$meat), m2$offal)
+  )
+  
+  fourth <- data.table(
+    source = c("hides","processing", "processing", "hides"),
+    target = c("processing", "sold", "unallocated", "missing","unused"),
+    value = c(pluck(m22$pprod), pluck(m22$sold2), pluck(m22$unallocated), pluck(m22$missing), pluck(m2$hides)-pluck(m22$hides))
+  )
+  
+  
+  data2 <- rbind(feed, first, second, third, fourth)
+  
+  sankey(data2)
+  
+summary_animals <- m1 %>% 
+  mutate(
+    upper = total_weight + missing, # assumes production underestimated
+    lower = total_weight - unallocated, # assumes production overestimated (no waste)
+    mean = (total_weight + upper + lower)/3
+  ) %>% 
+  select(type:grazed, produced = total_weight, upper, lower, mean, sold = sold_weight, consumed = cons_weight, meat, offal, hides, inedible, missing, unallocated)
+
+animalsd <- summary_animals %>% select(upper, lower, produced)
+animalsd <- transform(animalsd, row_stdev=apply(animalsd, 1, sd, na.rm=TRUE))
+
+summary_animals$sd <- animalsd$row_stdev
+
+summary_animals <- summary_animals %>% 
+  relocate(sd, .after = mean)
+
+write_csv(summary_animals, "2_data/results/summary_animals.csv")
+```
+
+## Milk
+```{r}
+df <- copy(mfa_milk)
+# calculate
+  mi1 <- calc(df)
+  mi2 <- cl(df)
+  
+  # feed
+  feed <- melt(mi1, id.vars = "type",
+               measure.vars = c("feed", "grazed"))
+  feed <- upData(feed, rename = .q(variable = source, type = target))
+  
+  # feed to production
+  firsti <- data.table(
+    source = c("large ruminants", "small ruminants"),
+    target = "milked",
+    value = c(pluck(mi1[1,4]), pluck(mi1[2,4])) # shaky as code..
+  )
+
+  
+  # first flow production onward
+  first <- mi1[,.(source = type, 
+                  consumed, 
+                  sold, 
+                  processed, 
+                  missing, 
+                  unallocated)]
+  
+  first <- melt(first, id.vars = "source",
+                measure.vars = c("consumed", "sold", "processed", "missing", "unallocated"))
+  first <- upData(first,
+                  rename = .q(variable = target),
+                  source = "milked")
+  
+  # second flow processing to sold & consumed
+  second <- data.table(
+    source = 
+      "processed",
+    target = 
+      c("sold", "unallocated"),
+    value = c(
+      pluck(mi2$psold), pluck(mi2$processed)-pluck(mi2$psold))
+  )
+  
+  data3 <- rbind(feed, firsti, first, second)
+  sankey(data3)
+  
+summary_milk <- mi1 %>% 
+    mutate(
+    upper = produced + missing, # assumes production underestimated ! differs from range milk calculations which uses lower and upper milk production
+    lower = produced - unallocated, # assumes production overestimated (no waste)
+    mean = (produced + upper + lower)/3
+  ) %>% 
+  select(type:grazed, produced, upper, lower, mean, consumed:psold, missing:unallocated)
+
+milksd <- summary_milk %>% select(upper, lower, produced)
+milksd <- transform(milksd, row_stdev=apply(milksd, 1, sd, na.rm=TRUE))
+
+summary_milk$sd <- milksd$row_stdev
+
+summary_milk <- summary_milk %>% 
+  relocate(sd, .after = mean)
+
+write_csv(summary_milk, "2_data/results/summary_milk.csv")
+```
+
+## Eggs
+```{r}
+df <- copy(mfa_eggs) %>% 
+  filter(!is.na(item)) 
+
+e1 <- calc(df)
+  
+data4 <- data.table(
+    source = c(
+      "feed","grazed", 
+      "poultry",
+      "eggs", "eggs", "eggs"),
+    target = c(
+      "poultry", "poultry",
+      "eggs",
+      "sold", "consumed", "unallocated"),
+    value = c(
+      pluck(e1$feed), pluck(e1$grazed), 
+      pluck(e1$produced),
+      pluck(e1$sold), pluck(e1$consumed), pluck(e1$unallocated))
+  )
+
+  
+  sankey(data4)
+  
+summary_eggs <- e1 %>% 
+  mutate(
+    lower = produced - unallocated, # assumes production overestimated (no waste)
+    mean = (produced + lower)/2
+  ) %>% 
+  select(type:grazed, produced, lower, mean, consumed, missing:unallocated)
+
+eggssd <- summary_eggs %>% select(lower, produced)
+eggssd <- transform(eggssd, row_stdev=apply(eggssd, 1, sd, na.rm=TRUE))
+
+summary_eggs$sd <- eggssd$row_stdev
+
+summary_eggs <- summary_eggs %>% 
+  relocate(sd, .after = mean)
+
+write_csv(summary_eggs, "2_data/results/summary_eggs.csv")
+```
+
+## All
+```{r}
+mfa <- rbind(data, data2, data3, data4)
+
+upcase <- function(df){
+  df <- df %>% 
+    mutate_if(is.character, str_to_sentence) %>% 
+    mutate_if(is.factor, function(x) str_to_sentence(as.character(x)))
+}
+
+mfaw <- mfa %>% 
+  upcase() %>% 
+  mutate(target = ifelse(target == "Consumed", "Household", target),
+         source = ifelse(source == "Consumed", "Household", source),
+         target = ifelse(target == "Sold", "Sales", target),
+         source = ifelse(source == "Sold", "Sales", source),
+         target = ifelse(target == "Processing", "Processed", target),
+         source = ifelse(source == "Processing", "Processed", source),
+         # new groupings - combine targets
+         target = ifelse(
+           target == "Waste" | target == "Losses" | target == "Inedible" | target == "Unused", "Loss & Waste", target),
+         # target = ifelse(
+         #   target == "Missing", "Uncertain", target
+         # ),
+         value = as.numeric(value)) %>% 
+  group_by(source, target) 
+
+write_csv(mfaw, "2_data/final/mfaw.csv")
+write_csv(mfaw, "2_data/results/mfaw.csv")
+
+sankey(mfaw)
+```
+
+# Input for STAN
+
+```{r eval=FALSE}
+# generate new uncertainty estimates that are weighted for crops and for milk
+uncertainty_crops_weighted <- crops %>% 
+  weigh() %>% 
+  mutate(
+    uncertain = uncertain * weight_adj,
+    produced = produced * weight_adj,
+    upper = ifelse(uncertain<0, uncertain*-1+produced, produced), # production insufficient to cover all disposition
+    lower = ifelse(uncertain>0, produced-uncertain, produced),# production exceeds disposition, we assume production is lower than reported (this can never be true as the list of uses asked about is limited)
+    upper2 = ifelse(uncertain2<0, uncertain2*-1+produced, produced), # same as above, assume processing is a separate entity
+    lower2 = ifelse(uncertain2>0, produced-uncertain2, produced),
+    meanval = (upper+lower+upper2+lower2+produced)/5) %>% 
+  group_by(type) %>% 
+  summarise(
+    supper = sum(upper),
+    slower = sum(lower),
+    supper2 = sum(upper2),
+    slower2 = sum(lower2),
+    sum = sum(produced)
+  ) 
+
+uncertainty_crops_weighted <- transform(uncertainty_crops_weighted, row_stdev=apply(uncertainty_crops_weighted, 1, sd, na.rm=TRUE))
+
+uncertainty_crops_weighted$Mean <- rowMeans(uncertainty_crops_weighted[,2:5])
+
+uncertainty_crops_weighted <- uncertainty_crops_weighted %>% 
+  mutate(mean = Mean/t,
+         sd = row_stdev/t) %>% 
+  select(type, mean, sd) %>% 
+  rd()
+
+uncertainty_milk_weighted <- milk %>% 
+  weigh() %>% 
+  mutate(
+    uncertain = uncertain*weight_adj,
+    produced = produced*weight_adj,
+    upper = ifelse(uncertain<0, uncertain*-1+produced, produced), # production insufficient to cover all disposition
+    lower = ifelse(uncertain>0, produced-uncertain, produced) # production lower than all disposition
+  ) %>% 
+  group_by(type) %>% 
+  summarise(
+    supper = sum(milk_hi),
+    slower = sum(milk_lo),
+    supper2 = sum(upper),
+    slower2 = sum(lower),
+    sum = sum(produced)
+  ) 
+
+uncertainty_milk_weighted <- transform(uncertainty_milk_weighted, row_stdev=apply(uncertainty_milk_weighted, 1, sd, na.rm=TRUE))
+
+uncertainty_milk_weighted$Mean <- rowMeans(uncertainty_milk_weighted[,2:5])
+
+uncertainty_milk_weighted <- uncertainty_milk_weighted %>% 
+  mutate(mean = Mean/t,
+         sd = row_stdev/t) %>% 
+  select(type, mean, sd) %>% 
+  rd()
+
+# use remaining from mfaw file as below
+```
+
+
+```{r}
+uncertain_joined <- uncertainty_crops_stats %>% 
+  select(type, mean = Mean, sd = row_stdev) %>% 
+  mutate(
+    mean = mean/t,
+    sd = sd/t
+  ) %>% 
+  rd()
+
+crops_simple <- mfaw %>% 
+  filter(grepl("Grains|Legu|Nuts|Roots|Fruits|Veg|crops|Spices", source)) %>% 
+  group_by(target) %>% 
+  summarise(value = sm(value)/t) %>% 
+  add_column(source = "Harvest")
+
+processed2 <- mfaw %>% 
+  filter(target == "Processed" & (source== "Milked" | source=="Hides")) %>% 
+  group_by(target, source) %>% 
+  summarise(value = sm(value)/t) 
+
+processedout <- mfaw %>% 
+  filter(source == "Processed") %>% 
+  group_by(source, target) %>% 
+  summarise(value = sm(value)/t) 
+
+graze <- mfaw %>% 
+  filter(source == "Grazed") %>% 
+  group_by(target) %>% 
+  summarise(value = sm(value)/t) %>% 
+  add_column(source = "Grazed")
+
+feed <- mfaw %>% 
+  filter(source == "Feed") %>% 
+  group_by(target) %>% 
+  summarise(value = sm(value)/t) %>% 
+  add_column(source = "Feed")
+
+slaughter <- mfaw %>% 
+  filter(target == "Slaughter") %>% 
+  group_by(source) %>% 
+  summarise(value = sm(value)/t) %>% 
+  add_column(target = "Slaughter")
+
+slaughterout <- mfaw %>% 
+  filter(source == "Slaughter") %>% 
+  group_by(target) %>% 
+  summarise(value = sm(value)/t) %>% 
+  add_column(source = "Slaughter")
+
+milkout <- mfaw %>% 
+  filter(source == "Milked") %>% 
+  group_by(target) %>% 
+  summarise(value = sm(value)/t) %>% 
+  add_column(source = "Milked")
+
+grazedin <- mfaw %>% # fictional
+  filter(source == "Grazed") %>% 
+  group_by(source) %>% 
+  summarise(value = sm(value)/t)
+```
+
+

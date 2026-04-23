@@ -1,0 +1,173 @@
+---
+title: "01b_Yield Gap"
+author: "Heike Rolker"
+date: "2024-01-19"
+output: html_document
+---
+```{r}
+library(readxl)
+```
+
+
+```{r plot details}
+# load data
+ag_sec_3a <- read_dta("2_data/raw/ag_sec_3a.dta") # --> long rainy
+ag_sec_3b <- read_dta("2_data/raw/ag_sec_3b.dta") # --> short rainy
+
+# prepare for join
+long <- ag_sec_3a %>% 
+  setDT() %>% 
+  add_column(season = "long") %>% 
+  select(occ, y4_hhid, plotnum, main_crop = ag3a_07_2, soil = ag3a_10, soilqual = ag3a_11, soiltest = ag3a_12, 
+         erosion = ag3a_13, irrigated = ag3a_18, irrigation = ag3a_19, water = ag3a_20, watersource = ag3a_21)
+
+short <- ag_sec_3b %>% 
+  setDT() %>% 
+  add_column(season = "short") %>% 
+  filter(ag3b_01b == 2) %>% 
+  select(!ag3b_01b) %>% 
+  select(occ, y4_hhid, plotnum, main_crop = ag3b_07_2, soil = ag3b_10, soilqual = ag3b_11, soiltest = ag3b_12, 
+         erosion = ag3b_13, irrigated = ag3b_18, irrigation = ag3b_19, water = ag3b_20, watersource = ag3b_21)
+  
+
+# match colnames
+colnames(short) <- colnames(long)
+
+# extract labels into named vector that can be matched to varnames 
+labs <- lapply(short, attr, "label")
+labs <- unlist(labs, use.names = T) # unlists into a named vector
+
+# join & clean up
+plots_full <- long %>% 
+  bind_rows(short) %>% 
+  clean_up() 
+
+# needed?
+plots_full <- zap_labels(plots_full)
+
+# check labels
+label(plots_full) 
+
+# re-add labels: https://statisticsglobe.com/add-variable-labels-data-frame-r
+label(plots_full) <- as.list(labs[match(names(plots_full), names(labs))])
+
+contents(plots_full)
+
+saveRDS(plots_full, "2_data/processed/plot_details.RDS", compress = T)
+```
+```{r reference values}
+GygaTanzania_2 <- read_excel("2_data/reference/GygaTanzania-2.xlsx", sheet = "Country") %>% 
+  # add key for merging
+  mutate(cropid = fcase(
+    CROP == "Irrigated rice", "paddy",
+    CROP == "Rainfed chickpea", "chickpea",
+    CROP == "Rainfed common bean", "bean",
+    CROP == "Rainfed cowpea", "cowpea",
+    CROP == "Rainfed groundnut", "groundnut",
+    CROP == "Rainfed maize", "maize",
+    CROP == "Rainfed millet", "finger millet", # as per https://www.yieldgap.org/tanzania; what about bulrush?
+    CROP == "Rainfed pigeonpea", "pigeon pea",
+    CROP == "Rainfed rice", "paddy",
+    CROP == "Rainfed sorghum", "sorghum",
+    CROP == "Rainfed wheat", "wheat"      
+  ))
+
+```
+
+
+```{r}
+# plot crop information
+pc <- readRDS("2_data/processed/pc.RDS") %>% 
+  clear.labels()
+```
+
+p10 third level accuracy
+
+Theoretical yield
+```{r}
+plots_full <- readRDS("2_data/processed/plot_details.RDS")
+```
+
+
+Irrigated sample
+
+1) Actual yield
+
+2) Potential yield
+
+```{r}
+ref_irr <- GygaTanzania_2 %>% 
+  filter(CROP == "Irrigated rice")
+
+irrigated <- plots_full %>% 
+  filter(irrigated == "yes") %>% 
+  clear.labels() %>% 
+  left_join(pc, by = c("y4_hhid", "plotnum")) %>% 
+  left_join(ref_irr, by = "cropid") %>% 
+  mutate(
+    yield = (total_harvest/1000)/area_planted_new, # resulting in t/ha
+    yield_gap = YP-yield # difference per t/ha
+  )
+
+yg.irrigated <- irrigated %>% 
+  mutate(
+    harvest_t = total_harvest/1000, # harvest in tonnes
+    yield = harvest_t/area_planted_new # tonnes/hectar yield using harvest and remaining harvest
+  ) %>% 
+  select(y4_hhid, type, cropid, plotnum, preharvest_losses, loss_cause, area_planted_new, total_harvest, yield, YP, lessharvest) %>% 
+  mutate(
+    YG = YP-yield, # yield gap, difference between yield potential and yield
+    irr.type = "irrigated"
+  )
+```
+
+
+Rainfed sample
+
+3) Actual
+
+4) Potential
+
+```{r}
+ref_rain <- GygaTanzania_2 %>% 
+  filter(CROP != "Irrigated rice")
+
+pc <- clear.labels(pc)
+
+rainfed <- plots_full %>% 
+  filter(irrigated == "no") %>% 
+  clear.labels() %>% 
+  right_join(pc, by = c("y4_hhid", "plotnum")) %>% 
+  left_join(ref_rain, by = "cropid") %>% 
+  mutate(
+    yield = (total_harvest/1000)/area_planted_new, # resulting in t/ha
+    yield_gap = YP-yield # difference per t/ha
+  )
+
+yg.rainfed <- rainfed %>% 
+  mutate(
+    harvest_t = total_harvest/1000, # harvest in tonnes
+    yield = harvest_t/area_planted_new # tonnes/hectar yield using harvest and remaining harvest
+  ) %>% 
+  select(y4_hhid, type, cropid, plotnum, preharvest_losses, loss_cause, area_planted_new, total_harvest, yield, YP, lessharvest) %>% 
+  mutate(
+    YG = YP-yield, # yield gap, difference between yield potential and yield
+    irr.type = "rainfed"
+  )
+```
+
+
+Account for regional variation using different sheet in file and merge based on location. (Should not add significantly more work.)
+
+
+Compare groups with and without pre-harvest losses and their yield gaps.
+
+```{r}
+yieldgaps <- yg.rainfed %>% 
+  bind_rows(yg.irrigated) 
+
+saveRDS(yieldgaps, "2_data/processed/yieldgaps.RDS", compress = TRUE)
+
+# apply weighting factors to yield gaps.
+```
+

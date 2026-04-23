@@ -1,0 +1,580 @@
+---
+title: "02_Animals"
+author: "Heike Rolker"
+date: "2024-01-10"
+output: html_document
+---
+
+```{r set up}
+library(data.table)
+library(haven)
+library(readxl)
+library(knitr)
+library(Hmisc)
+library(lubridate)
+library(naniar)
+library(dplyr)
+library(tidyverse)
+```
+
+# Livestock survey
+
+## Livestock identifiers
+
+*Unnecessary as covered in the filter file.*
+
+```{r, eval=FALSE}
+lf_sec_a <- read_dta("2_data/raw/lf_sec_a.dta")
+
+lf_ids <- lf_sec_a %>% 
+  clean_up() %>% 
+  # remove confidential
+  select(!c(lf_a05, lf_a07, lf_a08, lf_a10, lf_a14, lf_a17))
+  
+lapply(lf_sec_a, attr, "label")  
+head(lf_ids)
+miss_var_summary(lf_ids)
+```
+
+```{r lf ids naming, eval=FALSE}
+lf_ids <- upData(lf_ids,
+                 rename = .q(
+                   lf_a22 = lvstk,
+                   lf_a23 = fishery
+                 ),
+                 labels = .q(
+                   lvstk = "Household owned livestock in past 12 mo",
+                   fishery = "Household engaged in fishin in past 12 mo"
+                 ))
+
+# purpose?
+# saveRDS(lf_ids, "2_data/processed/lf_ids.RDS", compress = T)
+```
+
+Overview:
+
+This file contains information on the animals owned over the past 12-24 months. It further breaks down the animals slaughtered into their components and estimates the quantity and source of feed required to produce the animals slaughtered.
+
+Final files:
+
+- **a** (**animals_fin**) all animals owned and destinations over time: a & animals_fin
+
+- **excl_animals** all exclusions relevant to animals owned
+
+- **animals_mass** all animals slaughtered, feed required, breakdown into components and destination 
+
+- **feed_short** overview of what primary type of feed was used for certain types of animals
+
+- **animals_short**
+
+- **animals** most original file, basic cleaning, used for destination/buyer 
+
+
+## Animal ownership
+
+```{r animals hk}
+lf_sec_02 <- read_dta("2_data/raw/lf_sec_02.dta") 
+
+animals <- clean_up(lf_sec_02)
+
+# replace with function "labfix"
+lapply(lf_sec_02, attr, "label")
+# put labels back (not sure why they are removed)
+labs <- lapply(lf_sec_02, attr, "label")
+labs <- labs[2:43]
+labs <- unlist(labs, use.names = T) # unlists into a named vector
+
+# re-add labels: https://statisticsglobe.com/add-variable-labels-data-frame-r
+label(animals) <- as.list(labs[match(names(animals), names(animals))])
+
+lapply(animals, attr, "label")
+```
+
+```{r animals naming}
+animals <- upData(animals,
+                  rename = .q(
+                      lf02_01 = ownershp,
+                      lf02_02 = owned2,
+                      lf02_03 = owned1,
+                      lf02_04_1 = ind,
+                      lf02_04_2 = exotic,
+                      lf02_05 = born,
+                      lf02_07 = bought,
+                      lf02_10 = gift,
+                      lf02_11 = giver,
+                      lf02_13 = gifted,
+                      lf02_14 = recp,
+                      lf02_16 = disease,
+                      lf02_19 = theft,
+                      lf02_22 = injury,
+                      lf02_25 = sold,
+                      lf02_28_1 = dest1,
+                      lf02_28_2 = dest2,
+                      lf02_30 = slaughter,
+                      lf02_32 = ssold,
+                      lf02_31 = weight,
+                      lf02_34_1 = dest1s,
+                      lf02_34_2 = dest2s
+                      ), 
+                  
+                  # replace NA with true 0
+                  bought = ifelse(lf02_06 == "no", 0, bought),
+                  gift = ifelse(lf02_09 == "no", 0, bought),
+                  gifted = ifelse(lf02_12 == "no", 0, gifted),
+                  disease = ifelse(lf02_15 == "no", 0, disease),
+                  theft = ifelse(lf02_18 == "no", 0, theft),
+                  injury = ifelse(lf02_21 == "no", 0, injury),
+                  sold = ifelse(lf02_24 == "no", 0, sold),
+                  slaughter = ifelse(lf02_29 == "no", 0, slaughter),
+                  
+                  # number of animals currently owned
+                  ind = ifelse(is.na(ind), 0, ind),
+                  exotic = ifelse(is.na(exotic), 0, exotic),
+                  current = ind + exotic, # does not rm NA
+                  
+                  # replace all relevant with 0 for all households that didnt own animals in past 2 years or 12 months?
+                  current = ifelse(ownershp == "no", 0, current),
+                  
+                  labels = .q(
+                    ownershp = "Animals owned in past year",
+                    owned2 = "Number of animals owned two years ago",
+                    owned1 = "Number of aniamls owned 12 mo ago",
+                    ind = "Number of indigenous breeds currently owned",
+                    exotic = "Number of exotic breeds currently owned",
+                    born = "Number of animals born in past 12 mo",
+                    bought = "Number of animals bought alive in past 12 mo",
+                    gift = "Number of animals received as payment or gift",
+                    giver = "Giver of animals as gift or payment",
+                    gifted = "Number of animals given as gift or payment",
+                    recp = "Recipient of animals gifted",
+                    disease = "Number of animals lost to disease",
+                    theft = "Number of animals lost to theft",
+                    injury = "Number of animals lost to injury",
+                    sold = "Number of animals sold alive",
+                    dest1 = "First buyer of animals",
+                    dest2 = "Second buyer of animals",
+                    slaughter = "Number of animals slaughtered",
+                    dest1s = "First buyer of slaughtered animals",
+                    dest2s = "Second buyer of slaughtered animals",
+                    current = "Number of animals currently owned (ind + exotic)",
+                    weight = "Average live weight of slaughtered animals",
+                    ssold = "Number of animals slaughtered and sold"
+                  ),
+                  
+                  units = .q(
+                    weight = kg
+                  ))
+
+
+# further cleaning
+# determine sex of animals where possible
+animals <- animals[, sex := fcase(
+    lvstckid == "male calves", "male",
+    lvstckid == "female calves", "female",
+    lvstckid == "bulls", "male",
+    lvstckid == "steers", "male",
+    lvstckid == "heifers", "female",
+    lvstckid == "cows", "female")]
+
+# fix naming from sex extraction
+animals[,lvstckid := ifelse(lvstckid == "male calves", "calves", lvstckid)]
+animals[,lvstckid := ifelse(lvstckid == "female calves", "calves", lvstckid)]
+
+# add animals types
+ls_list <- list(
+  "large ruminants" =
+    c("bulls", "cows", "steers", "heifers", "calves"),
+  "small ruminants" =
+    c("goats", "sheep"),
+  "pigs" = "pigs",
+  "poultry" =
+    c("chickens", "ducks", "other poultry"),
+  "other animals" =
+    c("rabbits", "donkeys", "dogs", "other", "hare"))
+
+ls_list <- data.table(lvstckid = unlist(ls_list), type = rep(names(ls_list), lengths(ls_list)))
+
+animals <- merge(ls_list, animals, by = "lvstckid")
+
+# save for what purpose
+saveRDS(animals, "2_data/processed/animals.RDS", compress = T)
+```
+
+```{r animal stats}
+miss_var_summary(animals)
+animals[is.na(slaughter)] # why are they empty?
+```
+
+
+Aim:
+
+-   Add types to animals
+-   Determine all animals in and out
+
+```{r slaughter}
+### select relevant vars-----
+a <- animals[, .(y4_hhid, ownershp, type, lvstckid, sex, slaughter, weight, owned1, ind, exotic, born, bought, gift, ssold, gifted, sold, disease, theft, injury)]
+
+# match class
+a[,type := as.factor(type)]
+
+a$max_owned <- rowSums(a[,owned1:gift],na.rm=TRUE) # not checked for implausible values
+a$all_lost <- rowSums(a[,disease:injury],na.rm=TRUE) # not checked for implausible values
+a$current <- rowSums(a[,ind:exotic], na.rm = TRUE)
+
+# total weight slaughtered & sold
+a <- upData(a,
+            n_slcons = slaughter - ssold, # number of animals slaughter and not sold (assumed consumed)
+            sl_weight = slaughter * weight, # total weight of all slaughtered animals
+            sold_weight = ssold * weight, # assumes entire animal is sold
+            cons_weight = n_slcons * weight, # weight of all animals not sold (assumed consumed)
+            trans = sold+gifted,
+            all_lost2 = all_lost-theft,
+            labels = .q(
+               # sold_weight = "Total live weight of all slaughtered & sold animals",
+               all_lost = "Animals lost to disease, theft or injury",
+               all_lost2 = "Animals lost to disease and injury (excl theft)",
+               trans = "Animals part of transaction (sold, gifted or payment)",
+               max_owned = "Maximum possible number of animals owned at any time",
+               current = "Animals currently owned",
+               sl_weight = "Total live weight of all slaughtered animals",
+               sold_weight = "Weight of animals slaughtered and sold",
+               cons_weight = "Weight of animals slaughtered and assumed consumed (not sold)"
+             )
+            #drop = .q(ind, exotic, owned1)
+             )
+
+# list of animals and destinations (no need to save with exclusions)
+saveRDS(a, "2_data/processed/animals_fin.RDS", compress = T)
+```
+
+```{r animal exclusions}
+excl_animals <- copy(a)
+# highest weight of animals
+excl_animals[, top := top2(weight), by=lvstckid] # average weight of animal in group
+# lowest weight of animals
+bot2 <- function(x) quantile(x, probs = .02, na.rm=TRUE)
+excl_animals[, bot := bot2(weight), by = lvstckid]
+
+# highest ownership of animals
+excl_animals[, topown := top2(current), by=lvstckid] # is this necessary?
+
+excl_animals <- excl_animals[, excl := fcase(
+    max_owned < slaughter, "Implausible", # household used more than they produced
+    ssold > slaughter, "Implausible", # sold of animals slaughtered should always be larger
+    top < weight, "Top 2%",
+    bot > weight, "Bottom 2%"
+    )]
+
+excl_animals <- excl_animals %>% 
+  select(y4_hhid, item = lvstckid, excl) %>% 
+  unique()
+
+write.csv(excl_animals, "2_data/processed/excl_animals.csv")
+```
+
+### Breakdown
+
+```{r product breakdown}
+wa <- copy(a)
+
+# ASSUMPTION @Hal.2020 p.151; @beefyieldguide; @lambyieldguide; @Alexander.2016
+# @Opio.2013 p.171 currently not included
+breakdown <- read_excel("2_data/reference/breakdown.xlsx", sheet = "conv")
+setDT(breakdown)
+
+# define values to use
+breakdown[, `:=` (waste = `Bone meal` + Bloodmeal + `Meat & bonemeal`,
+                  offal = Offals+Fat)]
+
+breakdown <- breakdown %>% filter(animal != "Beef")
+breakdown <- breakdown[,.(type, meat = `Raw meat`, waste, offal, hides = `Feather meal/hides`, fcr = FCR_A16, ew = EW_A16)]
+
+# breakdown does not add up to 1 for all animals - add to waste! balance needs to be created...
+breakdown <- breakdown %>% 
+  mutate(
+    waste = waste+(1-meat-waste-hides-offal)
+  )
+
+## estimate quantities consumed/breakdown of dead animal
+# merge
+wa <- breakdown[wa, on=c("type")]
+
+wa <- upData(wa,
+             # weight = sl_weight - sold_weight, # only disaggregate slaughtered animals in household, sold outside of system boundary -> previously introduced as cons_weight
+             meat = meat*cons_weight, 
+             offal = offal*cons_weight,
+             hides = hides*cons_weight,
+             inedible = waste*cons_weight,
+             ew = sl_weight * ew, # possibly contradicting the breakdown
+             need = ew*fcr,
+             labels = .q(
+               meat = "Edible quantity of slaughtered animals",
+               inedible = "Waste material",
+               offal = "All offal and other edible co-products",
+               hides = "Estimated weight of skin and hides",
+               weight = "Weight of animals not sold and assumed consumed",
+               ew = "Edible weight of all animals slaughtered",
+               need = "kg DM needed to produce EW"
+             ),
+             units = .q(
+               meat = kg,
+               inedible = kg
+             ),
+             drop =.q(waste,# misleading it's just a coefficient
+                      fcr, bot, top, topown) # not needed anymore
+             )
+
+saveRDS(wa, "2_data/processed/wa.RDS")
+```
+
+@Opio.2013
+
+Beef breakdown and destinations as per p.171
+
+-   meat = "Meat, offal, blood and fats for human consumption"
+
+-   waste = "ABP withdrawn for sanitary reasons, SRM\*, wastes"
+
+-   protein = "Protein, blood and fats (pet food, animal feed, drug industry)"
+
+-   bones = "Bones (feed industry, glue, gelatine)"
+
+-   skin = "Skins & hides (leather)"
+
+-   GIwaste = "Digestive tract content (compost/fertilizers)"
+
+-   loss = "Lost due to carcass chilling and drying"
+
+No breakdown for small ruminants is provided, however dressing percentage is given p.123
+
+-   dressing percentage = meat and skeletal portion: warm carcass weight/live weight
+
+-   for SSA:
+
+    -   Goats: 48%
+
+    -   Sheep: 45%
+
+    -   large ruminants: 47% (more detailed breakdown above is more useful)
+
+@beefyieldguide
+
+Provides a more detailed breakdown of beef/large ruminants. Numbers are slightly different with 53% carcase and 40% edible meat (seems to exclude offal).
+
+@lambyieldguide
+
+Equally provides a detailed breakdown of the animal components
+
+→ *if necessary ls_weights.xlsx contains detailed breakdowns for all animals, also more specific to the region. If I am planning to use this for anything more specific then that file can be used. However, at the moment only the breakdown of edible and waste is of interest. The @Alexander.2016 data may or may not include offal as edible which is a shortcoming.*
+
+**Shortcoming** unclear whether the @Alexander.2016 values contain offal as edible or not.
+
+### Feed
+
+### Livestock feed
+
+```{r feed hk}
+# 1) load survey data-----
+lf_sec_04 <- read_dta("2_data/raw/lf_sec_04.dta")
+
+# 2) typical feed by livestock group-----
+feed <- clean_up(lf_sec_04) 
+
+# put labels back (not sure why they are removed)
+labs <- lapply(lf_sec_04, attr, "label")
+labs <- unlist(labs, use.names = T) # unlists into a named vector
+
+# re-add labels: https://statisticsglobe.com/add-variable-labels-data-frame-r
+label(feed) <- as.list(labs[match(names(feed), names(feed))])
+
+lapply(feed, attr, "label")
+```
+
+
+```{r feed naming}
+feed <- upData(feed,
+               rename = .q(
+                 lf04_01_1 = feed1,
+                 lf04_01_2 = feed2,
+                 lvstckcat = type
+               ),
+               labels = .q(
+                 feed1 = "Major feeding practice",
+                 feed2 = "Second major feeding practice"
+               ))
+
+# raw feed data
+saveRDS(feed, "2_data/processed/feed.RDS", compress = T)
+```
+
+
+Aim:
+
+-   Estimate the amount of feed consumed by each slaughtered animal and those lost otherwise
+
+*Feeding values taken from FAO reports.*
+
+*Assumes that for ruminants fresh grass and hay only constitute the grazing fraction of the portion (i.e., excludes other roughage items listed). May be more realistic to also include crop residues, but for simplicity its not. Tethering is consistently allocated a 50/50 between feed and grazing.*
+
+```{r feed}
+feed[, feed1 := ifelse(feed1=="tethering" & !is.na(feed2), feed2, feed1)] # unless I find a clear definition on what tethering means for feeding I use feed2 if it is more informative
+f <- feed[, .(y4_hhid, type, feed1)] # ignore second major type of feeding
+f[,type := as.factor(type)]
+
+saveRDS(f, "2_data/processed/feed_short.RDS", compress = T)
+
+### FEED REQUIREMENT ASSUMPTION
+# ASSUMPTION 1) FAO
+# @MacLeod.2013 all values are rounded
+pork <- data.table( # p.107 backyard
+  feed1 = c("only feeding (no grazing/scavenging)", 
+            "mainly grazing/scavenging w/ some feeding", 
+            "only grazing/scavenging", 
+            "mainly feeding w/ some grazing/scavenging", 
+            "tethering"),
+  feed = c(1, 0.2, 0, 0.8, 0.5), # cross-ref with categorisation in FAO
+  grazed = c(0, 0.8, 1, 0.2, 0.5), 
+  type = "pigs")
+
+chicken <- data.table( # chicken p. 107 backyard
+  feed1 = c("only feeding (no grazing/scavenging)", 
+            "mainly grazing/scavenging w/ some feeding", 
+            "only grazing/scavenging", 
+            "mainly feeding w/ some grazing/scavenging", 
+            "tethering"),
+  type = "poultry",
+  feed = c(1, 0.4, 0, 0.6, 0.5), # cross-refed with categorisation in FAO
+  grazed = c(0, 0.6, 1, 0.4, 0.5))
+  
+# @Opio.2013, all values are rounded
+smrum <- data.table( # p.119 also needs splitting for milk
+  feed1 = c("only feeding (no grazing/scavenging)",
+            "mainly grazing/scavenging w/ some feeding",
+            "only grazing/scavenging",
+            "mainly feeding w/ some grazing/scavenging",
+            "tethering"),
+  type = "small ruminants",
+  feed = c(1, 0.35, 0, 0.65, 0.5),
+  grazed = c(0, 0.65, 1, 0.35, 0.5))
+
+lgrum <-   data.table(
+  feed1 = c("only feeding (no grazing/scavenging)",
+            "mainly grazing/scavenging w/ some feeding",
+            "only grazing/scavenging",
+            "mainly feeding w/ some grazing/scavenging",
+            "tethering"),
+  type = "large ruminants",
+  feed = c(1, 0.25, 0, 0.75, 0.5), # Opio p. 117
+  grazed = c(0, 0.75, 1, 0.25, 0.5))
+
+
+# bind rows
+feeds <- bind_rows(pork, chicken, smrum, lgrum)
+
+feeds <- upData(feeds, labels = .q(
+  feed = "Proportion of DM derived from feed",
+  grazed  = "Proportion of DM derived from grazing/scavenging"))
+
+# ADJUST FROM HERE BASED ON NEW ORDER OF CODE
+# merge feed and animals
+# af <- a[,.(y4_hhid, type, lvstckid, sex, sl_weight, sold_weight, slaughter, excl)]
+
+# merge feed and animals
+# af <- fc[af, on = c("y4_hhid", "type")]
+af <- f[wa, on = c("y4_hhid","type")]
+af <- feeds[af, on = c("type", "feed1")]
+
+# determine feed need
+# af[, need:= fcr*sl_weight]
+
+# merge conversion
+af <- upData(af,
+             feed = need*feed,
+             grazed = need*grazed,
+             labels = .q(
+               need = "Feed requirements in DM for edible weight",
+               feed = "Quantity of feed consumed in DM",
+               grazed = "Quantity grazed/scavenged in DM"
+             ),
+             units = .q(
+               need = "kg DM",
+               feed = "kg DM",
+               grazed = "kg DM"
+             ))
+
+# select only necessary variables -> can be shortened more
+animals_mass <- af %>% 
+  select(y4_hhid, type, lvstckid, need, feed, grazed, slaughter, total_weight = sl_weight, cons_weight, sold_weight, ew, meat, offal, hides, inedible) %>% 
+  mutate_at(c(4:15), as.numeric)  # if not numeric clear.labels rounds
+
+# save file
+backup <- animals_mass
+saveRDS(animals_mass, "2_data/processed/mass_animals.RDS", compress = T)
+saveRDS(animals_mass, "2_data/processed/animals_mass.RDS", compress = T)
+```
+
+# Fishery
+
+```{r fish cleaning}
+# lf_sec_09 <- read_dta("2_data/files/lf_sec_09.dta") %>% 
+#     setDT() %>% 
+#     as_factor() %>%
+#     mutate(across(where(is.factor), tolower))%>% 
+#     mutate_if(is.character, ~na_if(., '')) %>% 
+#     select(-occ)
+# 
+# fish_labour <- lf_sec_09 %>% 
+#   select(y4_hhid, id = indidy3, wks_fished = lf09_02_1, dys_fished = lf09_02_2, wks_processed = lf09_03_1, dys_processed = lf09_03_2, wks_traded = lf09_04_1, dys_traded = lf09_04_2) %>% 
+#   filter(!is.na(wks_fished)) %>% 
+#   mutate(
+#     fisher = ifelse(wks_fished > 0, 1, 0),
+#     processor = ifelse(wks_processed > 0, 1, 0),
+#     trader = ifelse(wks_traded > 0, 1, 0)
+#   ) # probably not necessary
+
+lf_sec_12 <- read_dta("2_data/raw/lf_sec_12.dta") %>% 
+    setDT() %>% 
+    as_factor() %>%
+    mutate(across(where(is.factor), tolower))%>% 
+    mutate_if(is.character, ~na_if(., '')) %>% 
+    select(-occ)
+
+fishes <- lf_sec_12 %>% 
+  select(y4_hhid, species = lf12_02_2, tot.quantity = lf12_05_1, tot.unit = lf12_05_2, # total quantities fished
+        wks_fished = lf12_07, 
+        quantity = lf12_08_1, unit = lf12_08_2, # per week
+        quant_preserved1 = lf12_10_1, unit_preserved1 = lf12_10_2, mtd_preserved1 = lf12_10_3, quant_preserved2 = lf12_10_4, unit_preserved2 = lf12_10_5, mtd_preserved2 = lf12_10_6,
+         wks_sales = lf12_11, sold1 = lf12_12_1, sold.unit1 = lf12_12_2, sold.type1 = lf12_12_3, 
+        sold2 = lf12_12_5, sold.unit2 = lf12_12_6, sold.type2 = lf12_12_7,
+        consumed1 = lf12_13_1, consumed.unit1 = lf12_13_2, consumed.type1 = lf12_13_3, consumed2 = lf12_13_4, consumed.unit2 = lf12_13_5, consumed.type2 = lf12_13_6) %>% 
+  mutate(tot.quantity = ifelse(is.na(tot.quantity), 0, tot.quantity), # important to keep empty for cross-referencing
+         tot.unit = ifelse(tot.unit == "kipande", "piece", tot.unit)) 
+  
+# lapply(lf_sec_09, attr, "label") 
+# lapply(lf_sec_12, attr, "label") 
+species <- fishes %>% 
+  filter(tot.unit == "piece") %>% 
+  select(species) %>% 
+  unique()
+
+write_csv(species, "2_data/reference/fish_species.csv")
+```
+
+
+```{r fish consumption, eval=FALSE}
+fish_consumption <- fishes %>% 
+  mutate(
+    consumed1 = ifelse(is.na(consumed1) & tot.quantity > 0, 0, consumed1), 
+    consumed2 = ifelse(is.na(consumed2) & tot.quantity > 0, 0, consumed2),
+    consumed = consumed1 + consumed2,
+    tot.consumed = consumed * wks_fished
+  ) %>% 
+  mutate(
+    item1 = ifelse(consumed.type1 == "fresh" | consumed.type2 == "fresh", "fresh fish", NA),
+    item2 = ifelse((consumed.type1 != "fresh" & !is.na(consumed.type1)) | (consumed.type2 != "fresh" & !is.na(consumed.type2)), "processed fish", NA),
+    unit.cons = ifelse(consumed.unit1 == "kilogram" & (consumed.unit2 == "kilogram" | is.na(consumed.unit2)), "kilogram", "other")) %>% 
+    select(y4_hhid, tot.quantity, tot.unit, tot.consumed, unit.cons, item1, item2) 
+
+fish_consumption %>% filter(tot.quantity<tot.consumed) %>% View() # not the same unit... therefore not an exclusion factor
+```

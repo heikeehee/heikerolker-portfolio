@@ -1,0 +1,253 @@
+---
+title: "02_Agricultural produce"
+output: html_notebook
+---
+
+```{r}
+library(haven)
+library(tidyverse)
+library(Hmisc)
+library(data.table)
+library(naniar)
+```
+
+
+Overview:
+
+- **agprod_mass** wide dataframe that matches byproducts to products where plausible (i.e. 1) left-over from input for product matches quantity of byproduct and input for both is the same, 2) quantities do not match or only byproduct exists and therefore is listed separately)
+
+
+## Agricultural products
+
+```{r ag produce hk}
+ag_sec_10 <- read_dta("2_data/raw/ag_sec_10.dta")
+
+ag_produce <- ag_sec_10 %>% 
+  clean_up()
+
+# necessary to correct names?
+# ag_produce <- clean_names(ag_produce, crops_list, "cropid")
+
+lapply(ag_sec_10, attr, "label")
+
+
+```
+
+```{r ag produce naming}
+ag_produce <- upData(ag_produce,
+                     rename = .q(
+                       zaocode = cropid, 
+                       ag10_02_3 = type,
+                       ag10_03 = product,
+                       ag10_04_1 = quant,
+                       ag10_04_2 = unit,
+                       ag10_05 = input,
+                       ag10_06 = sales,
+                       ag10_07_1 = sold,
+                       ag10_07_2 = unit_s,
+                       ag10_08 = input_s,
+                       ag10_12_1 = buyer1,
+                       ag10_12_2 = buyer2),
+                     labels = .q(
+                       input = "Input quantity before processing",
+                       product  = "Name final product",
+                       quant = "Quantity by/product",
+                       unit = "Unit by/product",
+                       sales = "Sales conducted",
+                       sold = "Quantity sold",
+                       unit_s = "Unit of sales",
+                       input_s = "Input for sales",
+                       buyer1 = "Primary buyer",
+                       buyer2 = "Second largest buyer"
+                     ),
+                     sold = ifelse(sales == "no", 0, sold))
+
+# necessary to correct names?
+# ag_produce <- clean_names(ag_produce, crops_list, "cropid")
+
+```
+
+```{r conversion}
+# identify items that require conversion to kg
+items <- ag_produce %>% 
+  select(cropid, product, unit) %>% 
+  unique() %>% 
+  filter(!is.na(cropid)) %>% 
+  filter(unit != "kg")
+
+items <- clear.labels(items)
+
+# conversion from litre to kg: https://www.aqua-calc.com/calculate/food-volume-to-weight
+ap_conv <- data.frame(
+  cropid = c("maize", "sunflower", "cassava", "pineapple", "palm oil",
+              "maize", "paddy", "paddy", "paddy", "sorghum",
+              "palm oil", "palm oil", "palm oil", "sunflower", "cocoa",
+              "cocoa", "sunflower", "groundnut", "palm oil", "avocado",
+              "banana", "palm oil", "banana", "sunflower", "bulrush millet",
+              "palm oil", "passion fruit", "sesame", "cassava"
+              ),
+  product = c("flour", "palm oil", "flour", "juice", "palm oil",
+              "maize bran", "flour", "rice cover", "seed", "flour",
+              "other (specify)", "flour", "wet husk (wheat barley)", "wet husk (wheat barley)", "other (specify)",
+              "palm oil", "juice", "palm oil", "pulp", "palm oil",
+              "juice", "rubber", "other (specify)", "flour", "thread",
+              "seed", "juice", "palm oil", "outer cover"
+              ),
+
+  # conversion factors for litre to kilogram when product is the starting point
+  conv = c(0.49, 0.92, 0.59, 1.05, 0.92,
+           0.3, 0.67, 0.1, 0.72, 0.51,
+           1, NA, NA, NA, NA,
+           0.92, NA, 0.95, NA, 0.95,
+           NA, NA,  NA, 0.27, NA,
+           NA, 1.04, 0.95, NA
+           ),
+
+  # conversion factors for litre to kilogram when input is the starting point
+  # conv_input = c(NA, NA, NA, NA, NA,
+  #                NA, NA, NA, NA, NA,
+  #                NA, NA, NA, 0.14, NA,
+  #                NA, NA, NA, NA, NA,
+  #                NA, NA, NA, NA, NA,
+  #                NA, NA, NA, NA
+  #                ),
+  unit = "litre")
+
+ap_conv <- setDT(ap_conv)
+
+  #   palm oil other assumed to be 1l=1kg, only litre item missing
+  #   maize = 0.49,  # can be a range of values, depending on processing, this is whole-grain
+  #   sunflower = 0.92, # weight of sunflower oil
+  #   cassava = 0.59, # a range of values, depending on type, here "Cassava flour, UPC: 039978011787
+  #   pineapple = 1.05, # pineapple juice
+  #   "palm oil" = 0.92
+  #   maize to maize bran = 0.21 : https://www.howmany.wiki/vw/ OR 0.33: http://convert-to.com/506/crude-natural-corn-bran-amounts-conversion.html
+  #   paddy to flour = 0.67 rice flour brown
+  #   paddy to rice cover = 0.1: https://brouwland.com/en/clarifiers/13280-brewferm-rice-hulls-200-l-about-20-kg.html
+  #   paddy to seed --> isn't the rice itself the seed?, = 0.72 https://www.inchcalculator.com/convert/liter-to-kilogram/
+  #   sorghum to flour = 0.51, here whole-grain
+  #   palm oil to other = NA
+  #   palm oil to flour = NA - does this mean oil palm to flour?
+  #   palm oil to wet husk = NA
+  #   sunflower to wet husk = 14% of the weight of the seed; needs calculating from kg input https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/sunflower-hulls
+  #   cocoa to other = NA
+  #   cocoa palm oil = 0.92
+  #   sunflower juice = NA, must depend on water content
+  #   goundnut oil = 0.95 "100% pure peanut oil"
+  #   palm oil pulp = NA
+  #   avocado oil = 0.95, "100% pure avocado oil"
+  #   banana juice = NA, must depend on water content
+  #   palm oil rubber = NA
+  #   banana to other = NA
+  #   bulrush millet to thread = NA
+  #   palm oil to seed = NA
+  #   passion fruit juice = 1.04 "passion-fruit juice, purple, raw"
+  #   sesame oil = 0.95
+  #   cassava outer cover = NA
+
+# final list of items needing converting
+items <- items %>% left_join(select(ap_conv, cropid, product, conv), by = c("cropid", "product"))
+
+# retain code below despite "wordiness"
+# join with conversion
+ap_convert <- ap_conv[ag_produce, on = c("cropid", "product", "unit")]
+
+# convert quantities into kg
+ap_convert[, produced := ifelse(unit == "kg", quant, quant*conv)]
+ap_convert[, input_new := ifelse(unit == "kg", input, input*conv)]
+
+# drop conversion and merge for sales
+ap_convert[, `:=` (conv = NULL, unit = NULL)]
+
+ap_convert <- ap_conv[ap_convert, on = c("cropid", "product", "unit" = "unit_s")]
+
+# convert sales into kg
+ap_convert[, `:=` (sold_new = ifelse(unit == "kg", sold, sold* conv),
+                   input_s_new = ifelse(unit == "kg", input_s, input_s*conv))]
+
+ap_convert[, `:=` (conv = NULL, unit = NULL)]
+
+# save file
+# saveRDS(ap_convert, file = "2_data/processed/ap_convert.RDS", compress = TRUE)
+```
+
+Skip, use data frames already cleaned and reshape.
+
+New approach...
+```{r}
+input <- ap_convert %>% 
+  mutate(prod = ifelse(type == "processed", 1,0), # count number of by/products
+         byprod = ifelse(type == "by-product",1,0),
+         sale = ifelse(sales == "yes", 1,0),
+         remain = input-quant,
+         consumed = quant - sold) %>% 
+  select(y4_hhid, cropid, type, product, prod, byprod, quant, input, input_s, sold, sale, consumed) %>% 
+  filter(!is.na(cropid))
+
+inputlong <- input %>% 
+  mutate(
+    # any renaming of products for convenience
+    product = ifelse(product == "other (specify)" | product == "no waste", "other", product),
+    product = ifelse(product == "maize bran", "bran", product),
+    product = ifelse(product == "outer cover" | product == "rice cover", "cover", product),
+    product = ifelse(product == "palm oil", "oil", product),
+    product = ifelse(product == "wet husk (wheat barley)", "wet husk", product),
+    item = paste(cropid, product, sep = " "),
+    input_s = ifelse(sold == 0, 0, input_s)
+  ) %>% 
+  select(y4_hhid, cropid, product, item, produced = quant, sold, consumed)
+
+saveRDS(inputlong, "2_data/processed/mass_agprod_long_new.RDS", compress = TRUE)
+
+input_crop <- input[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, cropid)]
+
+input_stats <- input_crop %>% 
+  mutate(
+    input_s = ifelse(sale==2, input_s/2, input_s), # only one entry
+    diff = input-quant,
+    frac = quant/input,
+    # no doubt about input and products
+    new_input = ifelse(prod == 1 & byprod == 0, input, NA), # only one product
+    new_input = ifelse(prod == 0 & byprod == 1, input, new_input), # only one byproduct
+    # very certain
+    new_input = ifelse(prod == 1 & byprod == 1 & input/quant==2, input/2, new_input), # product is divisible by two (product and by product match)
+    new_input = ifelse(prod == 2 & byprod == 0 & input/quant==2, input/2, new_input), # number is divisible by two products
+    new_input = ifelse(prod == 3 & byprod == 0, quant, new_input), # only 10 households/items, input is the same as product
+    # more uncertain
+    new_input = ifelse(prod == 2 & byprod == 1 & input/quant==2, input/2, new_input), # one input used for two products and one byproduct 
+    # also certain but avoids including is.na above
+    new_input = ifelse(is.na(new_input) & quant == input, input, new_input) # everything adds up
+    ) 
+
+input_stats %>% filter(is.na(new_input)) # 140 entries
+
+input_stats2 <- input_stats %>% 
+  mutate(
+    new_input = ifelse(y4_hhid == "3208-001", input/2, new_input),
+    # very uncertain
+    new_input =  ifelse(is.na(new_input) & prod == 1 & byprod == 1 & quant*2<input, input/2, new_input), # product is divisible by two (product and by product match) and there is some left-over
+    new_input =  ifelse(is.na(new_input) & prod == 2 & byprod == 0 & quant<input, input, new_input), # two products with different input quantities, and there's some waste
+    new_input = ifelse(is.na(new_input) & prod == 2 & byprod == 1, input*frac, new_input), # two inputs distributed across 2 products and one by-product
+    new_input = ifelse(is.na(new_input) & input*frac==quant, input*frac, new_input)) # distributed across multiple products/byproducts
+    
+input_stats2 %>% filter(is.na(new_input))  # 1 entry
+
+input_stats <- input_stats2 %>% 
+  mutate(
+    new_input = ifelse(is.na(new_input), input, new_input) # just use input for remaining; address if and when time.
+  )
+
+
+inputs_final <- input_stats %>% 
+  mutate(
+    input_cons = new_input - input_s,
+    consumed = quant - sold # final product consumed
+  ) %>% 
+  select(y4_hhid, cropid, prod, byprod, produced = quant, input = new_input, input_sales = input_s, sold, input_cons, consumed) %>% 
+  mutate(uncertain = input - produced) # waste 
+  
+
+saveRDS(inputs_final, "2_data/processed/mass_agprod_new.RDS", compress = T)
+```
+
+

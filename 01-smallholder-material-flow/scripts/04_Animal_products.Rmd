@@ -1,0 +1,645 @@
+---
+title: "03_Animal_products"
+author: "Heike Rolker"
+date: "2024-01-10"
+output: html_document
+---
+
+# Other products
+
+Overview:
+
+Animal products, except honey.
+
+- **produce** all animal products, cleaned file but mostly raw data
+
+```{r produce hk}
+lf_sec_08 <- read_dta("2_data/raw/lf_sec_08.dta")
+
+produce <- clean_up(lf_sec_08)
+
+lapply(lf_sec_08, attr, "label")
+```
+
+```{r eggs naming}
+produce <- clean_up(lf_sec_08)
+produce <- upData(produce,
+               rename = .q(
+                 lf08_02 = length,
+                 lf08_03_1 = produced,
+                 lf08_03_2 = unit,
+                 lf08_05_1 = sold,
+                 lf08_05_2 = unitsold,
+                 lf08_06 = value,
+                 lf08_07_1 = buyer1,
+                 lf08_07_2 = buyer2
+               ),
+               # true 0 when NA
+               produced = ifelse(lf08_01 == "no", 0, produced),
+               sold = ifelse(lf08_04 == "no", 0, sold),
+               sold = as.numeric(sold),
+               
+               labels = .q(
+                 length = "Number of months produced in past 12 mo",
+                 produced = "Average quantity produced per month",
+                 unit = "Unit of production",
+                 sold = "Quantity sold in last 12 months",
+                 value = "Total value of sales in past 12 months"
+               ))
+
+saveRDS(produce, file = "2_data/processed/produce.RDS", compress = TRUE)
+```
+
+### Hides
+
+Overview:
+
+- **hides** overview of hides data matching to rums where possible based on ownership, does not account for quantities allocated, contains buyers
+
+- **mass_hides_long** extended information on hides at household level, including those not from slaughter, duplication as some not matched to animal types
+
+- **mass_hides** only hide from ruminants and complete information
+
+Only hides from slaughtered animals are relevant as others outside of the system boundary.
+
+Aim:
+
+-   prepare data for matching
+
+-   all into kg
+
+```{r prep slaughter}
+produce <- readRDS("2_data/processed/produce.RDS")
+# extract hides
+hides <- produce[productid == "skin / hides"]
+# slaughter info
+wa <- readRDS("2_data/processed/wa.RDS") # just not to alter too much code...
+
+# determine hides origin, match with slaughter info
+ah <- wa[,.(y4_hhid, type, lvstckid, slaughter, hides, ssold)]
+ah[, slaughter := slaughter - ssold] # only animals slaughtered for assumed consumption, i.e. those that have a hides estimate
+ah[, slaughter := adlab(slaughter, "Animals slaughtered for assumed consumption only")]
+
+# collapse groups to hh level to match produce recording
+ah <- ah[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
+
+# flip data table (a lot of work around)
+sl <- ah %>% 
+  spread(type, slaughter) %>% 
+  select(!c(poultry, 'other animals', pigs, hides)) %>% 
+  dplyr::rename(lgrm = `large ruminants`) %>% 
+  dplyr::rename(smrm = `small ruminants`) %>% 
+  mutate(
+    smrm = as.numeric(replace_na(smrm,0)),
+    lgrm = as.numeric(replace_na(lgrm, 0))
+  ) %>% 
+  group_by(y4_hhid) %>% 
+  summarise(
+    smrm = sum(smrm),
+    lgrm = sum(lgrm)
+  )
+
+hi <- ah %>% 
+  select(!slaughter) %>% 
+  spread(type, hides) %>% 
+  select(!c(poultry, 'other animals', pigs)) %>% 
+  dplyr::rename(hlgrm = `large ruminants`) %>% 
+  dplyr::rename(hsmrm = `small ruminants`)
+
+# merge hides with slaughter and hide weight data
+hides <- merge(hides, sl, by='y4_hhid', all=TRUE) 
+hides <- merge(hides, hi, by='y4_hhid', all=TRUE) 
+
+# annual producition of pieces
+hides[, `:=` (pieces = ifelse(unit == "pieces", produced*length, NA),
+              total = ifelse(unit == "kgs" | unit == "litres", produced * length, NA))] 
+
+# align type (should be easier and in command above..)
+hides[, `:=` (pieces = as.double(pieces),
+              total = as.double(total))]
+
+hides[, `:=` (weight = fcase(
+                   pieces <= lgrm, hlgrm, # large rums
+                   pieces <= smrm, hsmrm, # small rums
+                   pieces > smrm & (is.na(lgrm) | lgrm == 0), hsmrm/pieces*smrm, # small rums
+                   pieces > lgrm & (is.na(smrm) | smrm == 0), hlgrm/pieces*lgrm, # large rums
+                   pieces >= (smrm + lgrm), hsmrm + hlgrm, # only hides from slaughter are counted
+                   total <= hlgrm & hsmrm == 0, total,      # all hides allocated to large rums
+                   total <= hsmrm & hlgrm == 0, total,      # all hides allocated to small rums
+                   total >  hlgrm & hsmrm == 0, hlgrm,      # all hides allocated to large rums
+                   total >  hsmrm & hlgrm == 0, hsmrm,       # all hides allocated to small rums
+                   total < (hsmrm + hlgrm), total,          # hides not allocated but sufficient
+                   total > (hsmrm + hlgrm), hsmrm + hlgrm), # only hides from slaughter are counted
+              # allocate the hides to animal types where possible
+              # where type is NA, either all hides from both types are used or a fraction of both
+              type = fcase(
+                pieces <= lgrm, "large ruminants",
+                pieces <= smrm, "small ruminants",
+                pieces > smrm & (is.na(lgrm) | lgrm == 0), "small ruminants",
+                pieces > lgrm & (is.na(smrm) | smrm == 0), "large ruminants",
+                total <= hlgrm & hsmrm == 0, "large ruminants",
+                total <= hsmrm & hlgrm == 0, "small ruminants",
+                total >= hlgrm & hsmrm == 0, "large ruminants",
+                total >= hsmrm & hlgrm == 0, "small ruminants"))]
+
+# sales of hides
+hides[, perc_sold := fcase(
+                unit == "kgs" | unit == "litres", sold/total, # not all use the same units but looks like error
+                unit == "pieces", sold/pieces)]
+
+# weight of sold hides
+hides[, weight_sold := ifelse(sold == 0, 0, perc_sold * weight)]
+# replace NA with 0
+hides[, weight_sold := ifelse(is.na(weight_sold), 0, weight_sold)]
+
+# determine hides not sold assumed consumed
+hides[, missing := weight - weight_sold]
+
+# change labels
+hides <- upData(hides,
+              labels = .q(
+                total = "Total quantity produced annually derived from kg or litre", # let's pretend it's the same
+                perc_sold = "Percentage of skins/hides production sold",
+                pieces = "Annual production of hides in pieces as reported",
+                consumed = "Skins/hides produced but not sold",
+                missing = "Quantities unaccounted, assumed consumed"
+              ), 
+              units = .q(
+                total = kg,
+                weight_sold = kg
+              ), 
+              drop = .q(
+                smrm, # number of small rum slaughtered
+                lgrm, # number of large rum slaughtered
+                hsmrm, # weight of hides from slaughtered small rums
+                hlgrm, # weight of hides from slaughtered large rums
+                lf08_08_2, # not needed
+                lf08_08_1,
+                lf08_06, # not needed
+                unit, # converted to kg
+                unitsold, # converted to kg
+                lf08_04, # sales yes/no
+                length, # total computed
+                produced, # total computed
+                lf08_01, # produced yes/no
+                sold # not needed
+              )
+              )
+
+# split unallocated types between small and large rums (BONUS if strictly necessary)
+
+hides <- upData(hides,
+                rename = .q(
+                  weight = produced,
+                  weight_sold = sold
+                ),
+                drop = .q(
+                  pieces,
+                  total,
+                  perc_sold
+                ))
+
+hides <- hides[produced>0]
+# remaining & missing conditions
+# hid[produced > 0 &is.na(type)]
+# hid[unitsold != "pieces" & total < sold]
+# hid[unitsold == "pieces" & pieces < sold]
+# estimate weight of hides sold or used for own consumption derived from slaughtered animals
+
+saveRDS(hides, "2_data/processed/hides.RDS", compress = TRUE)
+```
+
+*All weight of hides that can be allocated to slaughtered animals are allocated to them, the remainder is ignored. Method not ideal as it standardizes the quantities of hide per animal. Hides from both types not possible.*
+
+Aim (BONUS, *a lot of effort for marginal gains, probably sufficient to allocate them to animal type if anything*):
+
+-   allocate the hides produced to the animals slaughtered
+
+manualfix\[sums, on = (y4_hhid)\]
+
+REVIEW MERGES IN CHUNK BELOW, CREATES DUPLICATION FOR ENTRIES WITH EXCLUSION → solved
+
+Not sure what to do with code below... should just allocate hides to animal types not contain as much information as it presently does...
+
+
+```{r slaughter hides}
+# reshape wa for hides, edible, inedible to become
+slaughter <- wa[slaughter > 0]
+
+# ASSUMPTION: HIDES ARE ONLY PRODUCED FROM ANIMALS SLAUGHTERED AND NOT SOLD (these are the only hides of interest)
+# select info for animals slaughtered
+meat <- slaughter[,.(y4_hhid, type, lvstckid, slaughter, weight, hides, sold_weight)] # sold_weight needed?
+
+# select only full info from hides
+hime <- hides[,.(y4_hhid, type, pprod = produced, sold2 = sold, missing)]
+hime <- hime[pprod > 0]
+
+# collapse meat to type level to match level from hides
+meatt <- meat[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
+
+# merge slaughter info (meat) to hides info (hime) at animal type and hh level
+himeatt <- merge(hime, meatt, by = c("y4_hhid", "type"), all = TRUE)
+
+# extract hhs with no type to add animal type manually
+hides_hh <- himeatt[is.na(type)]
+
+# remove empty vars because no match in type (is missing)
+hides_hh <- hides_hh[,.(y4_hhid, pprod, sold2, missing)]
+
+# extract rums only for matching manually to hides_hh
+rumsonly <- meatt[type == "large ruminants" | type == "small ruminants"]
+
+# rematch with rums only (will result in duplication)
+manualfix <- rumsonly[hides_hh, on=.(y4_hhid)]
+
+# split hides produced across animal types
+sums <- manualfix[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid)]
+sums[,.(y4_hhid, hides)]
+hides_hh[sums, on = .(y4_hhid)] # check how many have produced more/less hides than sum of hides by type
+
+manualfix[, `:=` (pprod_new = hides,
+                  perc_sold = sold2/pprod/2)]
+
+# three households for which above is not applicable and require manual recoding
+manualfix$pprod_new[which(manualfix$y4_hhid == "7294-001" & manualfix$type == "large ruminants")] <- 1.5
+manualfix$pprod_new[which(manualfix$y4_hhid == "7294-001" & manualfix$type == "small ruminants")] <- 1.5
+
+manualfix$pprod_new[which(manualfix$y4_hhid == "8014-001" & manualfix$type == "large ruminants")] <- 0
+manualfix$pprod_new[which(manualfix$y4_hhid == "8014-001" & manualfix$type == "small ruminants")] <- 5
+
+manualfix$pprod_new[which(manualfix$y4_hhid == "4764-001" & manualfix$type == "large ruminants")] <- 1
+manualfix$pprod_new[which(manualfix$y4_hhid == "4764-001" & manualfix$type == "small ruminants")] <- 1
+
+manualfix[, sold_new := perc_sold* pprod_new]
+
+# rename and delete 
+manualfix[,.q(pprod, sold2, perc_sold) := NULL]
+
+manualfix <- upData(manualfix,
+                    rename = .q(
+                      sold_new = sold2,
+                      pprod_new = pprod
+                    ))
+
+# replace na with 0
+manualfix[, sold2 := replace_na(sold2, 0)]
+
+# recalculate missing
+manualfix[, missing := pprod-sold2] # hides not sold assumed for household
+
+
+### Aim:putting it all back together
+
+
+# anti join manualfix with himeatt to avoid duplication
+new <- dplyr::anti_join(himeatt, manualfix, by = c("y4_hhid", "type"))
+new2 <- himeatt[!manualfix, on =.(y4_hhid, type)]
+
+# match order to overcome binding error
+new <- new[,.(y4_hhid, type, weight, hides, sold_weight, pprod, sold2, missing)]
+new[, missing := as.double(missing)]
+
+# bind rows manualfix and himeatt
+meat <- bind_rows(manualfix, new)
+
+# add feed and exclusion information to meat 
+meat_sl <- slaughter[,.(type, y4_hhid, meat, offal, hides, inedible)]
+# ex[, ex := ifelse(is.na(excl),0,1)] # same household excluded multiple times? --> no
+# reduce to type level of hides
+meat_sl <- meat_sl[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
+
+# add exclusions back in -> exclusions are seperate.
+# ex <- af[,.(type, y4_hhid, excl)]
+# ex <- ex %>% filter(!is.na(excl)) %>% unique()
+# ex <- ex[meat_sl, on = .(type,  y4_hhid)]
+
+# merge all slaughter/hides info
+# meat2 <- ex[meat, on = .(type,  y4_hhid)] # introduces duplication
+# meat <- meat2[!is.na(type)] # a number unmatched -> ignore!
+
+# label all vars
+mass_hides_long <- upData(meat,
+               labels = .q(
+                 weight = "Total weight of animals slaughtered",
+                 edible = "Estimate of edible product",
+                 inedible = "Estimate of inedible product",
+                 hides = "Estimate of total hides",
+                 sold_weight = "Live weight of animals slaughtered",
+                 # feed = "Feed required for meat production",
+                 # grazed = "Roughage required for meat production",
+                 pprod  = "Weight of hides produced from slaughter",
+                 sold2 = "Weight of hides sold",
+                 missing = "Hides not sold (assumed for household)"))
+
+mass_hides <- mass_hides_long %>% 
+  left_join(select(hides, y4_hhid, produced), by = c("y4_hhid")) %>% 
+  mutate(
+    rel_prod = pprod/produced,
+    rel_prod = ifelse(produced>0 & is.na(rel_prod), 0, rel_prod)
+  ) %>% 
+  select(!c(produced, weight, sold_weight)) %>% 
+  filter((type == "small ruminants" | type == "large ruminants") & !is.na(pprod))
+
+mass_hides[, rel_prod := adlab(rel_prod, "Proportion of hides produced from total (i.e. not slaughter)")]
+
+saveRDS(mass_hides, "2_data/processed/mass_hides.RDS", compress = T)
+saveRDS(mass_hides_long, "2_data/processed/mass_hides_long.RDS", compress = T)
+```
+
+To merge hides with meat there are two options:
+
+-   collapse meat to the type level to merge with hides (all hide source is an estimate anyhow), and split the few entries between large and small rums manually
+
+-   distribute type from hides across the animals slaughtered in meat (more cumbersome) --\> no
+
+
+### Eggs
+
+Final files:
+
+**excl_eggs** list of exclusions for eggs
+
+**mass_eggs** production and destination estimates for eggs
+
+```{r eggs animals}
+a <- readRDS("2_data/processed/animals_fin.RDS")
+f <- readRDS("2_data/processed/feed_short.RDS")
+
+chicken <- data.table( # chicken p. 107 backyard
+  feed1 = c("only feeding (no grazing/scavenging)", 
+            "mainly grazing/scavenging w/ some feeding", 
+            "only grazing/scavenging", 
+            "mainly feeding w/ some grazing/scavenging", 
+            "tethering"),
+  type = "poultry",
+  feed = c(1, 0.4, 0, 0.6, 0.5), # cross-refed with categorisation in FAO
+  grazed = c(0, 0.6, 1, 0.4, 0.5))
+
+# check plausible for poultry only
+ae <- a[,.(y4_hhid, type, lvstckid, current, max_owned)]
+ae <- ae[type=="poultry"]
+
+# ae[lvstckid == "other poultry" & current > 0]
+# ae[lvstckid == "other poultry" & max_owned > 0]
+# ae[lvstckid == "other poultry"]
+
+# collapse to hh level
+ae <- ae[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
+```
+
+```{r feeds table, eval=FALSE}
+milkfeed <- milkfeed %>% 
+  mutate(
+    type = ifelse(type == "small ruminants", "milk (small ruminants)", "milk (large ruminants)"))
+
+chicken <- chicken %>% 
+  mutate(type = "eggs")
+
+feeds
+clear.labels <- function(x) {
+  if(is.list(x)) {
+    for(i in seq_along(x)) {
+      class(x[[i]]) <- setdiff(class(x[[i]]), 'labelled') 
+      attr(x[[i]],"label") <- NULL
+    } 
+  } else {
+    class(x) <- setdiff(class(x), "labelled")
+    attr(x, "label") <- NULL
+  }
+  return(x)
+}
+
+feeds <- clear.labels(feeds)
+
+feedtbl <- bind_rows(milkfeed, chicken, feeds)
+
+
+# purpose? for appendix?
+saveRDS(feedtbl, "2_data/processed/feedtbl.RDS", compress = T)
+```
+
+Aim:
+
+-   determine total weight of eggs produced
+
+```{r eggs}
+produce <- readRDS("2_data/processed/produce.RDS")
+
+# adjust class
+produce[, produced := as.numeric(produced)]
+produce[, sold := as.numeric(sold)]
+
+# extract eggs
+e <- produce[productid == "eggs"]
+
+# convert all to kg
+e <- upData(e,
+       produced_new = fcase(
+         unit == "kgs", produced * length,
+         unit == "pieces", produced * 41.26/1000 * length, # egg weight 41.26g for SSA based on [@MacLeod.2013] p.105
+         unit == "litres", produced *1.03 * length
+        # https://www.click-chef.com/?lang=3: 1l = 940g
+        # http://convert-to.com/720/chicken-eggs-5-sizes-conversion-plus-nutrients-values.html: 1l = 1.03 kg -> includes shell
+       ),
+       sold_new =fcase( # asked across 12 months
+          unitsold == "kgs", sold,
+          unitsold == "pieces", sold * 41.26/1000, 
+          unitsold == "litres", sold *1.03),
+       sold_new = ifelse(sold == 0, 0, sold_new),
+       n_eggs = produced_new/0.04126/length,
+       N_eggs = produced_new/0.04126,
+       labels = .q(
+         produced_new = "Annual quantity produced",
+         sold_new = "Annual quantity sold",
+         consumed = "Quantity consumed",
+         n_eggs = "Number of eggs per month",
+         N_eggs = "Total quantity of eggs produced"
+       ),
+       units = .q(
+         produced_new = kg,
+         sold_new = kg
+       ))
+
+# replace NA with 0
+e[, 15:18][is.na(e[, 15:18])] <- 0
+
+
+```
+
+Aim (BONUS):
+
+-   determine destinations
+
+Aim:
+
+-   exclude implausible values
+
+```{r eggs exclusions}
+eggs <- e[,.(y4_hhid, productid, produced = produced_new, sold = sold_new, n_eggs, N_eggs, length)]
+
+# match with animals owned
+eggs <- ae[eggs, on = .(y4_hhid)]
+
+# top 2% of eggs per month
+top <- top2(eggs$n_eggs) 
+
+# top 2% eggs produced across mean
+eggs$mean <- rowMeans(eggs[,c('current', 'max_owned')], na.rm=TRUE) # mean of currently owned and max owned, assumes true value somewhere in between
+eggs[, n_ea := n_eggs/mean] # eggs/month per poultry based on max
+
+eggs[, n_ea := adlab(n_ea, 'Eggs per month per estimated n of poultry owned')]
+topa <- top2(eggs$n_ea) # top 2% of eggs produced per month per estimated number of animals owned
+
+# estimate number of poultry needed per month
+eggs[, n_est := n_eggs/45]
+eggs[, n_est := adlab(n_est, 'Est number of poultry required')]
+
+excl_eggs <- eggs[, excl := fcase(
+    # top<n_eggs, "Top 2%", # difficult to justify if i do not know how many animals lay eggs at any given time
+    sold>produced, "Implausible",
+    n_est>mean, "Insufficient animals" # estimated number of animals exceeds estimated ownership
+    )]
+
+excl_eggs <- excl_eggs %>% 
+  select(y4_hhid, item = productid, excl)
+# estimate number of eggs per animal
+# Number of eggs/hen/year : 45; @MacLeod.2013 p.105
+
+# eggs[n_est>max_owned]
+# eggs[n_est>current]
+# eggs[n_est>mean]
+write.csv(excl_eggs, "2_data/processed/excl_eggs.csv")
+```
+
+Aim:
+
+-   determine feed requirements
+
+```{r eggs feed}
+ef <- eggs[,.(y4_hhid, type, productid, produced, sold, N_eggs)]
+
+# merge with feed
+ef <- f[ef, on = c("type", "y4_hhid")]
+
+# merge with feed type used (same as above)
+ef <- chicken[ef, on = c("feed1", "type")]
+
+mass_eggs <- upData(ef,
+             need = produced * 2.3, # based on @Alexander.2016
+             feed = need * feed,
+             grazed = need * grazed,
+             missing = produced-sold,
+             consumed = 0, # place holder
+             labels = .q(
+               need = "Feed requirements in DM",
+               feed = "Quantity of feed consumed in DM",
+               grazed = "Quantity grazed/scavenged in DM"
+             ),
+             drop = .q(
+               feed1, need, N_eggs
+             )
+  
+)
+
+saveRDS(mass_eggs, "2_data/processed/mass_eggs.RDS", compress = TRUE)
+```
+
+
+### Estimate egg consumption
+
+Below requires a consistent approach that is defensible.
+
+Aim:
+
+-   estimate quantity of eggs consumed based on recall info
+
+Egg consumption statistics from household recall data.
+
+```{r}
+# extract length to estimate consumption
+length <- e %>% 
+  select(y4_hhid, length) %>% 
+  clear.labels() %>% 
+  mutate(length = length * 4.3) # monthly production converted into weekly
+
+# load recall data
+recalllabs <- readRDS("2_data/processed/recall.RDS")
+recall <- clear.labels(recalllabs) # for now...
+
+# ag households only
+ag_ids <- readRDS("2_data/processed/ag_ids.RDS") # save as csv
+ag_ids <- clear.labels(ag_ids)
+
+# household size
+hhsize <- read_dta("2_data/raw/consumptionNPS4.dta") %>% 
+  select(y4_hhid, hhsize) %>% 
+  # use agricultural households only
+  left_join(select(ag_ids, y4_hhid), by = "y4_hhid")
+
+# determine weekly egg consumption for each household (independent of source)
+recall_eggs <- recall %>% 
+  filter(itemcode == "eggs") %>% # only eggs
+  left_join(hhsize, by = "y4_hhid") %>% # household size (just size)
+  left_join(length, by = "y4_hhid") %>% # number of months eggs have been produced
+  mutate(length = ifelse(is.na(length),0, length)) %>% 
+  select(y4_hhid, N_cons = quantity, hhsize, length) %>%  # origin not relevant, unit == "pieces"
+  # determine average per household member (simple count!) weekly egg consumption
+  mutate(N_pwk_cons = N_cons/hhsize, # per person weekly egg consumption in pieces
+         kg_pwk_cons = N_pwk_cons*0.04126, # per person weekly egg consumption in kg
+         kg_pwk_ag = kg_pwk_cons*length, # per person total egg consumption based on production length in kg
+         N_pwk_ag = N_pwk_cons*length, # per person total egg consumption based on production length in pieces
+         kg_hh_lth = N_cons * 0.04126 * length) # total household consumption (from hh survey) based on production length (ag survey) in kg
+
+# calculate egg statistics
+egg_stats <- recall_eggs %>% 
+  filter(length>0 & N_cons>0) %>% # based on egg producing and consuming households only -> because we assume that all with missing are consumers thus they should be equal to other consumer/producers and not non-consumers
+  summarise(
+    # weekly
+    N_pwk_cons_mn = mean(N_pwk_cons, na.rm = T), # several hhsize missing - ignore, will sort itself
+    # N_pwk_cons_md = median(N_pwk_cons[kg_pwk_cons>0], na.rm = T), # consider excluding households with 0
+    kg_pwk_cons_mn = mean(kg_pwk_cons, na.rm = T))
+
+# merge household specific weekly consumption, average per member (national), other national reference value, count of household members
+econs <- mass_eggs[,.(y4_hhid, produced, missing)]
+econs <- recall_eggs[econs, on =.(y4_hhid)]
+# econs[, annual_kg := N_annual*0.04126] # extrapolated annual egg consumption in kg
+
+# allocate missing production accordingly (this should also allow to give a range)
+cons_estimate <- econs %>% 
+  mutate(
+    # expected annual consumption based on recall week extrapolated to production length
+    kg_yr_ag_cons = egg_stats$kg_pwk_cons_mn*hhsize*length) %>% # expected annual household consumption based on sample mean and household specific production length
+  mutate(consumed = ifelse(kg_hh_lth<=missing, kg_hh_lth, NA), # extrapolated consumption fits plausible in missing, therefore annual consumption follows recall pattern
+         consumed = ifelse((missing > 0 & missing > kg_yr_ag_cons) & (consumed==0 | is.na(consumed)), kg_yr_ag_cons, consumed), # pp_kg_annual replaced by monthly, estimated mean annual consumption for household is smaller than amount missing, therefore estimate consumption is assumed quantity consumed
+         consumed = ifelse((is.na(consumed) | consumed == 0) & missing < kg_yr_ag_cons, missing, consumed) # household consumes
+  )
+
+# add consumption estimate based on other reference value?
+miss_var_summary(cons_estimate)
+cons_estimate %>% filter(is.na(consumed)) # missing hh size, probably excluded at some stage
+
+mass_eggs_cons <- cons_estimate %>% 
+  mutate(missing_fin = produced - consumed) %>% 
+  select(y4_hhid, produced, missing = missing_fin, consumed)
+
+saveRDS(mass_eggs_cons, "2_data/processed/mass_eggs_cons.RDS", compress = T)
+```
+
+Overview for computation of egg consumption
+
+1) based on weekly recall, egg consumption is extrapolated to annual consumption (regardless of source), if extrapolated consumption is less than missing when sales are subtracted from production, the estimated annual consumption (from weekly) is assumed to have been consumed (the remainder stays missing)
+
+2) if household didn't consume in recall week but has missing quantities, we use the mean per person consumption across households, extrapolate it to annual consumption and multiply by number of household members, if this assumed annual consumption is less than the missing quantities, the estimate is assumed to have been consumed and the remainder stays missing
+
+3) the household did consume in the recall week, but missing is smaller than what we would assume to have been consumed, thus we allocate all missing to consumption (resulting in no missing for these households, around n = 144) -> this is a rather weak assumption as there MUST be missing/loss
+
+
+```{r final egg}
+mass_eggs_fin <- mass_eggs %>% 
+  select(!c(missing, consumed, produced)) %>% 
+  left_join(mass_eggs_cons, by = "y4_hhid")
+
+saveRDS(mass_eggs_fin, "2_data/processed/mass_eggs_fin.RDS", compress = T)
+```
+
+

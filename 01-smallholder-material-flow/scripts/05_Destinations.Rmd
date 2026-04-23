@@ -1,0 +1,936 @@
+---
+title: "04_Destinations"
+author: "Heike Rolker"
+date: "2024-01-10"
+output: html_document
+---
+
+```{r}
+library(haven)
+library(data.table)
+library(Hmisc)
+library(naniar)
+library(tidyverse)
+library(dplyr)
+```
+
+Overview:
+
+This file merges production information and the destination of the production. It estimates the uncertainty of these quantities.
+
+Final files:
+
+- **tree_disp/crop_disp** mostly raw, cleaned files
+
+
+
+- **chh/thh** (not saved) crop production at household level (ignoring plot info)
+
+# Crop disposition
+
+Final:
+
+- production, dispositions & uncertainty
+
+- quantities sold & buyers
+
+- exclusions: y4_hhid, item, excl
+
+```{r disp crops hk}
+# load data
+ag_sec_5a <- read_dta("2_data/raw/ag_sec_5a.dta") # --> long
+ag_sec_5b <- read_dta("2_data/raw/ag_sec_5b.dta") # --> short
+
+# prep for join
+long <- prep(ag_sec_5a, season = "long")
+short <- ag_sec_5b %>% 
+  prep("short") %>% 
+  strip_colnames("5b", "5a")
+
+# extract labels (short contains one additional variable)
+labs <- prep_labs(short)
+
+# join & clean
+
+disp <- long %>% 
+  bind_dt(short)
+setnames(disp,"zaocode","cropid") 
+disp <- disp %>% clean_names(list = crops_list, "cropid")
+
+label(disp) <- as.list(labs[match(names(disp), names(labs))])
+
+contents(disp)
+```
+
+```{r crop disp naming}
+head(disp)
+crop_disp <- upData(disp,
+               rename = .q(
+                 ag5a_01 = sale,
+                 ag5a_02 = sold,
+                 ag5a_03 = value_sale,
+                 ag5a_04 = b1,
+                 ag5a_05 = soldb1,
+                 ag5a_06 = value_b1,
+                 ag5a_08 = n_int1,
+                 ag5a_11 = b2,
+                 ag5a_12 = soldb2,
+                 ag5a_13 = value_b2,
+                 ag5a_15 = n_int2,
+                 ag5a_23 = storage,
+                 ag5a_24 = stored,
+                 ag5a_28 = storage_purpose,
+                 ag5a_29 = lost,
+                 ag5a_30 = loss_cause,
+                 ag5a_32 = value_losses,
+                 ag5a_32a = consumed,
+                 ag5a_32b = seed,
+                 ag5a_32c = payment,
+                 ag5a_32d = gifts,
+                 ag5a_32e = feed,
+                 ag5a_33 = residue_use,
+                 ag5a_34 = residue,
+                 ag5a_35 = value_residue
+               ),
+               
+               losses = ag5a_31/10,
+               
+               # replace NA with 0 where true 
+               sold = ifelse(sale == "no", 0, sold),
+               soldb1 = ifelse(sale == "no", 0, soldb1),
+               soldb2 = ifelse(sale == "no", 0, soldb2),
+               stored = ifelse(storage == "no", 0, stored),
+               losses = ifelse(lost == "no", 0, losses),
+               
+               labels = .q(
+                      sale = "Item was sold",
+                      sold = "Quantity sold",
+                      soldb1 = "Quantity sold to main buyer",
+                      soldb2 = "Quantity sold to second largest buyer",
+                      storage = "Item is being stored",
+                      stored = "Quantity of item in storage",
+                      losses = "Proporition of harvest lost post-harvest",
+                      loss_cause = "Cause of ph losses",
+                      consumed = "Quantity of item consumed",
+                      seed = "Quantity stored for seed",
+                      payment = "Quantity of item given as payment",
+                      gifts = "Quantity of item given as gifts",
+                      feed = "Quantity of item used as animal feed",
+                      residue = "Quantity of residue sold"
+                    ),
+               units = .q(
+                 sold = kg,
+                 value_sales = 'T shilling',
+                 soldb1 = kg,
+                 value_b1 = 'T shilling',
+                 soldb2 = kg,
+                 value_b2 = 'T shilling',
+                 storage = kg,
+                 losses = percentage,
+                 consumed = kg,
+                 seed = kg,
+                 payment = kg,
+                 gifts = kg,
+                 feed = kg,
+                 residue = kg,
+                 value_residue = 'T shilling'
+               ))
+
+crop_disp[y4_hhid == "8659-001" & cropid == "maize", consumed := 480] # clear typo
+saveRDS(crop_disp, file = "2_data/processed/crop_disp.RDS", compress = TRUE)
+```
+
+Transport information could allow transport
+
+```{r disp stats}
+miss_var_summary(crop_disp)
+
+crop_disp[is.na(losses)]
+```
+
+
+# Tree disposition
+
+Final:
+
+- production, dispositions & uncertainty
+
+- quantities sold & buyers
+
+- exclusions: y4_hhid, item, excl
+
+```{r tree disp hk}
+# same as for crops disp
+ag_sec_7a <- read_dta("2_data/raw/ag_sec_7a.dta") # --> fruit
+ag_sec_7b <- read_dta("2_data/raw/ag_sec_7b.dta") # --> permanent
+
+# prep for join
+fruit <- prep(ag_sec_7a, season = "fruit")
+perm <- ag_sec_7b %>% 
+  prep("permanent") %>% 
+  strip_colnames("7b", "7a")
+
+# extract labels (short contains one additional variable)
+labs <- prep_labs(perm)
+
+# join & clean
+disp <- fruit %>% 
+  bind_dt(perm)
+
+setnames(disp,"zaocode","cropid") 
+disp <- disp %>% clean_names(list = crops_list, "cropid")
+
+
+label(disp) <- as.list(labs[match(names(disp), names(labs))])
+
+contents(disp)
+```
+
+```{r tree disp naming}
+tree_disp <- upData(disp,
+                    rename = .q(
+                      ag7a_02 = sale,
+                      ag7a_03 = sold,
+                      ag7a_04 = value_sale,
+                      ag7a_07_1 = b1,
+                      ag7a_07_2 = b2,
+                      ag7a_08 = storage,
+                      ag7a_09 = stored,
+                      ag7a_13 = lost,
+                      ag7a_14 = loss_cause,
+                      ag7a_16 = value_losses,
+                      ag7a_17 = consumed,
+                      ag7a_18 = seed,
+                      ag7a_19 = payment,
+                      ag7a_20 = gifts,
+                      ag7a_21 = feed
+                    ),
+                    
+                    losses = ag7a_15/10,
+                    
+                    # replace NA with 0 where true 
+                    sold = ifelse(sale == "no", 0, sold),
+                    stored = ifelse(storage == "no", 0, stored),
+                    losses = ifelse(lost == "no", 0, losses),
+                    
+                    labels = .q(
+                      sale = "Item was sold",
+                      sold = "Quantity sold",
+                      b1 = "Buyer 1",
+                      b2 = "Buyer 2",
+                      storage = "Item is being stored",
+                      stored = "Quantity of item in storage",
+                      losses = "Proporition of harvest lost post-harvest",
+                      loss_cause = "Cause of ph losses",
+                      consumed = "Quantity of item consumed",
+                      losses = "Fraction of harvest lost",
+                      seed = "Quantity stored for seed",
+                      payment = "Quantity of item given as payment",
+                      gifts = "Quantity of item given as gifts",
+                      feed = "Quantity of item used as animal feed",
+                      residue = "Quantity residue sold"
+                    ),
+                    units = .q(
+                      sold = kg,
+                      value_sale = 'T Shilling',
+                      stored = kg,
+                      consumed = kg,
+                      losses = percentage,
+                      seed = kg,
+                      payment = kg,
+                      gifts = kg,
+                      feed = kg
+                    ))
+
+saveRDS(tree_disp, file = "2_data/processed/tree_disp.RDS", compress = TRUE)
+```
+
+
+## Merge production with disposition
+
+Aim:
+
+-   determine annual production for each household 
+
+```{r crops hh}
+# crop/plot info
+pc <- readRDS("2_data/processed/pc.RDS") # to keep code intact
+
+# number of plots per crop and household
+pn <- pc %>% 
+  select(y4_hhid, plotnum, cropid) %>% 
+  count(y4_hhid, cropid) %>% 
+  dplyr::rename(nplots = n) 
+
+pm <- pc %>% 
+  group_by(y4_hhid, cropid) %>% 
+  summarise(
+    mismatch = sum(mismatch)
+  ) %>% 
+  ungroup() 
+
+pn <- merge(pn, pm, by = c("y4_hhid", "cropid"), all=TRUE)
+
+# necessary?
+chh <- copy(pc)
+
+# drop vars not needed
+chh[, .q(
+    area_planted, # converted to absolute value
+    gps_area_new, # replaced by plotsize
+    area_new, # replaced by plotsize
+    harvested, # used to determine remaining harvest
+    lessharvest, # used to determine area harvested
+    harvest_remain, # converted to absolute value
+    area_harvested_new # too. empty to be useful
+  ) := NULL]
+
+# bring production to household level
+# check if this code is correct and doesnt keep duplicates --> looks like it's all fine
+chh <- pc[,.(harvest = sum(quant_harvest),
+          quant_unharvested = sum(quant_unharvested),    
+          total_harvest = sum(total_harvest),
+          area_planted = sum(area_planted_new)), # no need to keep the "new"
+          by=.(y4_hhid, type, cropid)] # group by hh, type and cropid
+
+# estimate kg/ha 
+chh[, yield := total_harvest/area_planted]
+
+# add plotnumbers back in --> not needed, keep for code
+chh <- merge(chh, pn, by=c("y4_hhid", "cropid"), all=TRUE)
+
+pn[mismatch!=0]
+unique(chh)
+```
+
+-   determine destination of all production
+
+```{r crops destination}
+cd <- copy(crop_disp)
+
+# select disposition vars
+cd <- cd[, .(y4_hhid, type, cropid,
+                    sold, stored, losses, consumed, seed, payment, gifts, feed, residue)]
+
+# collapse disposition to household level (ignores the seasons)
+sm <- function(x) sum(x, na.rm=TRUE)
+cd <- cd[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type, cropid)]
+
+crops <- merge(chh, cd, by=c("y4_hhid", "type", "cropid"), all=TRUE)
+
+# quantify losses
+crops <- upData(crops,
+                losses = losses * harvest,
+                labels = .q(
+                      sold = "Quantity sold",
+                      stored = "Quantity of item in storage",
+                      consumed = "Quantity of item consumed",
+                      seed = "Quantity stored for seed",
+                      payment = "Quantity of item given as payment",
+                      gifts = "Quantity of item given as gifts",
+                      feed = "Quantity of item used as animal feed",
+                      losses = "Quantity lost ph",
+                      residue = "Quantity residue sold",
+                      harvest = "Annual quantity harvested",
+                      nplots = "Number of plots crop planted on",
+                      mismatch = "Number of plots where plotsize smaller than area harvested"
+                      ),
+                units = .q(
+                      sold = kg,
+                      stored = kg,
+                      consumed = kg,
+                      losses = kg,
+                      seed = kg,
+                      payment = kg,
+                      gifts = kg,
+                      feed = kg,
+                      residue = kg
+                    ),
+                drop = .q(
+                  area_planted, 
+                  total_harvest,
+                  nplots,
+                  mismatch # no need
+                ))
+
+# add sum for all disposition
+#crops$smd <- rowSums(crops[,sold:residue],na.rm=TRUE) # residue not part of production volume, seed should also not be included
+crops[, smd:= sold+stored+losses+consumed+payment+gifts+feed]
+crops[, smd := adlab(smd, 'Sum of all disposition')]
+
+# overview
+miss_var_summary(crops)
+contents(crops)
+
+# save
+saveRDS(crops, "2_data/processed/mass_crops.RDS", compress = TRUE)
+```
+
+-   Full-merge & exclude:
+
+    -   top 2% of household production for each crop (crop failure and bottom 2% is more plausible)
+
+```{r exclusions crops}
+c <- copy(crops)
+top2 <- function(x) quantile(x, probs = .99, na.rm=TRUE) # function to calculate top 2
+c[, top := top2(yield), by=cropid]
+
+# add number of occurances -> for what?
+cropnums <- c %>% group_by(cropid) %>% summarise(nums = n()) %>% setDT()
+# merge back in -> find more elegant solution
+c <- cropnums[c, on = .(cropid)]
+
+c[, yield := as.numeric(yield)] # to avoid class error below
+# too big to process...
+# c %>%
+#   filter(nums >10) %>%
+#   ggplot( aes(x=yield, color=cropid, fill=cropid)) +
+#     geom_histogram(alpha=0.6, binwidth = 5) +
+#     # scale_fill_viridis(discrete=TRUE) +
+#     # scale_color_viridis(discrete=TRUE) +
+#     # theme_ipsum() +
+#     # theme(
+#     #   legend.position="none",
+#     #   panel.spacing = unit(0.1, "lines"),
+#     #   strip.text.x = element_text(size = 8)
+#     # ) +
+#     facet_wrap(~cropid)
+
+# c %>% filter(cropid == "cucumber") %>% 
+#   ggplot(aes(yield)) + geom_histogram()
+
+c[, diff := harvest - smd]
+c[, diffp := diff*100/harvest]
+
+# more elegant solution
+# below could have a more explicit hierarcy by adding & is.na(excl)
+c <- c[, excl := fcase(
+    is.na(sold),   "Data missing",
+    is.na(yield), "Data missing",
+    # mismatch != 0, "Harvested area exceeds plotsize", # overly strict and not too relevant for my purposes
+    # top <= yield & nums >10, "Top 2%" # this can only be done for these crops here not for the permanent/tree crops, only keeping exclusion criteria that matter to internal validity and consistency
+    smd > harvest * 1.3, "Harvest insufficient",
+    smd < harvest * 0.7, "Harvest unaccounted"
+                  )]
+
+# work around, should be integrated in fcase code below
+ex <- c %>% 
+  clear.labels() %>% 
+  filter(is.na(excl)) %>% 
+  filter_at(vars(sold:residue), any_vars(. > harvest*1.2)) %>% 
+  mutate(excl = "Data inconsistent")
+
+# remove ex from c and add back in
+c <- c[!ex, on = .(y4_hhid, cropid)]
+c <- clear.labels(c)
+excl_crops <- bind_rows(c, ex)
+
+miss_var_summary(c)
+
+c[!is.na(excl)]
+# View(c[top <= yield])
+
+excl_crops <- excl_crops %>% 
+  select(y4_hhid, item = cropid, excl)
+
+# save list of exclusions
+write.csv(excl_crops, "2_data/processed/excl_crops.csv")
+```
+
+#### Trees
+
+Aim:
+
+-   determine annual production volumes
+
+-   calculate yield (i.e., harvest/tree) --\> not a useful metric
+
+```{r trees hh}
+pt <- readRDS("2_data/processed/pt.RDS")
+
+# number of plots per crop and household
+pn <- pt %>% 
+  select(y4_hhid, plotnum, cropid) %>% 
+  count(y4_hhid, cropid) %>% 
+  dplyr::rename(nplots = n)
+
+# necessary
+thh <- copy(pt)
+
+# bring production to household level
+thh <- thh[,.(harvest = sum(harvest), ntrees = sum(ntrees)),
+          by=.(y4_hhid, type, cropid)]
+
+# calculate yield
+thh[, yield := harvest/ntrees]
+
+# add plotnumbers back in
+thh <- merge(thh, pn, by=c("y4_hhid", "cropid"), all=TRUE)
+
+miss_var_summary(thh)
+# thh[is.na(yield)] # remove all
+# thh[is.na(harvest)] # goes with yield
+# thh[is.na(ntrees)] # goes with yield
+```
+
+```{r trees destinations}
+# read in data
+tree_disp <- readRDS("2_data/processed/tree_disp.RDS")
+td <- copy(tree_disp)
+
+# select disposition vars
+td <- td[, .(y4_hhid, type, cropid,
+                    sold, stored, losses, consumed, seed, payment, gifts, feed)]
+
+# collapse disposition to household level (ignores the seasons)
+td <- td[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type, cropid)]
+
+# merge trees and disposition
+trees <- merge(thh, td, by=c("y4_hhid", "type", "cropid"), all=TRUE)
+
+# quantify losses
+trees <- upData(trees,
+                losses = losses * harvest,
+                labels = .q(
+                      sold = "Quantity sold",
+                      stored = "Quantity of item in storage",
+                      consumed = "Quantity of item consumed",
+                      seed = "Quantity stored for seed",
+                      payment = "Quantity of item given as payment",
+                      gifts = "Quantity of item given as gifts",
+                      feed = "Quantity of item used as animal feed",
+                      losses = "Quantity lost ph",
+                      # residue = "Quantity residue sold",
+                      harvest = "Annual quantity harvested",
+                      # nplots = "Number of plots crop planted on"
+                      yield = "Yield (kg) per tree"
+                      ),
+                units = .q(
+                      sold = kg,
+                      stored = kg,
+                      consumed = kg,
+                      losses = kg,
+                      seed = kg,
+                      payment = kg,
+                      gifts = kg,
+                      feed = kg,
+                    ))
+
+# sum of disposition
+# trees$smd <- rowSums(trees[,sold:feed], na.rm=TRUE) 
+trees[, smd := sold+stored+losses+consumed+payment+gifts+feed]
+trees[, smd := adlab(smd, 'Sum of all disposition')]
+
+miss_var_summary(trees)
+# trees[is.na(yield)] # scattered info, one entry might be worth saving
+# trees[is.na(sold)] # no disposition info
+
+saveRDS(trees, "2_data/processed/mass_trees.RDS", compress = T)
+```
+
+```{r exclusions trees}
+t <- copy(trees)
+
+t[, top := top2(yield), by=cropid]
+
+t[, `:=` (harvest = as.numeric(harvest),
+          ntrees = as.numeric(ntrees))] # same class problem as above
+
+# more elegant solution
+t <- t[, excl := fcase(
+    is.na(sold),   "Incomplete", # no disposition info
+    is.na(yield), "Incomplete", 
+    ntrees = 0 & harvest > 0, "Non-match", # numbers do not match up
+    # top <= yield, "Top 2%",
+    smd > harvest * 1.3, "Harvest insufficient",
+    smd < harvest * 0.7, "Harvest unaccounted"
+                  )]
+
+# work around, should be integrated in fcase code below
+ex <- t %>% 
+  clear.labels() %>% 
+  filter(is.na(excl)) %>% 
+  filter_at(vars(sold:feed), any_vars(. > harvest*1.2)) %>% 
+  mutate(excl = "Data inconsistent")
+
+# remove ex from c and add back in
+t <- t[!ex, on = .(y4_hhid, cropid)]
+
+check <- t[is.na(excl)]
+miss_var_summary(check)
+
+check %>% 
+  rowwise() %>%
+  filter_at(vars(sold:feed), any_vars(. > harvest*1.1)) # affects multiple pre-exclusion and 1 obs post -> ignore
+
+excl_trees <- t %>% 
+  clear.labels() %>% 
+  bind_rows(ex) %>% 
+  select(y4_hhid, item = cropid, excl)
+
+write.csv(excl_trees, "2_data/processed/excl_trees.csv")
+```
+
+
+## Crops & crops
+
+
+Aim:
+
+-   align information for crops and permanent crops to only reflect the overlap
+
+| Crop | Quantity | Processed   | *Product* | Consumed | Sold | *Destination* | Unaccounted, lost or wasted |
+|---------|---------|---------|---------|---------|---------|---------|---------|
+|      |          | sum of all? |           |          |      |               |                             |
+|      |          |             |           |          |      |               |                             |
+|      |          |             |           |          |      |               |                             |
+
+```{r crops trees}
+# select vars
+ct <- crops[, .(y4_hhid, type, cropid, harvest, sold, stored, seed, losses, consumed, payment, gifts, feed, residue, smd)]
+# ct[, source:= "Crops"] # possibly for the purpose of consort
+
+tc <- trees[, .(y4_hhid, type, cropid, harvest, sold, stored, seed, losses, consumed, payment, gifts, feed, smd)] 
+
+tc[, residue := NA] # no residue in trees data
+# tc[, source := "Trees"] # possibly for the purpose of consort
+
+# match vars --> unelegant work-around...
+tc <- upData(tc,
+             harvest = as.integer(harvest),
+             residue = as.integer(residue),
+             labels = .q(
+               residue = "Quantity residue sold",
+               harvest = "Annual quantity harvested"
+             ),
+             units = .q(
+               residue = kg,
+               harvest = kg))
+
+# bind rows
+allcrops <- rbindlist(list(ct, tc), fill = TRUE)
+
+# split sm --> move to balancing in MFA
+# allcrops <- upData(allcrops,
+#                    stock = ifelse(harvest-smd<0, (harvest-smd)*(-1), NA), # assumes excess disposition are stocks from previous year
+#                    missing = ifelse(harvest-smd>0, harvest-smd, NA), # assumes missing,
+#                    labels = .q(
+#                      stock = "Neg difference between harvest and disposition",
+#                      missing = "Positive difference between harvest and disposition"
+#                    ))
+
+# allcrops[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type, cropid)] # no duplication in crops & trees 
+
+# include quantities processed (excluded from sum variable based on assumptions)
+
+saveRDS(allcrops, file = "2_data/processed/mass_allcrops.RDS", compress = TRUE)
+```
+
+Bonus:
+
+-   include volumes sold across destinations
+
+    *Destination will only ever cover recipients/buyers partially as only two main buyers are listed. It could be of interest to see whether they cover all/most of the production, i.e., to understand how divers the sale channels are (CHAPTER 4?) Tree crops do not quantify how much goes to certain buyers.*
+
+### Crops & products
+
+Aim:
+
+-   collapse all processed to one quantity and output for merge with production info -> already done in ag_produce file
+-   disentangle inputs (joint and separate accounts to avoid double counting) -> not necessary anymore
+
+```{r, eval=FALSE}
+agprod_mass_fin <- readRDS("2_data/processed/agprod_mass_fin.RDS")
+agprod_mass_fin[, cropid := adlab(cropid, '')]
+
+allcrops_mass <- merge(allcrops, agprod_mass_fin, by=c("y4_hhid", "cropid"), all=TRUE)
+```
+
+Exclusions
+
+```{r complete crops, eval=FALSE}
+cropscompl <- copy(allcrops_mass)
+
+# exclude produce
+# cropscompl[, excl := ifelse(input<produced, "Implausible", NA)] # step already taken in excl_agprod
+cropscompl[, excl := ifelse(harvest*1.5<produced, "Implausible processing to harvest", NA)] # most reliable exclusion I can make (should be based on input but input is estimated through disentanglement), difference between input and product exclusion is 4ish
+
+# replace NAs
+# cropscompl[, 4:14][is.na(cropscompl[, 4:14])] <- 0 
+# cropscompl[, 16:23][is.na(cropscompl[, 16:23])] <- 0 
+
+excl_allcrops <- cropscompl %>% 
+  select(y4_hhid, item = cropid, excl)
+
+# miss_var_summary(cropscompl)
+write.csv(excl_allcrops, "2_data/processed/excl_allcrops.csv")
+```
+
+# Agricultural produce exclusions
+
+
+Join with production information to determine exclusions.
+
+
+```{r exclusions}
+inputs_final <- readRDS("2_data/processed/mass_agprod_new.RDS")
+# join with production information
+mass_allcrops <- readRDS("2_data/processed/mass_allcrops.RDS") %>% 
+  clear.labels()
+
+inputs_updated <- inputs_final %>%   # estimate destination of produce
+  clear.labels() %>% 
+  left_join(select(mass_allcrops,y4_hhid, cropid, harvest, sold_raw = sold, consumed_raw = consumed, stored, smd), by =c("y4_hhid", "cropid")) %>%
+  rowwise() %>% 
+  mutate(diff = harvest-smd, # unallocated production
+         vali = sold_raw+consumed_raw>=input, # true if processing fits into consumption and sales
+         needed = ifelse(vali == FALSE, input - sold_raw - consumed_raw, 0),
+         newprocessing = ifelse(diff>=needed, needed, diff), # processing that can be allocated
+         balance = harvest-smd-newprocessing, # difference between harvest and sum of all disposition
+         smd2 = smd+newprocessing, # new sum of all disposition
+         overrep = harvest-smd-needed) 
+# , # processing that needs to be allocated
+#          diffsold = sold_raw-input_sales, # raw minus processing, negative when processing is more than raw
+#          diffcons = consumed_raw-input_cons, 
+#          availableoverall = ifelse(vali == FALSE, diff-input, 0), # available for processing beyond sold and consumed, negative are overreported
+#          available = fcase( # available within sold and consumed
+#            diffcons>0 & diffsold <= 0, diffcons,
+#            diffsold>0 & diffcons <= 0, diffsold,
+#            diffsold>0 & diffcons>0, diffsold+diffcons,
+#            TRUE, 0
+#          )),
+#          voltofind = ifelse(required<0, required - available, 0), # processing that still needs to be allocated
+#          newprocessing = ifelse(diff>0, ) %>% # difference between harvest and sum of all disposition, still has vol available
+  
+saveRDS(inputs_updated, "2_data/processed/mass_agprod_newnew.RDS", compress = T)
+  
+excl_agprod <- inputs_updated %>% 
+  mutate(excl = ifelse(produced>input, "Processing data inconsistent", NA),
+         excl = ifelse(smd2>harvest*1.3, "Data inconsistent", excl),
+         excl = ifelse(smd < harvest*0.7, "Data inconsistent", excl), # harvest is too small to account for all disposition
+         # compare products to unallocated
+         # compare products to consumption/sales quantities
+         # excl = ifelse(input_cons > consumed_raw * 3 & input_cons > 0, "Consumption mismatch", excl), # we do not know whether this is/should be included in the consumption count, should it be among the "missing" values?
+         # excl = ifelse(input_sales > sold_raw * 3 & input_sales > 0, "Sales mismatch", excl),
+         # excl = ifelse(input>harvest * 1.5, "More processed than harvested", excl)
+    # excl = ifelse(input_cons > consumed_raw + stored & input_cons > 0, "Consumption mismatch", NA), # possibly exclude...
+    # excl = ifelse(input_sales > sold_raw + stored & input_sales >0, "Sales mismatch", excl)
+  ) 
+
+excl_agprod %>% filter(consumed > 0 & consumed_raw<input_cons) # 153
+excl_agprod %>% filter(consumed > 0 & consumed_raw<input_cons & input_cons <= diff)
+excl_agprod %>% filter(consumed > 0 & consumed_raw>input_cons) # 1008
+# -> suggests input is generally accounted for inside consumption accounting
+excl_agprod %>% filter(sold > 0 & sold_raw<input_sales) # 36
+excl_agprod %>% filter(sold > 0 & sold_raw>input_sales) # 9
+# -> suggests input is generally accounted for outside sales accounting
+
+table(excl_agprod$excl)
+
+excl_agprod <- excl_agprod %>%
+   select(y4_hhid, item = cropid, excl)
+
+write.csv(excl_agprod, "2_data/processed/excl_agprod.csv")
+```
+
+
+# Livestock network
+
+- number and weight slaughtered and destinations
+
+```{r network hk}
+# load data
+lf_network <- read_dta("2_data/raw/lf_network.dta")
+
+lf_network <- lf_network %>% 
+  # part of clean up
+  setDT() %>% 
+  # mutate_all(na_if, "") %>% 
+  mutate(
+    lfnr_03 = tolower(as_factor(lfnr_03)),
+    lfnr_02 = tolower(case_when(
+      lfnr_02 == 1 ~ "RELATIVE",
+      lfnr_02 == 2 ~ "NEIGHBOR",
+      lfnr_02 == 3 ~ "FRIEND",
+      lfnr_02 == 4 ~ "MARKET",
+      lfnr_02 == 5 ~ "OPEN MARKET",
+      lfnr_02 == 6 ~ "COOPERATIVE UNION",
+      lfnr_02 == 7 ~ "FARMERS PARTY",
+      lfnr_02 == 8 ~ "MAIN PLOT/FARM",
+      lfnr_02 == 9 ~ "PRIVATE BUSINESS PERSON",
+      lfnr_02 == 10 ~ "MAIN MARKET",
+      lfnr_02 == 11 ~ "BUSINESS CONTACT",
+      lfnr_02 == 12 ~ "ABATTORI/FACTORY",
+      lfnr_02 == 13 ~ "EMPLOYER",
+      lfnr_02 == 14 ~ "RELIGIOUS INSTITUTION",
+      lfnr_02 == 15 ~ "BANK (COMMERCIAL)",
+      lfnr_02 == 16 ~ "GROCERY/LOCAL MERCHANT",
+      lfnr_02 == 17 ~ "MONEY LENDER",
+      lfnr_02 == 18 ~ "NGO",
+      lfnr_02 == 19 ~ "DISTRIBUTION OFFICER")),
+    lfnr_id = na_if(lfnr_id, "")) %>% 
+  
+  # remove confidential & duplicated vars
+  select(!c(lfnr_01, occ))
+
+saveRDS(lf_network, "2_data/processed/lf_network.RDS", compress = TRUE)
+```
+
+## Animal buyers
+
+```{r animal buyers}
+# slaugter information
+mass_animals <- readRDS("2_data/processed/mass_animals.RDS")
+# ownership and buyer information
+animals <- readRDS("2_data/processed/animals.RDS")
+
+animals <- animals[,.(y4_hhid, type, lvstckid, gifted, recp, sold, dest1, dest2, slaughter, ssold, b1 = dest1s, b2 = dest2s)]
+
+# merge first buyer of animals slaughtered
+lf_net <- lf_network[,.(y4_hhid, b1 = lfnr_id, b1_rel = lfnr_02, b1_loc = lfnr_03)]
+animal_sales <- lf_net[animals, on = .(y4_hhid, b1)]
+
+# merge second buyer of animals slaughtered
+lf_net <- lf_network[,.(y4_hhid, b2 = lfnr_id, b2_rel = lfnr_02, b2_loc = lfnr_03)]
+animal_sales <- lf_net[animal_sales, on = .(y4_hhid, b2)]
+
+# merge frist buyers of animals sold alive
+lf_net <- lf_network[,.(y4_hhid, dest1 = lfnr_id, dest1_rel = lfnr_02, dest1_loc = lfnr_03)]
+animal_sales <- lf_net[animal_sales, on = .(y4_hhid, dest1)]
+
+# merge second buyer of animals sold alive
+lf_net <- lf_network[,.(y4_hhid, dest2 = lfnr_id, dest2_rel = lfnr_02, dest2_loc = lfnr_03)]
+animal_sales <- lf_net[animal_sales, on = .(y4_hhid, dest2)]
+
+# final quantities & weight of animals passed on
+asold <- mass_animals[,.(y4_hhid, lvstckid, sold_weight)]
+buyer_animals <- asold[animal_sales, on = .(y4_hhid, lvstckid)]
+
+buyers_animals <- buyer_animals %>% 
+  select(y4_hhid, type, lvstckid, sold_alive = sold, dest1_rel, dest1_loc, dest2_rel, dest2_loc, gifted, recp, slaughter, ssold, sold_weight, b1, b1_rel, b1_loc) # b2 is empty
+
+saveRDS(buyers_animals, "2_data/processed/buyers_animals.RDS", compress = T)
+```
+
+Aim: → identify flows of animals given and received
+
+-   link livestock info to buyers and locations
+
+-   buyers of living and dead animals, recipients of gifts and payments
+
+-   donors of living animals
+
+
+
+## Milk buyers
+
+Aim:
+
+-   show major buyers of milk produce
+
+```{r milk buyers}
+# buyer information
+milk <- readRDS("2_data/processed/milk.RDS")
+# milk quantities
+milkfin <- readRDS("2_data/processed/mass_milk.RDS")
+
+milk_sales <- milk[,.(y4_hhid, lvstckcat, sold, b1 = buyer1, b2 = buyer2)]
+
+# merge first buyer
+lf_net <- lf_network[,.(y4_hhid, b1 = lfnr_id, b1_rel = lfnr_02, b1_loc = lfnr_03)]
+milk_sales <- lf_net[milk_sales, on = .(y4_hhid, b1)]
+
+# merge second buyer
+lf_net <- lf_network[,.(y4_hhid, b2 = lfnr_id, b2_rel = lfnr_02, b2_loc = lfnr_03)]
+milk_sales <- lf_net[milk_sales, on = .(y4_hhid, b2)]
+
+# add total production back in, given there is just one buyer all sales can be allocated to them
+milk.s <- milkfin[,.(y4_hhid, lvstckcat = type, sold)]
+milk_sales <- milk.s[milk_sales, on = .(y4_hhid, lvstckcat)]
+
+saveRDS(milk_sales, "2_data/processed/buyers_milk.RDS", compress = T)
+```
+
+
+## Egg buyers
+
+```{r egg buyers}
+# buyers information
+produce <- readRDS("2_data/processed/produce.RDS")
+# quantities
+mass_eggs <- readRDS("2_data/processed/mass_eggs.RDS")
+
+egg.s <- produce[productid == "eggs" & produced>0]
+egg_sales <- egg.s[,.(y4_hhid, b1 = buyer1, b2 = buyer2)]
+
+# merge first buyer
+lf_net <- lf_network[,.(y4_hhid, b1 = lfnr_id, b1_rel = lfnr_02, b1_loc = lfnr_03)]
+egg_sales <- lf_net[egg_sales, on = .(y4_hhid, b1)]
+
+# merge second buyer
+lf_net <- lf_network[,.(y4_hhid, b2 = lfnr_id, b2_rel = lfnr_02, b2_loc = lfnr_03)]
+egg_sales <- lf_net[egg_sales, on = .(y4_hhid, b2)]
+
+# add production info
+eggp <- mass_eggs[,.(y4_hhid, sold)]
+egg_sales <- eggp[egg_sales, on = .(y4_hhid)]
+
+saveRDS(egg_sales, "2_data/processed/buyers_eggs.RDS", compress = T)
+```
+
+
+## Crop buyers
+
+
+### Ag network
+
+```{r ag network hk}
+ag_network <- read_dta("2_data/raw/ag_network.dta")
+
+ag_network <- ag_network %>% 
+  clean_up() %>% 
+  select(!agnr_01)
+
+saveRDS(ag_network, "2_data/processed/ag_network.RDS", compress = T)
+```
+
+
+```{r crop buyers}
+ag_network <- readRDS("2_data/processed/ag_network.RDS")
+crop_disp <- readRDS("2_data/processed/crop_disp.RDS")
+
+# select vars
+crop_disp <- crop_disp[,.(y4_hhid, type, cropid, sold, value_sale, b1, soldb1, value_b1, n_int1, b2, soldb2, value_b2, n_int2)]
+crop_disp <- crop_disp[sold>0]
+
+# merge for first buyer
+ag_net <- ag_network[,.(y4_hhid, b1 = agnr_id, b1_rel = agnr_02, b1_loc = agnr_03)]
+crop_sales <- ag_net[crop_disp, on=.(y4_hhid, b1)]
+
+# merge for second buyer
+ag_net <- ag_network[,.(y4_hhid, b2 = agnr_id, b2_rel = agnr_02, b2_loc = agnr_03)]
+crop_sales <- ag_net[crop_sales, on=.(y4_hhid, b2)]
+
+saveRDS(crop_sales, "2_data/processed/buyers_crops.RDS", compress = T)
+```
+
+```{r tree buyers}
+tree_disp <- readRDS("2_data/processed/tree_disp.RDS")
+
+tree_disp <- tree_disp[,.(y4_hhid, type, cropid, sold, value_sale, b1, b2)]
+tree_disp <- tree_disp[sold>0]
+
+# buyers
+# merge for first buyer
+ag_net <- ag_network[,.(y4_hhid, b1 = agnr_id, b1_rel = agnr_02, b1_loc = agnr_03)]
+tree_sales <- ag_net[tree_disp, on=.(y4_hhid, b1)]
+
+# merge for second buyer
+ag_net <- ag_network[,.(y4_hhid, b2 = agnr_id, b2_rel = agnr_02, b2_loc = agnr_03)]
+tree_sales <- ag_net[tree_sales, on=.(y4_hhid, b2)]
+
+saveRDS(tree_sales, "2_data/processed/buyers_trees.RDS", compress = T)
+```
+
+
+

@@ -1,0 +1,506 @@
+---
+title: "04_Milk"
+author: "Heike Rolker"
+date: "2024-02-09"
+output: html_document
+---
+
+Livestock survey - milk & all animal products
+
+Final files:
+
+- **milk** overview milk, cleaned data in metric
+
+- **excl_milk** exclusions for milk
+
+- **mass_milk** final masses for milk, destinations and feed requirements
+
+
+# Milk
+
+```{r milk hk}
+lf_sec_06 <- read_dta("2_data/raw/lf_sec_06.dta")
+
+milk <- clean_up(lf_sec_06)
+
+lapply(lf_sec_06, attr, "label")
+```
+
+```{r milk naming}
+# three households report no average; they each need to be treated differently, see below
+milk <- milk %>% 
+  mutate(
+    lf06_03 = ifelse(y4_hhid == "1001-001", lf06_05_2, lf06_03), # only lo reported
+    lf06_03 = ifelse(y4_hhid == "1002-001", (lf06_05_2+lf06_04_2)/2, lf06_03), # no av but lo and hi exist
+    lf06_03 = ifelse(y4_hhid == "2943-001", lf06_07+lf06_08+lf06_10, lf06_03)) # only consumption; lists buyer despite no sales.
+
+milk <- upData(milk,
+               rename = .q(
+                 lf06_01 = milked,
+                 lf06_02 = length,
+                 lf06_03 = av,
+                 lf06_04_2 = hi,
+                 lf06_05_2 = lo,
+                 lf06_07 = consumed,
+                 lf06_08 = sold,
+                 lf06_09 = processed,
+                 lf06_10 = psold,
+                 lf06_11 = value,
+                 lf06_12_1 = buyer1,
+                 lf06_12_2 = buyer2
+               ),
+               
+               # vars needed to determine lactation curve
+               # hi_mo = as.Date(lf06_04_1),
+               # lo_mo = as.ToDate(lf06_05_1),
+               
+               # time between highest and lowest month -> Shija et al. 2022
+
+               period = length * 30.437, # refers to animals as a group
+               # days =  period * milked, # total days milked (all animals) - is this needed?
+               milk = period*av, # milk production for the entire period animals were milked for
+               milk_lo = period * lo,
+               milk_hi = period*hi,
+               consumed_a = consumed*period,
+               sold_a = sold*period,
+               processed_a = processed*period,
+               psold_a = psold* period,
+               output = milk/milked,
+               ava = av/milked,
+               value_a = value*period, # average earning for milk in produce per day from sales
+               
+               # improve milk quantity estimate
+               # source: 
+               # milk_alt = ifelse(av==hi, , milk) # estimate new average when average is the same as highest value
+               # milk_alt = ifelse(av==lo, , milk) # estimate new average when average is the same as lowest value
+               # milk_alt # estimate new average based on highest and lowest value
+               
+               labels = .q(
+                 milked = "Number of animals milked in past 12 mo",
+                 length = "Average number of mo animals were milked for",
+                 av = "Average milk production per day per type of animal",
+                 hi = "Highest milk production",
+                 lo = "Lowest milk production",
+                 consumed = "Quantity consumed per day",
+                 sold = "Quantity sold per day",
+                 processed = "Quantity of milk converted into produce per day",
+                 psold = "Quantity of milk products sold per day",
+                 
+                 # generated vars
+                 period = "Period of milking",
+                 days = "Total number of days milked",
+                 milk = "Total annual quantity of milk produced",
+                 milk_lo = "Total estimate with lowest month",
+                 milk_hi = "Total estiamte with highest month",
+                 consumed_a = "Annual consumption based on milking period",
+                 sold_a = "Annual sales based on milking period",
+                 output = "Estimate of milk per animal",
+                 ava = "Average quantity per animal"
+                 
+               ),
+               units = .q(
+                 av = l/day,
+                 hi = l/day,
+                 lo = l/day,
+                 consumed = l/day,
+                 sold = l/day,
+                 processed = l/day,
+                 psold = l/day,
+                 milk = l,
+                 consumed_a = l,
+                 sold_a = l,
+                 ava = l
+               ))
+
+
+
+
+contents(milk)
+
+milk <- milk[lvstckcat == "large ruminants" | lvstckcat == "small ruminants"] # remove animals not milked but keep households not milking
+
+saveRDS(milk, "2_data/processed/milk.RDS", compress = T)
+
+miss_var_summary(milk)
+milk[av==hi]
+milk[av==lo]
+```
+
+
+
+## Milk merged with animals owned
+
+To check whether the information provided is plausible, milking information is cross-referenced with ownership information.
+
+```{r milk}
+a <- readRDS("2_data/processed/animals_fin.RDS")
+
+# check number of animals owned
+m <- milk[,.(y4_hhid, type = lvstckcat, milked, period, av, hi, lo, ava, milk, milk_lo, milk_hi, consumed = consumed_a, sold = sold_a, processed = processed_a, psold = psold_a)]
+
+m[,type := as.factor(type)]
+
+```
+
+***The interviewer should check if the amount of milk produced (Question 3) is greater or equal to liquid milk consumed (Question7) + liquid milk sold (Question 8) + milk processed into dairy products (Question 9). Q3 has to be greater than Q7 + Q8 + Q9***
+
+
+
+```{r}
+# readjust milk estimate from average, hi, lo
+# Step 1: Calculate min, max, and average from raw data
+# Step 1: Adjust inconsistencies
+cleaned_data <- milk %>%
+  mutate(
+    processed_new = ifelse(processed < psold, psold, processed), # Replace processed value
+    processed_new = replace_na(processed_new, 0),
+    smd1 = consumed + sold + processed_new  # Total milk used
+  ) %>%
+  # Calculate averages
+  mutate(
+    # Use smd1 as a fallback for av if av is missing
+    av_with_fallback = ifelse(is.na(av), smd1, av),
+    
+    # Simple average of av (or smd1 as fallback), hi, and lo
+    simple_av = (av_with_fallback + hi + lo) / 3,  
+    
+    # Weighted average using smd1 and av (fallback handled)
+    weighted_av = ifelse(
+      is.na(av),  # If av is missing, rely fully on smd1
+      smd1,
+      0.8 * av + 0.2 * smd1  # Weighted based on confidence
+    ),
+    
+    # Geometric average including smd1 as fallback for av
+    geo_av = ifelse(
+      is.na(av), 
+      sqrt(smd1 * smd1),  # If av is missing, use smd1
+      sqrt(av * smd1)     # Otherwise, combine av and smd1
+    ),
+    
+    # Adjust average, ensuring it falls within the bounds lo and hi
+    corrected_avg = ifelse(
+      is.na(av_with_fallback) | is.na(lo) | is.na(hi), 
+      av_with_fallback, 
+      pmin(pmax(av_with_fallback, lo), hi)
+    ),
+    corrected_min = ifelse(
+      is.na(lo) | is.na(corrected_avg), 
+      lo, 
+      pmin(lo, corrected_avg)
+    ),
+    corrected_max = ifelse(
+      is.na(hi) | is.na(corrected_avg), 
+      hi, 
+      pmax(hi, corrected_avg)
+    ),
+    
+    # Step 2: Calculate uncertainty
+    range = ifelse(
+      is.na(corrected_max) | is.na(corrected_min), 
+      NA, 
+      corrected_max - corrected_min
+    ),
+    SD = ifelse(
+      is.na(range), 
+      NA, 
+      range / 4  # Approximate standard deviation assuming normal distribution
+    ),
+    
+    # Step 3: Derive a representative production value
+    new_av = ifelse(
+      av==smd1, av,
+      # is.na(corrected_min) | is.na(corrected_avg) | is.na(corrected_max),
+      # smd1,  # Use smd1 as fallback if corrected values are missing
+      0.2 * corrected_min + 0.6 * corrected_avg + 0.2 * corrected_max  # Weighted adjustment
+    )
+  )
+
+# cleaned_data %>% select(starts_with("corrected"), ends_with("_av"), av, hi, lo, smd1) %>% View()
+  
+mass_milk <- cleaned_data %>% 
+  mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>%
+  dplyr::rename(type = lvstckcat) %>%
+  mutate(
+    # recalculate based on new estimates, only calculate what is needed, check for errors later
+    milkwa = av * period,
+    milk = new_av * period,
+    SD = SD*period,
+    # all annual estimates
+    consumed = consumed * period,
+    sold = sold * period,
+    psold = psold* period,
+    processed = processed * period,
+    processed_new = ifelse(processed < psold, psold, processed),# replace processed (no reason to detail, quality is not getting any better)
+    smd1 = consumed+sold+processed_new,
+    milk = ifelse(milk==0 & smd1>0, smd1, milk),
+    missing = milk-smd1# messes up SD for those households
+  )
+# %>% 
+#   select(y4_hhid, type, milk, SD, consumed, sold, processed= processed_new, psold, missing)
+
+saveRDS(mass_milk, "2_data/processed/mass_milk.RDS", compress = T)
+```
+
+
+```{r}
+# data checks
+excl_milk <- cleaned_data %>% 
+  mutate(
+    new2_av = (new_av+smd1)/2,
+    new3_av = (av+new_av/2)
+  ) %>% 
+  filter(milked>0) %>% 
+  select(y4_hhid, lvstckcat, corrected_avg, corrected_min, corrected_max, ends_with("av"), av_with_fallback, SD, consumed, sold, processed, psold, period, milked) %>% 
+  dplyr::rename(mean = new_av) %>% # weighted_av and geo_av give lowest exclusions
+  mutate(
+    processed_new = ifelse(processed < psold, psold, processed),# replace processed (no reason to detail, quality is not getting any better)
+    processed_new = replace_na(processed_new, 0),
+    smd1 = consumed+sold+processed_new) %>%
+  mutate(
+    excl = fcase(
+      period>310 & milked == 1, "Implausible",
+      smd1>7 & milked == 1, "Implausible", # no more than 5.5 l a day plausible with margin
+      mean*1.2<consumed | mean*1.2<sold | mean*1.2<processed_new, "Data inconsistent", # exclude if production + variation are smaller than reported consumption
+      # mean+(SD*2)<consumed | mean+(SD*2)<sold | mean+(SD*2)<processed_new, "Data inconsistent", # exclude if production + variation are smaller than reported consumption
+      smd1 > mean * 1.5, "Excessive milk use", # as per manual with 20% margin
+      smd1<= mean * 0.5, "Milk unaccounted")
+  ) %>%
+  mutate(
+    item = paste("milk", lvstckcat, sep = " - ")
+  ) %>%
+  select(y4_hhid, item, excl)
+
+
+# av_with_fallback: 100
+# simple_av: 104
+# geo_av: 45
+# weighted_av: 42, 4/6
+# weighted av: 52 6/4
+# weighted av: 74 8/2
+# new_av 92
+# corrected_av: 106
+excl_milk %>% filter(!is.na(excl)) %>% nrow()
+excl_milk %>% group_by(excl) %>% summarise(n = n()) %>% arrange(desc(n))
+
+write.csv(excl_milk, "2_data/processed/excl_milk.csv")
+```
+
+# Exclusions
+Revise exclusions. What should the cut-off be, is it reasonable to exclude on length and quantity given we never know how many animals are milked at any point in time?
+
+
+```{r milk exclusions, eval=FALSE}
+mcop <- m %>% 
+  # duplicates code
+  rowwise() %>% 
+  mutate(
+    processed_new = ifelse(processed < psold, psold, processed),# replace processed (no reason to detail, quality is not getting any better)
+    smd1 = consumed+sold+processed_new) %>%
+  mutate(
+    excl = fcase(
+      period>306 & milked == 1, "Implausible",
+      ava>5.5 & milked == 1, "Implausible", # no more than 5.5 l a day
+      av*1.5>hi, "Implausible", # average production exceeds max
+      # max_owned<milked, "Implausible", # number of animals milked exceed max possibly owned possibly one...
+      smd1> milk *1.5, "Excessive milk use", # as per manual with 20% margin
+      smd1< milk *0.5, "Milk unaccounted",
+      milk<consumed * 1.2| milk < sold * 1.2 | milk < processed_new * 1.2, "Data inconsistent"
+    ),
+    item = paste("milk", type, sep = " - ")
+  ) 
+
+excl_milk <- mcop %>% 
+  select(y4_hhid, item, excl)
+
+write.csv(excl_milk, "2_data/processed/excl_milk.csv")
+```
+
+
+```{r milk exclusions old,eval=FALSE}
+# prepare for exclusions
+m$smd1 <- rowSums(m[,consumed:psold],na.rm=TRUE) # that's not very accurate, should not be the basis of decision making
+m[,excl := ifelse(smd1 < milk * 0.5, "Milk unaccounted", NA)]
+m[is.na(excl)]
+
+# determine top 2% production volumes
+top2 <- function(x) quantile(x, probs = .98, na.rm=TRUE) # function to calculate top 2
+m[, top := top2(milk), by=type]
+
+# top 2% of milk per animal
+m[, topa := top2(ava), by=type]
+# top 2 % of milking length
+m[, topd := top2(period), by=type]
+
+# not fully clear if psold should be included or is part of processed
+# replace missing
+m[, 11:13][is.na(m[, 11:13])] <- 0
+m[, processed_new := ifelse(processed == 0, psold, processed)] # will be dropped and recreated in MFA
+
+# MILK ASSUMPTIONS
+m$smd1 <- rowSums(m[,consumed:processed],na.rm=TRUE) # as per interviewer manual
+m$smd2 <- rowSums(m[,consumed:psold],na.rm=TRUE) # processed is not accurate, therefore extend to psold
+# replace processed
+# given processed and psold is inaccurate a decision to exclude on this basis may not be justifiable
+m[, smd3 := consumed+sold+processed_new]
+
+# spread of inaccuracy
+m[, diff :=  round(milk - smd3,2)]
+m[, diff := ifelse(diff<0, diff*-1, diff)]
+m[, perc := diff*100/milk]
+
+# exclude implausible number of animals milked
+ac <- a[,.(y4_hhid, type, sex, current, max_owned)]
+
+# collapse to household level
+ac <- ac[type=="small ruminants" | (type == "large ruminants" & sex =="female")]
+ac <- ac[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
+
+m <- ac[m, on=c("y4_hhid", "type")] 
+
+m[, milked := as.numeric(milked)]
+
+# exclusions
+m <- m[, excl := fcase(
+    # av == hi,   "Av==hi", 
+    # av == lo, "Av==lo", 
+    # smd2 > milk * 1.2, "Milk insufficient", # household used more than they produced
+    # smd2 < milk * 0.8, "Milk unaccounted", # household produced more than they used
+    # top <= milk, "Top 2%", # not sure this is valid as we do not know the number of animals used
+    # topd <= period, "Top 2% length", # length is rarely for an individual animal which makes in theory all length possible 
+    period>306 & milked == 1, "Implausible",
+    max_owned<milked, "Implausible animal number", # number of animals milked exceed max possibly owned
+    perc > 100, "Quantities mismatch", # gross mismatch of quantities produced and used
+    smd1> milk *1.5, "Quantities mismatch" # as per manual with 20% margin
+    # topa <= ava, "Top 2% per animal", # impossible to determine
+    # period > 305, "Implausible milking length" # length exceeds plausible check refs! might to apply to the entire group
+    )]
+
+# work around, should be integrated in fcase code below
+ex <- m %>% 
+  filter(is.na(excl)) %>% 
+  filter_at(vars(consumed:psold), any_vars(. > milk*1.2))  %>% 
+  mutate(excl = "Data inconsistent")
+
+# remove ex from c and add back in
+m <- m[!ex, on = .(y4_hhid, type)]
+excl_milk <- bind_rows(m, ex)
+
+excl_milk <- excl_milk %>% 
+  mutate(item = paste("milk", type, sep = "-")) %>% 
+  select(y4_hhid, item, excl)
+# m[,excl:= as.factor(excl)]
+
+write.csv(excl_milk, "2_data/processed/excl_milk.csv")
+```
+
+## Milk mass
+
+```{r}
+milk2 <- m %>% 
+  mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>% # should be full list of livestock owning households
+  rowwise(y4_hhid) %>% 
+  mutate(
+    milk_mean = (milk+milk_lo+milk_hi)/3,# generate mean production and uncertainty (what does this mean for feed)
+    # generate uncertain and include in mean estimate for production
+    processed_new = ifelse(processed < psold, psold, processed),# replace processed (no reason to detail, quality is not getting any better)
+    smd1 = consumed+sold+processed_new
+  ) %>% 
+  select(y4_hhid, type, milk_mean, milk, milk_hi, milk_lo, consumed, sold, processed = processed_new, psold, smd1)
+
+
+milk3 <- upData(milk2,
+                   rename = .q(
+                     smd1 = sm_disp
+                   ),
+                   labels = .q(
+                     processed_new = "Stand-in: product sold equals input bc missing",
+                     sm_disp = "Sum of all disposition",
+                     processed = "Annual quantity used for processing",
+                     sold = "Annual quantity sold",
+                     psold = "Quantity of product sold",
+                     mean_milk = "Average across lowest, highest and average milk estimate"
+                   ), 
+                   drop = .q(need))
+
+setDT(milk3)
+```
+
+
+Aim:
+
+-   Estimate feed consumed for milk produced
+
+```{r milk feed}
+# feed information from animals file
+f <- readRDS("2_data/processed/feed_short.RDS")
+
+# @Opio.2013 p.119 "Small ruminant milk feed ration"
+smrum <- data.table(
+  feed1 = c("only feeding (no grazing/scavenging)",
+            "mainly grazing/scavenging w/ some feeding",
+            "only grazing/scavenging",
+            "mainly feeding w/ some grazing/scavenging",
+            "tethering"),
+  feed = c(1, 0.35, 0, 0.65, 0.5),
+  grazed = c(0, 0.65, 1, 0.35, 0.5),
+  type = "small ruminants")
+
+# @Opio.2013 p.117 dairy cattle
+lgrum <-   data.table(
+  feed1 = c("only feeding (no grazing/scavenging)",
+            "mainly grazing/scavenging w/ some feeding",
+            "only grazing/scavenging",
+            "mainly feeding w/ some grazing/scavenging",
+            "tethering"),
+  feed = c(1,0.25,0,0.75, 0.5),
+  grazed = c(0,0.75,1,0.25, 0.5), 
+  # hay + fresh grass p.117
+  type = "large ruminants")
+
+# bind rows
+milkfeed <- bind_rows(smrum, lgrum)
+
+# select only vars needed
+# mf <- m[,.(y4_hhid, type, milk, consumed, sold, processed, psold, smd1)]
+
+# merge with feed
+mf <- f[milk3, on=c("y4_hhid", "type")] 
+
+# merge with feed conversion
+mf <- milkfeed[mf, on=c("type", "feed1")]
+
+# calculate feed required
+mf <- upData(mf,
+             need = milk * 0.7, # currently no difference between small & large ruminants, based on @Alexander.2016
+             feed = need*feed,
+             grazed = need*grazed,
+             
+             labels = .q(
+               feed = "Quantity of feed consumed in DM",
+               grazed = "Quantity grazed/scavenged in DM",
+               need = "Quantity DM needed to produce"
+             ),
+             
+             units = .q(
+               feed = "kg DM",
+               grazed = "kg DM",
+               need = "kg DM",
+               milk = kg,
+               consumed = kg, 
+               sold = kg, 
+               processed = kg, 
+               psold = kg
+             ),
+             drop = .q(feed1)
+             )
+
+# final mass milk
+mass_milk_old <- mf %>% 
+   mutate(across(milk_mean:psold, ~.x * 1.08)) # convert all into kg
+
+saveRDS(mass_milk_old, "2_data/processed/mass_milk_old.RDS", compress = T)
+```
+
+
+

@@ -1,0 +1,562 @@
+---
+title: "06_Summary"
+author: "Heike Rolker"
+date: "2024-01-10"
+output: html_document
+---
+
+```{r setup}
+library(data.table)
+library(tidyverse)
+
+library(RColorBrewer)
+library(plotly)
+```
+
+```{r}
+# agricultural zones: https://research.csiro.au/livegaps/findings/livestock-production/dairy-production-in-tanzania/
+zones <- list(
+  "Lakes" = c("Kagera", "Mara", "Mwanza", "Geita", "Simiyu", "Shinyanga", "Kigoma"),
+  "Coastal" = c("Mjini Magharibi", "Kaskazini Pemba", "Kaskazini Unguja", "Kusini Pemba", "Kusini Unguja", "Lindi", "Mtwara", "Morogoro", "Pwani", "Dar Es Salaam"),
+  "Central" = c("Manyara", "Dodoma", "Singida", "Tabora"),
+  "Northern Highlands" = c("Arusha", "Kilimanjaro", "Tanga"),
+  "Southern Highlands" = c("Iringa", "Njombe", "Ruvuma", "Katavi", "Rukwa", "Mbeya"))
+
+zones <- data.frame(region = unlist(zones), zone = rep(names(zones), lengths(zones)))
+
+zones <- setDT(zones) 
+```
+
+Overview:
+
+Final *general* files that can serve as input for any subsequent chapter building on LSMS data. 
+
+```{r functions}
+clear.labels <- function(x) {
+  if(is.list(x)) {
+    for(i in seq_along(x)) {
+      class(x[[i]]) <- setdiff(class(x[[i]]), 'labelled')
+      attr(x[[i]],"label") <- NULL
+    }
+  } else {
+    class(x) <- setdiff(class(x), "labelled")
+    attr(x, "label") <- NULL
+  }
+  return(x)
+}  
+
+
+```
+
+# 1) All production & destination (overview and mass-balance files)
+
+Overview:
+
+- **_long** files list key information for each item produced by households (produced, sold, consumed), ag/milk produce in seprate list
+
+- **mfa_** balanced quantities as input for mfa
+
+Actions:
+
+- bring animals and hides together - x
+
+- bring crops and produce together - x
+
+- add residue and yield gaps to crops - **TBD**
+
+- long format of core info: production, sales, consumption, all destinations, uncertain; merge with FCT info - x [add food groups]
+
+- **missing mass balance estimates for each file** - 
+
+
+```{r}
+mass_allcrops <- readRDS("2_data/processed/mass_allcrops.RDS") %>% 
+  clear.labels() # no code exists
+mass_agprod <- readRDS("2_data/processed/mass_agprod_new.RDS") %>% 
+  clear.labels()
+# mass_residue
+# mass_yg
+
+agprod_long <- readRDS("2_data/processed/mass_agprod_long_new.RDS") %>%  # details of agricultural produce
+  clear.labels()
+
+mass_animals <- readRDS("2_data/processed/animals_mass.RDS") %>% 
+  clear.labels() # alternative is remove_labels{crosstable}
+
+mass_hides <- readRDS("2_data/processed/mass_hides.RDS") %>% 
+  clear.labels()
+
+mass_milk <- readRDS("2_data/processed/mass_milk.RDS") %>% 
+  clear.labels()
+
+mass_eggs <- readRDS("2_data/processed/mass_eggs_fin.RDS") %>% 
+  clear.labels()
+
+```
+
+# 3) All exclusions
+
+excl_ files
+```{r}
+
+# save all as csv
+excl_agprod <- read_csv("2_data/processed/excl_agprod.csv")
+excl_allcrops <- read_csv("2_data/processed/excl_allcrops.csv")
+excl_animals <- read_csv("2_data/processed/excl_animals.csv")
+excl_crops <- read_csv("2_data/processed/excl_crops.csv")
+excl_trees <- read_csv("2_data/processed/excl_trees.csv")
+excl_milk <- read_csv("2_data/processed/excl_milk.csv")
+excl_eggs <- read_csv("2_data/processed/excl_eggs.csv")
+excl_long <- read_csv("2_data/processed/excl_long.csv")
+
+excl_list <- rbind(excl_agprod, excl_allcrops, excl_animals, excl_crops, excl_trees, excl_milk, excl_eggs, excl_long) 
+# detailed list of exclusions
+write.csv(excl_list, "2_data/final/excl_list.csv")
+
+excl_final <- excl_list %>% 
+  filter(!is.na(excl)) %>% 
+  select(y4_hhid) %>% 
+  unique()
+
+write.csv(excl_final, "2_data/final/excl_3a.csv")
+
+# other chapters
+write.csv(excl_final, "~/Library/CloudStorage/OneDrive-UniversityofBristol/03b_MFA_connect/2_data/final/excl_3a.csv")
+```
+
+Mass balancing used for MFA
+
+
+## 1a) Mass Balancing
+
+
+```{r}
+# applicable to all
+calc <- function(df) df[, lapply(.SD, sm), .SDcols=is.numeric, by=.(type)] # change function and grouping as required; for 3c this could stay item; use groupsgroups for other aggregation levels
+# col sum
+cl <- function(df) df[, lapply(.SD, sm), .SDcols=is.numeric] # change function as required
+
+sm <- function(x) sum(x, na.rm = TRUE)
+rd <- function(df) df %>% dplyr::mutate_if(is.numeric, round, 1)
+md <- function(x) median(x, na.rm=TRUE)
+mn <- function(x) mean(x, na.rm=TRUE)
+```
+
+
+### Crops
+```{r}
+# Crops for MFA - 
+crops <- mass_allcrops %>% 
+  dplyr::rename(produced = harvest, item = cropid) %>% 
+  left_join(select(mass_agprod, y4_hhid, item = cropid, processing = input, prodproduced = produced, inprodsold = input_sales, prodsold = sold, inprodcons = input_cons, prodconsumed = consumed, waste = uncertain), by = c("item", "y4_hhid")) %>% 
+  mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>%
+  mutate(uncertain = produced - smd, # ignores the issue resulting from processing being unclear
+         uncertain2 = uncertain - processing, # includes processing; many negative values..
+         missing = ifelse(uncertain<0, uncertain * -1, 0),
+         unallocated = ifelse(uncertain>0, uncertain, 0)) # if uncertain an excess value then allocated to "missing quantities" 
+
+saveRDS(crops, "2_data/final/mfa_crops.RDS", compress = T)
+```
+
+
+### Animals
+
+```{r}
+# Animals for MFA
+animals <- mass_animals %>% 
+  # filter(slaughter>0) %>% 
+  select(!ew) %>%  # no need
+  mutate(
+    consumed = meat + offal,
+    uncertain = total_weight - sold_weight - meat - offal - hides - inedible, # should be 0 for all of them... difference from breakdown not fully matched up, use difference as measure of uncertainty
+    missing = ifelse(uncertain<0, uncertain * -1, 0), # more allocation than production
+    unallocated = ifelse(uncertain>0, uncertain, 0), # assumes allocation underestimated (no waste)
+    upper = total_weight + missing, # upper total weight estimate
+    lower = total_weight - unallocated, # lower total weight estimate
+    mean = (upper + lower + total_weight)/3 # mean weight estimate
+  )
+
+saveRDS(animals, "2_data/final/mfa_animals.RDS", compress = T)
+
+hides <- mass_hides
+
+saveRDS(hides, "2_data/final/mfa_hides.RDS", compress = T)
+```
+
+
+### Milk
+```{r}
+# Milk for MFA
+milk <- mass_milk %>% 
+  mutate(
+    smd = consumed + sold + processed, # here processed sales are not included in the raw sales (at least not necessarily)
+    uncertain = milk-smd,
+    missing = ifelse(uncertain<0, uncertain * -1, 0), # more allocation than production
+    unallocated = ifelse(uncertain>0, uncertain, 0), # less allocation than produciton
+    item = "milk"
+  ) %>% 
+  dplyr::rename(produced = milk) # uses mostly quantities sold as processing inputs, assumption: data checking error.
+  
+saveRDS(milk, "2_data/final/mfa_milk.RDS", compress = T)
+```
+
+
+### Eggs
+```{r}
+# Eggs for MFA
+eggs <- mass_eggs %>% 
+  select(y4_hhid, item = productid, feed, grazed, produced, sold, consumed, uncertain = missing) %>%  # type to be replaced by FCT food group
+  mutate(
+    # there should be a range of consumption estimates...
+    smd = sold + consumed, # have it in other dts, necessary?
+    uncertain = produced - smd, # to make sure it's correct
+    missing = ifelse(uncertain<0, uncertain * -1, 0), # more allocation than production
+    unallocated = ifelse(uncertain>0, uncertain, 0) # less allocation than production
+  ) %>% 
+  add_column(
+    type = "Eggs" # consistent with groupsgroups?
+  )
+
+saveRDS(eggs, "2_data/final/mfa_eggs.RDS", compress = T)
+
+```
+
+
+## 1b) Long file
+
+```{r crops}
+# Listing crops - x
+# crops
+crops_long <- crops %>% 
+  select(y4_hhid, type, item, produced, sold, consumed, smd, uncertain, missing, unallocated) %>% 
+  # groupsgroups
+  mutate(
+    product_type = ifelse(type == "cashcrops", "Other crops", "Food crops"),
+    subtype = type) %>%  # required twice
+  add_column(
+    category = "Plant"
+  ) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced, sold, consumed, smd, uncertain, missing, unallocated)
+
+# agricultural products
+crops_long1 <- agprod_long %>% 
+  add_column(
+    category = "Plant",
+    product_type = "Processed crop"
+  )  %>% 
+  left_join(crops_list, by = "cropid") %>% 
+  dplyr::rename(
+    group = cropid,
+    subtype = product
+  ) %>% 
+  mutate(produced = as.numeric(produced),
+         sold = as.numeric(sold),
+         consumed = as.numeric(consumed)) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced, sold, consumed)
+```
+
+
+Keep animal info and hides as separate dataframes as not to lose detail (ie livestock).
+
+
+```{r animals}
+# Listing animals - x
+animals_fin <- readRDS("2_data/processed/animals_fin.RDS")
+# Total slaughter product, and weight allocated to destinations - x
+animals_long <- animals_fin %>% 
+  clear.labels() %>% 
+  filter(slaughter>0) %>% 
+  mutate(consumed = sl_weight - sold_weight) %>% 
+  select(y4_hhid, type, item = lvstckid, produced = sl_weight, sold = sold_weight, consumed = cons_weight) %>%  
+  # add grouping
+  add_column(
+    category = "Animal",
+    product_type = "Slaughter product",
+    subtype = "other"
+  ) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced, sold, consumed)
+
+# Meat and offal produced from animals slaughtered (consumption only) - x
+animals_long1 <- animals %>%
+# list meat & offal as edible items in long data frame format
+  melt(id.vars=c("y4_hhid", "lvstckid", "type"),
+    measure.vars=c("meat", "offal"), #  meat and offal are consumed
+    variable.name="item",
+    value.name="consumed") %>% 
+  mutate(item = paste(lvstckid, item, sep = " "), 
+         subtype = lvstckid) %>% 
+  # detail based on groupsgrousp
+  add_column(
+    category = "Animal",
+    product_type = "Animal product"
+  ) %>% 
+  mutate(# item = paste(subtype, item, sep = " "), # to stay consistent with mapping against fct,  duplication here
+        produced = consumed, 
+        sold = 0) %>% 
+  mutate(produced = as.numeric(produced),
+         sold = as.numeric(sold),
+         consumed = as.numeric(consumed)) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced, sold, consumed)
+
+# Hides - x
+hides_long <- mass_animals %>% 
+  filter(slaughter>0) %>% 
+  group_by(y4_hhid, type) %>% 
+  summarise_if(is.numeric, sum) %>% 
+  left_join(select(mass_hides, y4_hhid, type, prodhides = pprod, hidescons = missing, hidessold = sold2), by = c("y4_hhid", "type")) %>% 
+  filter(!is.na(prodhides)) %>% 
+  mutate(
+    item = paste("hides", type, sep = "-")
+  ) %>% 
+  select(y4_hhid, type, item, hides, produced = prodhides, sold = hidessold, consumed = hidescons) %>%  # hides estimate larger than hides produced in some cases, would require to review the data again to reconcile -> ignore, too time consuming, too little pay-off
+  mutate(uncertain = hides - produced) %>% 
+  select(!hides) %>% 
+  add_column(
+    category = "Animal",
+    product_type = "other",
+    subtype = "other"
+  ) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced, sold, consumed, uncertain)
+```
+
+```{r milk}
+# Listing milk
+# Milk - x
+milk_long <- milk %>% 
+  mutate(sold = sold+psold, # assumes raw sold and processed sold are different accounts
+         item = paste(item, type, sep = " - ")) %>% 
+  add_column(
+    category = "Animal",
+    product_type = "Animal product",
+    subtype = "Milk"
+  ) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced, sold, consumed, smd, uncertain, missing, unallocated)
+  
+# Processed milk - x
+milk_long1 <- milk %>% 
+  mutate(
+    item = paste("Processed milk", type, sep = " - "),
+    pcons = processed - psold # in a small number of cases this works, assumes no waste but all sold or consumed
+  ) %>% 
+  add_column(
+    category = "Animal",
+    product_type = "Animal product",
+    subtype = "Processed milk"
+  ) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced = processed, sold = psold, consumed = pcons, smd, uncertain, missing, unallocated)
+```
+
+
+```{r eggs}
+# Listing eggs - x
+eggs_long <- eggs %>% 
+  add_column(
+    category = "Animal",
+    product_type = "Animal product",
+    subtype = "Eggs",
+    type = "Eggs"
+  ) %>% 
+  select(y4_hhid, category, product_type, item, type, subtype, produced, sold, consumed, smd, uncertain, missing, unallocated)
+```
+
+- all production in one dt: y4_hhid, item, (type from FCT), produced, sold, consumed (ignores ag produce but may have to account for processed milk), smd (includes all other destinations), uncertain
+
+```{r}
+
+# FINAL LIST 
+produce_long <- crops_long %>% 
+  # bind all product lists
+  dplyr::bind_rows(animals_long1, animals_long, crops_long1, hides_long, milk_long, milk_long1, eggs_long) %>% 
+  # check no duplications -> just a few
+  group_by(y4_hhid, category, product_type, item, type, subtype) %>% 
+  summarise(across(is.numeric, ~ sum(.x, na.rm = TRUE))) %>%  # code deprecated, should be replaced
+  ungroup() %>% 
+  mutate(across(item:subtype, ~str_to_sentence(.x))) %>% 
+  # adjust order
+  select(y4_hhid, category, product_type, type, subtype, item, produced, sold, consumed, smd, uncertain)
+
+saveRDS(produce_long, "2_data/final/produce_long.RDS", compress = T)
+
+# Group file
+groupsgrps <- produce_long %>% 
+  select(category, product_type, type, subtype, item) %>% 
+  unique()
+
+write_csv(groupsgrps, "2_data/reference/groupsgrps.csv")
+
+# save to other chapter where needed
+saveRDS(produce_long, "~/Library/CloudStorage/OneDrive-UniversityofBristol/03b_MFA_connect/2_data/files/produce_long.RDS")
+write_csv(groupsgrps, "~/Library/CloudStorage/OneDrive-UniversityofBristol/03_LSMS/TZAwave4/files/groupsgrps.csv") # update location
+```
+
+```{r produce long exclusions}
+excl_long <- produce_long %>% group_by(y4_hhid) %>% 
+  summarise(sum = sm(produced)) %>% 
+  filter(sum == 0) %>% 
+  add_column(
+    item = "Produce long",
+    excl = "No production"
+  ) %>% 
+  select(!sum)
+
+write.csv(excl_long, "2_data/processed/excl_long.csv")
+```
+
+### Find all types not produced by household
+
+```{r}
+# list all types from groupsgroups
+# merge & identify missing
+```
+
+
+### Link to FCT
+
+```{r}
+# add FCT info : here:here check if merged fully (some names might have been changed along the way...)
+LSMS_AG_FCT <- read_csv("2_data/reference/AG_FCT_final.csv") %>% 
+  select(item = product, group, Edible_CF:Cholesterol_CHOLE_mg) %>% 
+  unique() # contains some duplication
+
+produce_long_fct <- produce_long %>% 
+  left_join(LSMS_AG_FCT, by = "item")
+# give group to cashgroups
+
+
+saveRDS(produce_long_fct, "2_data/final/produce_long_fct.RDS", compress = T)
+```
+
+
+## 1b) All primary buyers
+
+```{r merge all primary buyers, eval=FALSE}
+# read all data
+buyers_animals <- readRDS("2_data/processed/buyers_animals.RDS")
+buyers_crops <- readRDS("2_data/processed/buyers_crops.RDS")
+buyers_eggs <- readRDS("2_data/processed/buyers_eggs.RDS")
+buyers_milk <- readRDS("2_data/processed/buyers_milk.RDS")
+buyers_trees <- readRDS("2_data/processed/buyers_trees.RDS")
+
+# crop buyer 
+crop_sales <- readRDS("2_data/processed/crop_sales.RDS") # contains more detail
+
+# calculate share for buyers
+crop_sales[, `:=` (b1_perc = soldb1/sold*100,
+                   b2_perc = soldb2/sold*100)]
+
+# factor variables
+crop_sales[, `:=` (b1_rel = as.factor(b1_rel),
+                   b1_loc = as.factor(b1_loc),
+                   b2_rel = as.factor(b2_rel),
+                   b2_loc = as.factor(b2_loc),
+                   type = as.factor(type))] #should be...
+
+# overview
+# table(crop_sales$type, crop_sales$b1_rel)
+# table(crop_sales$type, crop_sales$b1_loc)
+
+b1_crops <- crop_sales[,.(y4_hhid, product = type, type = cropid, sold = soldb1, b1, b1_rel, b1_loc)]
+
+# tree buyers
+b1_trees <- buyers_trees[,.(y4_hhid, product = type, type = cropid, sold, b1, b1_rel, b1_loc)]
+
+# animal buyers
+b1_animals <- buyers_animals[,.(y4_hhid, type, product = lvstckid, sold = sold_weight, b1, b1_rel, b1_loc)]
+
+# milk buyers
+buyers_milk[, product := "milk"]
+b1_milk <- buyers_milk[,.(y4_hhid, type = lvstckcat, product, sold, b1, b1_rel, b1_loc)]
+
+# egg buyers
+buyers_eggs[,`:=` (type = "animal product",
+                 product = "eggs")]
+
+b1_eggs <- buyers_eggs[,.(y4_hhid, type, product, sold, b1, b1_rel, b1_loc)]
+
+# merge all buyers
+b1 <- list(b1_animals, b1_eggs, b1_milk, b1_crops, b1_trees)
+
+#b1 <- lapply(b1, function(df){df <- df[, `:=` (b1_rel = replace_na(b1_rel, "unknown"), b1_loc = replace_na(b1_loc, "unknown"))]})
+# overcome class errors
+b1 <- lapply(b1, function(df){df <- df[, `:=` (b1 = as.factor(b1),
+                                               b1_rel = as.factor(b1_rel),
+                                               b1_loc = as.factor(b1_loc),
+                                               type = as.factor(type),
+                                               product = as.character(product),
+                                               y4_hhid = as.character(y4_hhid),
+                                               sold = as.numeric(sold))]})
+
+# merge buyers into complete list
+names(b1) <- c("animals", "eggs", "milk", "crops", "trees")
+
+b1 <- do.call("rbind", lapply(names(b1), function(x) cbind(index = x, b1[[x]])))
+
+b1 <- b1[sold>0] # exclude where no sales
+
+# match to groups groups pattern
+b1_gr <- b1 %>% 
+  mutate(
+    type = as.character(type),
+    product = as.character(product),
+    # category
+    category = fcase(
+      index == "trees" | index == "crops", "Plant",
+      index == "eggs" | index == "milk" | index == "animals", "Animal"
+    ),
+    # product type
+    product_type = fcase(
+      index == "animals", "Slaughter product",
+      product == "cashcrops", "Other crops",
+      index == "eggs" | index == "milk", "Animal products"
+    ),
+    product_type = ifelse(is.na(product_type), "Food crops", product_type),
+    # subtype
+    subtype = fcase(
+      product == "milk", "Milk", 
+      product == "eggs", "Eggs",
+      product_type == "Slaughter product", "other"),
+    subtype = ifelse(is.na(subtype), product, subtype),
+    # type
+    type_new = fcase(
+      product == "eggs", "Poultry",
+      product == "milk", product,
+      index == "animals", type
+    ),
+    type_new = ifelse(is.na(type_new), product, type_new),
+    # item
+    item = fcase(
+      product == "milk", paste("milk", type, sep = " - "),
+      index == "animals", product),
+    item = ifelse(is.na(item), type, item)
+    ) %>% 
+  select(
+    y4_hhid, category, product_type, type_new, subtype, item, sold, b1, b1_rel, b1_loc) %>% 
+  mutate(
+    new_name = fcase(
+      is.na(b1_rel), "Unknown",
+      b1_rel == "neighbor" | b1_rel == "friend" | b1_rel == "relative", "Family, friends & neighbours",
+      b1_rel == "market" | b1_rel == "open market" | b1_rel == "grocery/local merchant", "Formal markets",
+      b1_rel == "cooperative union"| b1_rel == "distribution officer" | b1_rel == "abbatori/factory" | b1_rel == "farmers party", "Formal trader or processor",
+      b1_rel == "employer" | b1_rel == "business contact"| b1_rel == "bank (commercial)" | b1_rel == "religious institution", "Institutions & commerical buyers",
+      b1_rel == "private business person", "Informal market & vendors"
+      # private business person:This is usually a vendor or a hawker who sells goods by walking door to door – like cigarette/water sellers or vegetable vendors in Dar.
+    ),
+    new_location = fcase(
+      is.na(b1_loc), "Unknown",
+      b1_loc == "within the village" | b1_loc == "near the village", "In village proximity",
+      b1_loc == "other region", "Other region", # keep until I come up with something better...
+      b1_loc == "other district", "Other district",
+      b1_loc == "near the town", "In town proximity",
+      b1_loc == "across the border", "Across the border"
+    )) %>%
+  mutate(across(is.character, ~str_to_sentence(.x)))
+
+saveRDS(b1_gr, "2_data/final/b1.RDS", compress = T)
+```
+
+
+
+
+
+
+
