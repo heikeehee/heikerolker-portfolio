@@ -1,0 +1,2392 @@
+---
+output:
+  bookdown::pdf_document2: default
+  fig_caption: yes
+    # latex_engine: xelatex
+  # pdf_document:
+  #   latex_engine: xelatex
+  # thesisdown::thesis_pdf: default
+# header-includes:
+#   - \usepackage[a4paper, margin=1cm]{geometry}
+bibliography: bib/chapter3.bib
+header-includes:
+  - \usepackage{float}
+csl: csl/nature.csl 
+# bibliography: bib/thesis.bib
+space_between_paragraphs: true
+always_allow_html: yes
+link-citations: true
+toc-depth: 1
+lot: true
+lof: true
+# editor_options: 
+#   chunk_output_type: console
+# header-includes:
+#     \usepackage[left]{lineno}
+#     \usepackage{float}
+#     \floatplacement{figure}{H}
+#     \raggedbottom 
+papersize: a4
+---
+
+  
+```{r set-up, include=FALSE}
+source("packages.R")
+source("functions.R")
+library(treemapify)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, fig.pos = "H")
+
+# Global number formatting options
+options(
+  scipen = 999,       # Prevent scientific notation
+  digits = 4,         # Default number of digits to display
+  OutDec = ".",       # Decimal point character
+  nsmall = 1          # Force exactly 1 decimal place
+)
+# 
+# # Custom formatting function for one decimal place
+# format_one_decimal <- function(x) {
+#   if (is.numeric(x)) {
+#     sprintf("%.1f", round(as.numeric(x), 1))
+#   } else {
+#     x
+#   }
+# }
+
+# Apply formatting to all output
+# library(knitr)
+# knit_hooks$set(inline = function(x) format_one_decimal(x))
+```
+
+```{r echo=FALSE}
+library(trackdown)
+# trackdown::upload_file("03-chap3.Rmd", gpath = "trackdown/thesis", gfile = "Chap3")
+# trackdown::update_file("03-chap3.Rmd", gpath = "trackdown/Heike Thesis", gfile = "Chap3", hide_code = T)
+# trackdown::download_file("03-chap3.Rmd", gpath = "trackdown/thesis", gfile = "Chap3")
+
+```
+
+```{r echo=FALSE}
+# files
+excl_3a <- read_csv("data/c3/excl_3a.csv") %>% setDT() # should not need to skip, change write function at source
+
+weighting <- read_csv("data/c3/weighting.csv") %>% 
+  clear.labels()
+
+# weighting %>% inner_join(excl_3a, by = "y4_hhid") # no intersection as it should be!
+```
+\newpage
+
+# Estimating intra-househould food losses and food allocation efficiency of food producers using routine survey data {#chapter3} 
+
+## Overview {-}
+
+\@ref(chapter1) demonstrated the lack of a food system-wide definition of food waste and data on waste quantities. \@ref(chapter2) then showed options available to actors within the food system to reduce waste in a wide range of activities and approaches. Now taking a quantitative approach, this chapter explores the question of what can be considered food waste in a food systems context -- by intentionally not applying any definition to it and instead identifying all material flows that may represent waste as the first part of this quantification exercise, covering from production to the point of sales or allocation to the household for consumption. \@ref(chapter4) will further expand the system boundary to include actual household consumption to give a fuller picture of system inefficiencies.\par
+
+ 
+\newpage
+
+## Abstract {.unnumbered}
+
+Losses and waste in the food system hinder achieving the best possible outcomes for the environment, economic prosperity and healthy nutrition alike, yet there is a wide-spread lack of data to accurately describe food system inefficiencies across supply chains and food groups. This poses a particular challenge in sub-Saharan Africa, where a considerable proportion of the population relies on farming activities for both intra-househould food consumption and a primary source of cash income. Here, a Material Flow Analysis was conducted to quantify food production, food processing and post-processing allocation at 1663 family farming households in Tanzania. The sources of food loss considered encompassed yield gaps, pre-harvest/pre-slaughter losses, post-harvest losses, with all missing flows identified through a mass balance approach and uncertainty determined through Monte Carlo Simulations. The results showed that domestically produced food was equally divided between household consumption and sales, at 44.4% and 35.4% of total production, respectively. When these household-level results were aggregated to the national scale using a survey expansion factor (the inverse of the sampling weight), 1804.1 Mt of physical losses from post-harvest losses, processing waste and inedible produce from slaughter (1.2% of total production) were identified alongside 2617.1 Mt of unallocated, thus likely inefficient, food allocation flows (1.7% of total production). Meaningfully, across producers 52.9% of egg production and 7.7% of milk production remained unallocated. The level of uncertainty for inefficiency flows are reported. Potential mechanisms to support food producers to prevent and mitigate these losses are also discussed.\par
+
+
+## Introduction
+
+The global food system is widely considered environmentally unsustainable. The food system’s inefficient use of natural resources are making the food system the single largest contributor to greenhouse gas emissions (GHG) [@Crippa.2021; @Alexander.2017]. At the core of this lies the issue of food loss and waste (FLW), and associated diversion of food (away from human consumption towards animal feed or fuel), which are known to have environmental, economic and nutritional consequences [@Ahmed.2021; @Alexander.2017; @Skaf.2021].\par
+
+Ironically, the total volume of FLW is expected to increase at the fastest rate in Low-and-Middle-Income Countries (LMICs) [@Mmereki.2023], where its reduction has the largest benefit on health and economics alike [@Kuiper.2021; @Mason.2019]. Most food in LMICs is produced by smallholders, or food producers with small areas of land (often defined as < 10 hectares) and “characterized by family-focused motives such as favouring the stability of the farm household system” [@smallholder.fao]. In sub-Saharan Africa (SSA), for example, smallholding farms produce ~80% of food, with a substantial portion allocated to intra-household consumption. Improving food system efficiency through food waste reduction is expected to directly benefit the household’s health, social and economic well-being in LMICs [@Kuiper.2021; @Worldbank.2020]. Agriculture remains an important aspect of the economy in the Republic of Tanzania directly employing about 60% of the population, levels of FLW have previously been reported to be high (ranging between 30-40% for cereals [@Affognon.2015]). Similar to other SSA nations, Tanzania is undergoing rapid demographic changes and rural-urban migration and, combined with predominantly informal food systems, the country faces high levels of food insecurity.\par
+
+Quantifying waste streams is a necessary first step to identify points of inefficiency in a farm household system to guide policy decisions and improve overall food system performance [@Cattaneo.2021]. In the well-documented absence of primary data [@Xue.2017; @Parfitt.2021] (the knowledge gap to be filled in \@ref(chapter6) of this thesis), approaches to quantifying food waste using secondary data and indirect measures are invaluable and being developed and improved continuously [@Delgado.2017; @Geislar.2020]. Indeed, with innovative data manipulation and aggregation, a wide range of datasets that are readily available can be combined with an underlying theoretical framework (see \@ref(chapter1)) to make inferences on many aspects of waste generation [@ref]. Building on the theory and knowledge synthesized in the previous two chapters, and as an effort to contribute to this pool of literature, the present chapter develops a quantitative framework to derive information on food system inefficiencies in LMICs that can be derived from routine survey data.\par 
+
+A well-established approach to detect system-level efficiency cold spots through cross-referencing is the Material Flow Analysis (MFA) [@Kandemir.2020 @Brunner.2019]. An MFA quantifies flows within a predefined system boundary while considering all relevant inputs to and outputs from the system. <!--improve language based on MFA book -->Examples of MFAs applied to a food system include the UK national scale [@Salemdeeb.2016], the European regional scale [@Caldeira.2019] and the global scale [@Alexander.2017], although these models are all built from aggregated data sources and an analysis at the household level is rare [@Ju.2016]. Applications of an MFA to food waste research have successfully highlighted the significance of resource allocation in terms of nutritional, environmental and other socio-economic impacts [@Alexander.2017; @Kummu.2012].\par
+
+The objective of this chapter, therefore, is to quantify food flows within food producing households from production to the point of sale or intra-household consumption and, based on this information, estimate food allocation inefficiencies at the individual household scale. We will use the World Bank LSMS-ISA survey data, one of the largest and most commonly available data collections for SSA smallholders, to reconstruct food allocation flows for a nationally representative sample in Tanzania and upscale the results to the national level. This analysis expands on previous efforts that were based on a small fraction of the vastly expansive LSMS-ISA micro data and thus were unable to draw insight into a full set of food groups or account for system-wide inefficiencies. These include studies on food waste volumes [@Hengsdijk.2017], determinants and causes [@Hengsdijk.2017; @Kaminski.2014] and the effectiveness of interventions and their impacts [@Tesfaye.2018].\par
+
+## Materials and Methods
+<!-- (Note the figure shows the number of observations subject to exclusion at each step, they are not additive, meaning a single observation and household can meet multiple exclusion criteria. Exclusion of an observation due to any of the criteria shown results in the exclusion of the household.) -->
+
+### Overall analytical strategy and workflow
+
+The aim of the MFA was defined as quantifying food mass flows from production to point of sale or intra-household allocation (to domestic consumption) among a nationally representative sample of food producing households in Tanzania. \par 
+
+<!--Data identification: qualitative, quantitative, & suitable for MFA; extrapolated to annual -->
+Wave 4 of the LSMS-ISA survey covering the agricultural year 2014/2015 was used exclusively as a data source for this chapter. As a first step, the survey design and questionnaires were studied thoroughly to identify all sections and questions relevant to either food allocation flows or any other information relevant to waste generation and management as defined by \@ref(chapter1) and \@ref(chapter2). This included quantitative as well as qualitative data. Next, the quantitative data was further assessed on its temporal scale and, where it was not annual, whether it provided sufficient information to extrapolate an annual estimate. The entire agricultural year served as the base for the scope of the MFA (see below).\par
+
+<!--MFA general.--> The MFA was conducted using a mass balance approach (i.e., based on the conservation of mass within the system) according to the principles and steps outlined by Brunner and Rechberger [@Brunner.2019]. The boundary of the analysis was defined to cover all segments of the family farming (predominantly smallholders) food system as far as the content of the LSMS-ISA survey allowed. The overview figure (Figure \@ref(fig:sections), Appendix) shows the original survey structure, the sections used for this study, how they were interlinked and what sections were used for cross-referencing (to inform uncertainty analysis, see below). This figure formed the basis of constructing a qualitative (conceptual) model of the flows available within the survey and the ones to be imputed, as per the scope and interest shown in Figure \@ref(fig:scope). We extensively referred to the interviewer manual for a clearer understanding of each question’s aim. When questions or available answers were unclear or possible for multiple interpretations, we clarified with the LSMS-ISA team in Tanzania.\par 
+
+<!--Data imputation.-->The mass balance approach was initially carried out at the individual household level, resulting in an analysis of all material flows for each individual household. Handling of negative mass balances and propagation of uncertainty using Monte Carlo Simulations (MCS) are described in detail below. Further, to generate nationally representative estimates on production, losses and system-level efficiency, results from each household were aggregated, using the survey expansion factors (the inverse of survey weighting factors) adjusted for households excluded during the data cleaning process (see below)  [@Kaminski.2014; @Stopher.2012]. The results of the MFA were summarised in a Sankey diagram. All data cleaning, preparation and reconciliation was conducted in R version 4.5.0 [@R]. In addition, the STAN 2.7 web-based tool [@Stan2Web] was used to build the qualitative model of material flows and check system validity. As an unbalanced flow can stem from either non utilisation of resources or missing information, all unallocated flows, determined from the difference between total production and the sum of flows to all destinations, were interpreted as an upper limit estimate of food system inefficiency. Fishery and fish production systems were excluded from the analysis due to poor data quality (see below) and a relatively small number of households engaging in it. \par
+
+```{r scope, fig.cap = "Food system scope", echo=FALSE}
+# supply chain scope
+# Load necessary libraries
+library(ggimage)
+
+# Create a data frame for the food system stages
+food_system <- data.frame(
+  stage = c("Preharvest", "Production", "Storage", "Processing", "Sales", "Consumption", "Waste"),
+  x = c(1, 2, 3, 4, 5, 6, 7),  # X-axis positions for each stage
+  y = c(1, 1, 1, 1, 1, 1, 1),  # Y-axis positions for each stage
+  image = c(
+    "figure/c3/pictograms/preharvest.png",  # Path to input supply pictogram
+    "figure/c3/pictograms/production.png",    # Path to production pictogram
+    "figure/c3/pictograms/storage.png",    # Path to processing pictogram
+    "figure/c3/pictograms/processing.png",  # Path to distribution pictogram
+    "figure/c3/pictograms/sales.png",        # Path to retail pictogram
+    "figure/c3/pictograms/consumption.png",   # Path to consumption pictogram
+    "figure/c3/pictograms/waste_management.png"       # Path to recovery/recycling pictogram
+  )
+)
+
+# Modified plot code
+ggplot(food_system, aes(x = x, y = y)) +
+  # Add pictograms
+  geom_image(aes(image = image), size = 0.12) +
+  # Add labels
+  geom_text(aes(label = stage), vjust = 5, size = 4, color = "black") +
+  # Add properly centered and directed arrows
+  geom_segment(
+    aes(
+      x = x + 0.4,          # Start 0.4 units right of icon center
+      xend = lead(x) - 0.4, # End 0.4 units left of next icon center
+      y = y,
+      yend = y
+    ),
+    arrow = arrow(
+      length = unit(0.1, "cm"),  # Larger arrowhead
+      type = "closed"            # Solid arrowhead
+    ),
+    size = 1,                   # Thicker line
+    color = "darkblue",
+    na.rm = TRUE
+  ) +
+  # Adjust theme and limits
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  ) +
+  xlim(min(food_system$x) - 0.5, max(food_system$x) + 0.5) +
+  ylim(0, 2) +
+  labs(caption = "Icons made by Freepik from www.flaticon.com") # is this correct?!
+```
+
+### Data source
+
+**Survey structure**
+
+```{r include=FALSE}
+hhs_3a <- read_csv("data/c3/hhs_3a.csv") %>% setDT()
+# basic numbers
+
+# all households surveyed
+# all agricultural households surveyed
+agtot <- hhs_3a %>% filter(hh_type == "agricultural")
+# all agricultural households included
+ag <- hhs_3a %>% filter(hh_type == "agricultural" & status=="included")
+# population equivalent of all agricultural households
+ag_eq <- sm(agtot$y4_weights)
+# total population equivalent
+pop <- sum(hhs_3a$y4_weights)
+```
+
+This study used datasets from the Tanzanian edition of the World Bank’s Living Standards Measurement Study-Integrated Surveys on Agriculture (LSMS-ISA), implemented by the National Bureau of Statistics (NBS) in with support from the Tanzania National Panel Survey (TZNPS). The LSMS-ISA surveys are multi-topic nationally representative panel household surveys conducted across eight countries in SSA [@WorldBank_LSMSISA]. With a particular focus on agriculture, they are primarily designed to enhance our understanding of the linkage between agriculture, livelihoods, socio-economic status and non-farm economic activities. <!--The surveys are intended for policy-makers to monitor poverty and evaluate policy impacts [@worldbank_lsms].--> \par
+
+The fourth wave of the Tanzanian LSMS-ISA survey, for which data collection was conducted between October 2014 and December 2015, was used for the current study. The full sample of n=`r nrow(hhs_3a)` households is representative of the target population of `r round(pop/mio,1)` million households in Tanzania. Of these, `r nrow(agtot)` produced food during the survey period and thus collectively are representative of the of `r round(ag_eq/mio,1)` million food producing households in Tanzania. \par<!-- Expand based on para length and ratio to others? -->
+
+The survey design followed a stratified, multi-stage cluster sample design. The sampling frame considered four analytical strata (Dar es Salaam, other urban areas in mainland, rural areas in mainland and Zanzibar). Wave four represents a refreshed panel of the longitudinal sample design from 2008 based on updated census data. The sample was stratified at two stages along 26 regions and rural/urban divide for each region, yielding 51 independent strata [@NPS.BasicInfo]. Within each stratum, sampling locations for household clusters were randomly selected as primary sampling units, with the probability of selection proportional to their population size. For each location (a cluster), eight households were randomly selected, as well as three additional households within each enumeration area in case of non-response. Weighting factors to ensure representativeness of the data were applied at the cluster level. All selected households received a household questionnaire, while farming households additionally responded to an agriculture questionnaire, and a livestock and fishery questionnaire where relevant. The surveys were administered across household members to the most knowledgeable on the given topic [@NPS.BasicInfo]. The content of the questionnaires relevant to the present study is described further below.\par
+
+**Agricultural questionnaire**
+
+Seven sections of the agricultural questionnaire were used in the quantification efforts (Figure \@ref(fig:sections) in the Appendix). The questionnaire covers the entire agricultural year, with production recorded for each cropping season (i.e., short, and long rainy seasons) and primarily in mass (kilogram unless indicated otherwise).
+
+1.  *Plot roster*. All plots owned or planted by the household by season as a farmer’s estimate and GPS coordinates where possible, reported in acres.
+
+2.  *Plot details*. Detailed context of each plot and its management, including soil quality and irrigation system.
+
+3.  *Annual crops by plot*. All crops produced on each of the plots managed by the household, including inputs used, pre-harvest losses incurred and their causes.
+
+4.  *Permanent crops by plot*. All tree and permanent crops produced, including the number of new trees planted.
+
+5.  *Crops – household totals and disposition*. The allocation of each crop produced by the household by season. Reported quantities in storage, sold, saved for seeds, used for animal feed, given as payment or gift, post-harvest losses and residue sold. This section also reports on the method of storage used. Post-harvest losses are reported as a proportion (increments of 10%) of total production.
+
+6.  *Permanent crops – household totals and disposition*. The same purpose and design as 5) but for permanent crops and trees.
+
+7.  *Agricultural products*. The annual volume of crop processed and resulting in agricultural products and by-products, as well as volume of product used for processing and resulting products sold. The survey distinguishes between agricultural products and by-products, where by-products are defined as secondary output of any processing step. Examples of products include flour, seed, palm oil and juice, while by-products include bran, wet husk, cover and pulp. Some entries are reported in non-standard units and were therefore converted into kilograms for this study.
+
+**Livestock & fishery questionnaire**
+
+Four sections of the livestock & fishery questionnaire were used for this analysis.
+
+1.  *Livestock stock*. Livestock ownership in previous two years, including all livestock coming into the household through births, purchase or gifts and all livestock lost to disease, injury or theft, sold or slaughtered. Further, the average live weight of slaughtered animals is provided by the respondents.
+
+2.  *Feed, water, housing & breeding*. The survey records the two most predominant feed types used for each animal category. It distinguishes between exclusive use of feed or grazing and a mixture of the two and the source of the feed.
+
+3.  *Milk*. Average length and number of animals milked by livestock category (i.e., small or large ruminants) and monthly average quantities of milk produced, sold, consumed and processed into dairy products, reported in litres.
+
+4.  *Other livestock products*. Eggs, honey and animal skins and hides produced. Honey was excluded due to its marginal contribution and the limited information the section provided. Egg production was reported as the average quantity produced (pieces, kilograms or litre) per month per flock and length of production. For products under this category, only the quantities sold (and no other destination) is recorded. The units of measurement include litres and pieces, which were again converted to kilograms.\par
+
+The  *Fisheries output* section was excluded due to the inconsistent use of non-standard units, which we were unable to match to conversion factors. However, because only a small fraction of households (9.5%) engaged in fishing activities, the impact of this decision on the overall results is likely to be minimal.
+
+### Data cleaning, imputation and exclusions
+
+<!--The data used in this chapter falls into two categories. First, data used for inclusion in the MFA/Sankey diagram and second, data that provides information about FLW and waste management that was not suitable for inclusion (further explained below). Briefly, the main criteria whether data was incorporated in the MFA was whether it represented an annual flow (to be expressed in kilograms) and whether it was comprehensive (i.e., the flow could be constructed for all types of produce of the same kind). The following section describes where extrapolation to annual flows was required (and possible), how it was conducted, what information was cross-referenced and where data imputation was required (including assigning flows to destinations). Crucially, the sum of unallocated flows (i.e., mass for which no destination has been defined) is assumed to largely contain food system inefficiencies (i.e., FLW).--> 
+
+This section presents a summary of the data manipulation process. We chose to exclude data rather than impute or reconcile it, to reduce the introduction of additional uncertainty. Detailed data processing steps, underlying assumptions and exclusion criteria are summarised in Table \@ref(tab:assumptions) and \@ref(tab:exclusions-tab). Overall data manipulation followed a mass balance approach, adhering to the conversation of mass [@Brunner.2019]. \par
+
+<!--For each agricultural product we used a mass balance approach based on quantities reported in the survey to determine unallocated or missing destinations. More specifically, across survey sections the volume of sales are consistently reported, while household consumption and other potential flows are not reported. In those cases consumption was estimated based on the difference between production and sales (and other destinations) volume. Next, we calculated total production for each crop at the household level and matched the values to reported crop disposition (already aggregated at the household level). The absolute quantity of post-harvest losses was calculated based on the relative proportion lost (in the increment of one-tenth).--> 
+
+*Agricultural crops*. For each household the yield of each crop was aggregated across agricultural seasons and plots to estimate total annual production. Further destinations of crop production included home consumption, sales, gifts and payments, post-harvest losses and storage. Then a mass balance approach was used that subtracted disposition flows from reported yield for each crop. Any difference between these values was either allocated to an “unallocated” category (i.e., disposition falls short of total yield) or “missing” (i.e., yield falls short of total disposition). For processed agricultural produce, double counting was assumed between raw and processed volumes sold and consumed, based on the expert advice from the LSMS-ISA team in Tanzania. 
+
+When processing input fit in sold and consumed processing was set to 0, when processing exceeded both, any difference from an intermediate mass balance was allocated to processing to the upper limit available. If the mass balance including the required volume for processing was negative, additional processing was set to 0.  
+
+However, in the rare cases where the volume used to produce agricultural products that were sold exceeded the previously reported volume of sales by more than threefold, the observations were excluded. Given that the volume processed can be additional to previously reported disposition and/or included in previously reported disposition values were only excluded if the difference to reported yield was more than 50% (processed crops can be used from food in storage from the previous year and not recorded in this survey) and when the volume used for production was smaller than the volume of final product. For the conversion of agricultural products into mass, reference values and food conversion tables were used [@aqua]. <!--#  (https://www.aqua-calc.com/calculate/food-volume-to-weight) -->\par
+
+*Slaughter product.* From average live weights for slaughtered animals provided by the respondents, we estimated the proportional yield for meat, edible offal and other by-products/waste including skins/hides (Table \@ref(tab:breakdown), Appendix) [@Hal.2020; @beefyieldguide; @lambyieldguide]. From all additional animal skins and hides available only those that had plausibly been sourced from ruminants slaughtered (rather than those that were sold live or died from a natural cause) were included. Feed requirements were estimated based on the live weight of slaughtered animals and primary mode of feeding reported (see below).\par
+
+*Milk production*. Total annual milk production was estimated by multiplying average daily milk output for each livestock category by the number of months animals were milked for. The reported data was inadequate to reconstruct a typical lactation curve for plausibility checks and verification from months with lowest and highest milk output because volumes were reported for groups of animals. When the reported average was inconsistent with the other output values (i.e., same as the lowest or highest milk output) or mismatched the total sum of allocated volume (in contradiction to the enumerator manual) a new average was estimated. We estimated the new average value as a weighted combination of a corrected minimum (always the lowest of the three values), a corrected maximum (always the highest of the three values) and a corrected average (always the mean of the three values, if available). Specifically, the corrected average was assigned a 60% weight (most reliable estimate) and the minimum and maximum values were each assigned a weight of 20% to incorporate uncertainty. We calculated the standard deviation across estimates for each household based on the minimum, maximum and average values reported. All litre values were converted into kilograms (multiplied using a conversion factor of 1.08). In instances where households reported to have sold milk products but the volume used for processing was not recorded, the input volume was assumed to be equal to the volume of final products.\par
+
+*Egg production*. Annual egg production and sales were estimated by multiplying the monthly yield by the number of months eggs were produced by the relevant household. Eggs that were not sold were assumed to be either consumed or “unallocated”. We followed several steps, using information from the 7-day food consumption recall from the household questionnaire (see \@ref(chapter4)) to divide the remaining egg volume after sales into eggs for consumption and those remaining “unallocated” (i.e., of which a proportion was assumed lost or wasted) at the household level. First, based on consumption reported in the food recall, egg consumption was extrapolated to cover the length of egg production (the remainder stayed “unallocated”). Second, if the household did not report egg consumption during the recall week but had an unallocated flow, we used the mean per person egg consumption data across all households and extrapolated it to annual consumption for the household. Due to the difference in temporal scope between the agricultural questionnaire (one year) and the food consumption questionnaire (one week), it would be reasonable to assume that consumption of a given product could have been missed in the week of food recall. This issue will be discussed and addressed in \@ref(chapter4)). <!--Lastly, if a household reported egg consumption in the recall week, but the unallocated flow was smaller than what could be assumed to have been consumed, the entire unallocated flow was allocated to consumption (resulting in a somewhat unrealistic situation without any unallocated volume, i.e., no losses).-->\par
+
+
+\newpage
+\begin{landscape}
+
+```{r assumptions, echo=FALSE}
+assumptions <- data.table(
+  # Questionnaire = c(
+  #   "Agriculture",
+  #   "Agriculture",
+  #   "Agriculture",
+  #   "Agriculture",
+  #   "Agriculture",
+  #   "Livestock",
+  #   "Livestock",
+  #   "Livestock",
+  #   "Livestock",
+  #   "Livestock",
+  #   "Livestock",
+  #   "Livestock"
+  #   ),
+    Section = c(
+      "Plots",
+      "Units and annual production",
+      "Residue",
+      "Crop disposition and agriculture produce",
+      "Agricultural produce",
+      "Animal feed",
+      "Animal feed",
+      "Livestock",
+      "Animal produce - hides",
+      "Milk",
+      "Milk",
+      "Eggs"
+      ),
+  Assumption = c(
+    "Farmers area estimate assumed erroneous, GPS measure was preferable",
+
+    "The standard units provided were converted to kilograms using reference values from online food conversion tables. Annual production was extrapolated from average monthly production and length of production.",
+    
+    "Crops produce residue relative to production value, residue was the main source of grazed and scavenging based on farmers' reporting. The total volume of residue was estimated based on total production for each crop, farmers reported on the primary use of residue, all residue produced below the need determined to produce the households' animal produce was allocated to animal 'grazing/scavening', remaining residue was presented but the different uses (i.e., mulching, feeding other peoples' animals) were not considered.",
+
+    "A possible overlap between the volume reported in the disposition and agricultural produce sections may exist (confirmed by LSMS TZ team). Therefore, produce used as input for agricultural products that was subsequently sold, could not exceed volume sold by more than threefold. Agricultural produce not reported as sold was assumed consumed.*",
+
+    "The same input volume for product and by-product was recorded separately resulting in double counting. Input volumes for products and by-products were matched, and any difference or unallocated volume was assumed waste.",
+
+    "Feed requirements were based on the proportion of edible weight typical for each animal group. Feed requirements were calculated using Feed Conversion Ratios and are expressed in kg Dry Mass (DM). Feed for slaughtered animals and animal produce was additive (i.e., feed for raising a chicken for its meat and the feed required for raising a chicken for its eggs added to another leading to an overestimation of feed requirements).*",
+
+    "The primary mode of feeding of an animal group was assumed the only mode of feeding. The composition of feed (i.e., feed vs grazing) followed the distribution typical for the region and animal type and the feeding requirements were allocated proportionally to feed and scavenging/grazing.*",
+
+    "The average live weight of slaughtered animals was divided in group specific proportions of meat, offal, inedible by-products/waste and skin/hides/feather.*",
+
+    "Hides were only produced from animals slaughtered and not sold. If the number or weight of hides produced exceeded the plausible number of hides produced from animals slaughtered and not sold their production was considered outside the system boundary. All hides produced that were within the quantity of hides estimated for small and large ruminants that were slaughtered (and not sold) were assumed to belong to said animals (i.e., hides could have been produced from animals that died due to injury or disease, but if sufficient hides were 'available' from slaughtered animals it was assumeed that hides were produced from the slaughtered animals). Further, hides that were listed as produced but not sold were assumed to be allocated to the household.",
+    
+    "Reported milk outputs did not reflect realistic lactation curves and could not be verified based on the data provided. In multiple instances average milk output was equal to maximum and minimum output, thus contradicting statistical and biological principals. A corrected and weighted mean was calculated across reported minimum, maximum and average values, missing data was replaced with the sum of reported allocation flows at the household level. The uncertainty of the estimate is reported.",
+
+    "Milk inputs for processing were erroneous. The volume of milk used for processing was not recorded, therefore it was assumed that the volume of the end product was equal to the input volume.",
+
+    "Eggs that were not sold were assumed consumed or unallocated/lost. The questionnaire only records the quantity of eggs sold. Eggs allocated to consumption were estimated by extrapolating consumption reported in the 7 day household food recall using the following inputs: 1) total household egg consumption from all sources multiplied by the number of months eggs were produced, if this estimate was below the unallocated value it was allocated to consumption*, 2) for households that did not report egg consumption in the recall week from any source but had an unallocated flow, the mean per person household egg consumption across all consuming households was multiplied by the number of household members and length of egg production, if this estimate was smaller than the unallocated flow it was allocated to consumption,* 3) if either of the consumption estimates exceeded the unallocated value, then the entire unallocated value was allocated to consumption."
+    ),
+  Reference = c(
+    " ",
+    "www.aqua-calc.com",
+    " ",
+    "Sandström et al.,  2022",
+    " ",
+    "Alexander et al., 2016",
+    "MacLeod et al., 2013; Opio et al., 2013",
+    "Hal et al., 2020; Beef Yield Guide; Lamb Yield Guide",
+    " ",
+    " ",
+    "FAO Poultry Fact Sheet")) 
+
+assumptions %>% 
+  kbltbl(
+    caption = "Data assumptions and manipulation",
+    longtable =T
+  ) %>% 
+  column_spec(1, width = "3cm") %>% 
+  column_spec(2, width = "14cm") %>% 
+  column_spec(3, width = "3cm") %>%
+  pack_rows(index = c(
+    "Agricultural Questionnaire" = 5, "Livestock Questionnaire" = 6)) %>% 
+  # landscape() %>% 
+  kableExtra::footnote(general = "* indicates strong assumptions" )
+```
+\end{landscape}
+\newpage
+
+
+*Data exclusion*
+
+The results of the household-level MFA were carefully examined for integrity, and only households that provided complete, plausible and coherent information were retained in the final dataset [@Brunner.2019]. A violation of any of the exclusion criteria led to the exclusion of the entire household. The detailed exclusion criteria used to improve data accuracy are shown in Table \@ref(tab:assumptions). Briefly, households were excluded when a mismatch between any of the survey sections for any observation was identified. For example, a households was excluded if any observation where the quantity of a given item produced was reported but in the section of food allocation (i.e., household consumption, sale and gifting) this item was missing or, conversely, where allocation quantities were reported but no information was given on production quantity. Any discrepancies in quantities reported between survey sections were, depending on the severity, treated as data inaccuracy, and excluded or treated as data uncertainty and incorporated in the model (Table \@ref(tab:exclusions-tab)). For example, observations for which the sum of food allocation used was below or above a certain threshold (30% for crops, 50% for milk) of production volumes, or where a single use exceeded production by more than 20% were excluded. The cut-off level for exclusions was chosen based on general estimates of recall bias [@Beegle.2012], limits used in other MFA studies and based on the overall quality of the data across sections [@Amicarelli.2021a]. For milk, for example, a more lenient threshold was set as only sales and consumption were reliably reported and thus missing volumes can have a range of onward destinations (e.g., donated in kind, and lost) that could plausibly explain the missing allocations. Several food producing households were excluded because they did not produce any food in the agricultural year or the survey was only partially completed.\par
+
+\newpage
+\begin{landscape}
+
+```{r exclusions-tab, echo=FALSE}
+exclusions <- data.table(
+  # Questionnaire = c(
+  #   # "Agriculture",
+  #   "Agriculture and Livestock",
+  #   "Agriculture",
+  #   "Agriculture",
+  #   "Agriculture",
+  #   "Livestock",
+  #   "Livestock",
+  #   "Livestock",
+  #   "Livestock"
+  #   ),
+  Section = c(
+    # "Harvest"
+    "Section misalignment and implausible values",
+    "Crop disposition",
+    "Agricultural produce",
+    "Livestock",
+    "Milk",
+    "Milk",
+    "Milk",
+    "Eggs"
+    ),
+
+  'Exclusion criterium' = c(
+    # "Harvest is within the top 2% of quantity harvested per hectare.",
+
+    "Any misalignment in sections, where food was produced, animals were not owned and disposition was not aligned (or vice versa) were excluded. Any disposition value that exceeded production was excluded.",
+
+    "The sum of disposition exceeded or came short by 30% of the reported harvest.",
+    
+    "Input for agricultural products exceeded harvest by more than 20%. Final products exceeded total inputs used to produce these items by 10%.
+Further, input for sales and consumption should not have exceeded twice the quantities that were previously reported to be sold or consumed.",
+
+    "Average live weight for slaughtered animals was within the bottom or top 2% for the animal group.",
+
+    "Households that reported to have milked a single animal for longer than 306 days or with an average daily mikling volume exceeding 7 l (5.5 l being considered the plausible maximum).",
+
+    "Any volume allocated to a destination that exceeded total milk production by more than two standard deviations of the average production estimate.",
+
+    "Total volume allocated exceeded or fell short of production (adjusted by two standard deviations) by more than 50%.",
+
+  "Reported sales exceeded production."
+
+    ),
+  Assumption = c(
+    # "Harvest is considered an outlier, erroneous or inaccurrate.", # does not hold as too many inaccuracies in plot size, no additional benefit on discriminating at this level as sufficient if numbers are coherent/i.e. matching up
+
+    "Data is incomplete.",
+
+    "Reporting was erroneous or inaccurate.",
+    
+    "Reporting of volumes used for agricultural produce can fall within or outside previously reported consumption/sales volume. Other than for crop disposition there were no overall checks or clear instructions for enumerators on the relationship of the variables and reported quantities. It thus had to be assumed that the quantities reported to have been used to produce agricultural products that were sold and consumed had already been included in the volumes sold and consumed (unprocessed).",
+
+    "Reporting was erroneous or inaccurate. Different to crop disposition, the reporting on milk volumes used for processing were missing or erroneous (volumes produced and sold were recorded but the input was largely missing) and therefore a greater margin of error was required.",
+
+    "Milking length and output considered implausible.",
+
+    "Data considered inherently inconsistent.",
+
+    "Extreme values were treated as implausible and outliers.",
+
+    "Data considered inherently inconsistent."
+  )
+) 
+
+exclusions %>% 
+  kbltbl(
+    caption = "Data exclusion criteria and underlying assumptions",
+    longtable = T
+  ) %>% 
+  pack_rows(index = c(
+    "Both Questionnaires" = 1, "Agricultural Questionnaire" = 2, "Livestock Questionnaire" = 5)) %>% 
+  column_spec(1, width = "3cm") %>% 
+  column_spec(2, width = "8cm") %>% 
+  column_spec(3, width = "8cm") 
+
+```
+\end{landscape}
+\newpage
+
+
+### Mass balance, uncertainty (Monte Carlo Simuation) and data validation
+
+<!-- Household level -->
+<!-- 1. Mass balance at household level -->
+<!-- 2. Perform Monte Carlo Simulation (MCS) for Each Household -->
+<!--   - check distribution based on group, assign normal to all -->
+<!--   - handling negative values - proportional adjustment of production and all allocation flows (assumes only measurement error) -->
+<!-- 3. Aggregate mean across simulations, Uncertainty of each household (by group), -->
+<!-- 4. Validate; reporting of uncertainty based on first flow only (ignores the once that were imputed at a later stage); additional outliers were assessed -->
+
+<!-- Aggregate -->
+<!-- 3. Aggregate determine Uncertainty by group and flow -->
+<!-- 4. Performance -->
+<!-- 5. Sankey diagram -->
+
+```{r validation, include=FALSE}
+validation_table <- data.frame(
+  Stage = c(
+    "Raw Data Validation",
+    "Household-Level Validation",
+    "Aggregated Data Validation",
+    "Normalized Data Validation",
+    "Final Validation"
+  ),
+  When = c(
+    "Before aggregation or normalization",
+    "Before household-level Sankey or aggregation",
+    "After aggregation but before normalization",
+    "After normalization",
+    "Before visualization or reporting"
+  ),
+  What_to_Validate = c(
+    "Missing/negative values, outliers, data types",
+    "Negative flows, completeness, internal consistency",
+    "Mass balance, completeness, zero/negative totals",
+    "Flows sum to 100%, no missing or negative values",
+    "Completeness, consistency, visualization readiness"
+  )
+)
+
+# Display the table
+kable(validation_table, col.names = c("Stage", "When", "What to Validate"))
+```
+
+<!-- As discussed, not all out-flows matched the reported production volume, resulting in _missing_ quantities (i.e., allocation exceeds production quantities) and _unallocated_ quantities (i.e., allocation falls short of production quantities). The extent to which production and the sum of allocation values were misaligned depended on the detail covered in the survey (i.e., how many different allocation flows were reported) and also the extent of measurement errors. For example, for crops, the difference between production and allocation is more likely to be the result of measurement errors compared to the difference estimated for eggs for which fewer allocation destinations were listed in the survey (and therefore the unallocated flow can contain a wide range of flows such as gifts, payments, etc.).\par indicates that 10% sd assumption not really valid -->
+
+There are two types of uncertainty associated with MFA: one is inherent (also called aleatory variability or “variability in weight as a function of time”), which cannot be incorporated into the model when the dataset represents a single time point (as is the case here). The second type is uncertainty arising from limitations in the design of the survey (epistemic uncertainty) resulting in “insufficient knowledge about the world” and error [@Brunner.2019]. While epistemic uncertainty was primarily addressed by excluding data of poor quality and unfit for purpose (see above), we further estimated uncertainty across material flows.\par
+
+After all processing and exclusion steps, a mass balance approach was taken for each household, where the sum of all allocation flows (including stocks) was to match the production volume. On these data a Monte Carlo Simulation (MCS) was conducted to quantify uncertainty in the material flow estimates. After conducting the required checks (i.e., completeness and structure of the data), the material flows were modelled with normal distributions à 1000 iterations. Further, a standard deviation equivalent to 10% of the mean value was assumed for all flows. This assumption reflects typical variability observed in similar systems [@ref]. Across simulations the MCS resulted in a mean value and standard deviation for all direct material flows for each food group at the household level. All estimates were validated and checked for additional outliers, which were inspected but retained as they were considered to represent true data variability. The validation process also included checks for negative flows, completeness of data, internal consistency of the material flows and relationship of mean and standard deviation. Negative values, assumed to originate from measurement error alone, were set to zero. To maintain consistency, values were proportionally adjusted across production and allocation flows. The number of observations and households affected are reported separately. The mass balance was checked to ensure that the sum of all allocation flows matched the production volume. Subsequently, the data was aggregated and system-wide uncertainty was determined. We combined SDs (using the square root of the sum of variances), calculated the 95% Confidence Intervals (CI) and percentage uncertainty for each flow and across flows for each food group.\par
+
+We assessed the performance of the probabilist MFA model based on the MCS results. To that end, the observed data (including negative values resulting from the mass balance calculations) were compared to the simulated data. The model performance analysis focused on evaluating the accuracy of simulated data compared to observed data for direct flows only. The Root Mean Square Error (RMSE), Mean Absolute Error (MAE), and R-squared, were used as key performance metrics. RMSE and MAE are both measures of the magnitude of errors, while R-squared assesses the explanatory power of the model. \par
+
+To visualise the results in a Sankey diagram, a number of additional flows were calculated based on the proportional allocation in the observed data. This concerned namely intermediate flows from processing to sold, consumed and unallocated/waste, to retain internal consistency for these flows. Moreover, based on the MCS results, feed requirements for all animal products were determined. For each livestock category the typical composition of mixed feeding based on FAO reports and typical feeding rations in Tanzania (Table \@ref(tab:feed) in the Appendix) were defined [@MacLeod.2013; @Opio.2013]. The feed required for slaughtered animals was based on the live weight provided or the total amount of animal products produced (i.e., milk and eggs) and expressed in kilograms of dry matter (DM). The feed conversion ratio  was used to determine the feed input required for edible mass, and the DM of feed required was further proportionately allocated to the reported feed sources (i.e., feed or grazing/scavenging) (Table \@ref(tab:feed)) [@Alexander.2016]. 
+Ultimately, a Sankey diagram could be generated for each household present in the survey and aggregated to nationally representative data using the survey expansion factors. We present the results for the survey households (i.e., observations) and the data extrapolated to nationally representative households (henceforth referred to as “household equivalents” or “plot equivalents”) as reported by respondents. Further, the results are presented in linear fashion according to the scope shown in Figure \@ref(fig:scope).\par
+
+
+<!--The ultimate Sankey diagram displays the reconciled values and differentiates between the sum of all “unallocated” flows (as described above) and summarises post-harvest losses, inedible slaughter waste and processing waste into “Loss & Waste”. For simplicity gifts and payments are combined as a representation of the informal food economy.--> \par
+
+<!-- **The spread of the difference between food production and the sum of allocation flows was quantified and will be reported for all crops and milk. Further, to reconcile mass balance and estimate uncertainty the model was simplified, and it was assumed[c] that absolute uncertainty initially lies with food production (i.e., import flows of MFA) rather than food allocation (and export) flows. This is despite the evidence possibly suggesting that recall bias related to harvest and food production is relatively small among smallholder food producers [@Beegle.2012a].\par** -->
+
+<!-- **The reconciled mean and standard error (as a measure of uncertainty) were derived from three measures of production. First, by adding _missing_ quantities to reported production (i.e., assuming that production was under-reported and the sum of allocation flows is a “truer” reflection of production volume) we obtained an upper estimate for production. Similarly, by subtracting _unallocated_ volumes from reported production (i.e., assuming production was over-reported and the sum of allocation flows is a complete representation of possible flows) we obtained a lower estimate. The mean and corresponding standard deviation are taken across reported production, the upper and lower estimate. Subsequently, the Stan2Web software [@Stan2Web] was used to reconcile measurements, estimate missing quantities/wastage and estimate uncertainty across all flows. Finally, the reconciliation results and the previously estimated quantities were compared to assess the relative importance of epistemic uncertainty. \par** -->
+
+### Additional information on food system inefficiencies
+
+<!--Not all information relevant to food system inefficiencies provided in the survey was quantifiable and not all information that was quantifiable was suitable to be included as mass-based material flows in a Sankey diagram. For example, while the survey provides information on the number of livestock lost to disease, injury or theft, no further information is provided that would allow to infer a weight estimate. Similarly, households report on typical waste management practices. Information that is relevant to the topic at hand (i.e., wastage as reported or inferable from the LSMS-ISA survey) were reported as available.-->
+
+The survey allowed for several additional estimates of losses and inefficiencies that were not included in the Sankey diagram. For each crop, we estimated the total amount of residue produced alongside reported yield, based on the method and reference values provided by Sandström et al. [@Sandström.2022]. <!--Briefly,.. --> For these and the following calculations, if available the GPS measure for each plot was used over the farmers’ estimates. All plot areas were converted into hectares. For each crop-plot combination total harvest was estimated (including quantity of remaining harvest) and actual yield (YA) as tonnes per hectare planted was determined. The YA was then compared to the yield potential (YP) values for crops and irrigation systems listed for Tanzania in the Global Yield Gap Atlas (GYGA) to determine the yield gap [@GYGA]. Briefly, the GYGA applies crop simulation models that account for the cultivation context (i.e., climate, ecosystem) of the cultivar and the cropping system in a given geographical setting to estimate the YP. These models further differentiate yield benchmarks for rain-fed (i.e., water-limited yield potential) or irrigated systems [@GYGA; @Ittersum.2013]. The LSMS-ISA survey includes information on the type of irrigation used for each crop-plot combination. The GYGA provides readily available estimates specific to Tanzania for five cereals (maize, millet, sorghum, rice and wheat), two legumes (pigeon pea and groundnut). The yield estimates for rice are provided for rain-fed and irrigated agriculture. The quantification of yield gaps served as a means to infer pre-harvest loss volumes. Additionally, we estimated the number of livestock lost to disease, illness, and theft through the course of the agricultural year. This was excluded from the MFA/Sankey diagram as no information on the final livestock weight was available for animals lost during production.\par
+
+## Results
+
+```{r population size, include=FALSE}
+# surveyed agricultural households are representative of...
+# percentage of ag households included
+p <- round(nrow(hhs_3a[status == "included"])*100/nrow(hhs_3a[hh_type == "agricultural"]),1)
+# total number of households
+N <- nrow(hhs_3a)
+```
+
+Table \@ref(tab:consort) shows the number of households affected by each exclusion criterion (or combinations thereof), several households are affected by multiple exclusion criteria. A total of n = `r nrow(hhs_3a[status== "included"])` households fulfilled the data requirements and were included in the analysis; this represents `r p`% of households covered in the original (LSMS-IMS) agricultural survey. All up-scaled results reported below are weighted to remain representative of the `r round(sum(ag$y4_weights)/mio,1)` million food producing households in Tanzania.\par <!--unweighted results are presented were relevant in the Appendix.-->
+
+<!-- Copy files to thesis file and change file directory when finalized -->
+\newpage
+
+```{r consort, echo=FALSE}
+# group categories
+ex <- read.csv("data/c3/excl_list.csv") %>% 
+  select(y4_hhid, item, excl = excl_new) %>% 
+  setDT()
+
+# overview table
+dt <- ex %>% select(hhid = y4_hhid, criterion = excl)
+
+# Create household-level criteria combinations
+household_criteria <- dt[, .(criteria = paste(sort(unique(criterion)), collapse = "+")), 
+                          by = hhid]
+
+# Calculate combination frequencies
+criteria_combinations <- household_criteria[, .N, by = criteria][order(-N)]
+
+criteria_combinations %>% 
+  dcast(criteria ~ ., value.var = "N", fun.aggregate = sum) %>% 
+  kbltbl(
+    caption = "Overview of data exclusions",
+    col_names = c("Criteria Combination", "Households")) 
+
+```
+
+
+
+### Food production
+
+```{r include=FALSE}
+# shoudl be fully replaced by observed_data/wide_fin
+# reconstruct produce_long
+produce_long <- read_csv("data/c3/produce_long.csv") %>% setDT() # 
+
+# Reduce households to food group
+produce_long[, itemcount :=ifelse(produced>0, 1, 0)] # number of items produced
+
+produce_long <- produce_long %>% 
+  mutate(tab3 = fcase(
+    subtype == "Milk", item,
+    product_type == "Slaughter product", type, # slaughter product contains full weight of slaughter
+    type == "Eggs", type,
+    category == "Plant", type
+  ))
+
+sec1_detail <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(item)] # type is smallest category - milk, eggs should be types at next run!
+```
+
+
+```{r include=FALSE, eval=FALSE}
+sc1 <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(y4_hhid, category, product_type, tab3)] # type is smallest category - milk, eggs should be types at next run!
+
+# slaughter product is only inedible stuff, while animal product contains all the meat/offal for the first summary table this needs to be adjusted (may be the source of the error of totals??)
+
+# replace weights
+sec1 <- sc1 %>% 
+  select(!weight_adj) %>% 
+  weigh()
+
+# Tab1: total production quantities - x
+tab1 <- sec1 %>% 
+  filter(!is.na(tab3)) %>% # hides & processed milk
+  filter(produced>0) %>% # many empties not clear why!
+  filter(product_type!="Processed crop" & tab3!="Other") %>% 
+  group_by(category, product_type, tab3) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = n(), # number of households producing
+    perc_obs = n_obs*100/nrow(ag), # percentage of agricultural household producing items in type (only of included househodls)
+    average = mean(produced), # average production quantity of producers
+    # weighted sample
+    neq = sum(weight_adj), # hh eq producing item
+    perc = neq*100/ag_eq, # percentage of smallholders producing
+    production = sum(w_produced), # total production
+    av_w = production/neq, # average production quantity of producer
+    avitems = mean(itemcount)) %>%   # average number of items per group being produced
+# scale and round prior to table
+  rd()
+
+# product details
+produce_long[, producer := ifelse(produced>0,1,0)]
+
+```
+
+```{r production-tab, echo=FALSE}
+observed_data <- fread("data/c3/observed_data.csv") %>% setDT()
+
+observed_wide <- observed_data %>% 
+  dcast(
+  y4_hhid + type ~ destination, value.var = "observed_value"
+) %>% 
+  mutate(across(is.numeric, ~ replace_na(., 0))) 
+
+fwrite(observed_wide, "data/c3/observed_wide.csv")
+
+observed_wide_fin <- observed_wide %>%
+  # mutate(
+  #   perc_miss = dest_missing * 100 / produced,        # Calculate percentage missing
+  #   perc_miss = replace_na(perc_miss, 0)             # Replace NA with 0
+  # ) %>%   mutate(
+  #   range_group = case_when(
+  #     perc_miss < 0 ~ "Negative",
+  #     perc_miss == 0 ~ "Overall match",
+  #     perc_miss > 0 ~ "Postive",
+  #     TRUE ~ "Other" # Optional for values outside defined ranges
+  #   )
+  # ) %>% 
+  weigh() %>% 
+  mutate(
+    w_missing = dest_missing * weight_adj,
+    w_produced = produced * weight_adj,
+    positive = ifelse(dest_missing >0, dest_missing, 0),
+    negative = ifelse(dest_missing <0, dest_missing*-1, 0),
+    p_positive = ifelse(positive>0, positive*100/produced, 0),
+    p_negative = ifelse(negative>0, negative*100/produced, 0),
+    w_positive = ifelse(w_missing >0, w_missing, 0),
+    w_negative = ifelse(w_missing<0, w_missing*-1, 0),
+    # w_p_positive = ifelse(w_positive>0, w_positive/w_produced, 0), # calculated in this manner it'll be the same as the other
+    # w_p_negative = ifelse(w_negative>0, w_negative/w_produced, 0)
+  ) %>% 
+  mutate(group = ifelse(type == "eggs" | grepl("milk", type) | grepl("slaughter", type), "Animal products", "Crops")) %>% 
+    select(y4_hhid, group, type, produced, dest_missing, w_produced, w_missing, positive, p_positive, negative, p_negative, w_positive, w_negative, weight_adj) 
+tab1 <- observed_wide_fin %>% 
+  select(group, type, produced, w_produced, weight_adj) %>% 
+  group_by(group, type) %>% 
+  summarise(
+  # unweighted sample
+    n_obs = length(produced[produced>0]),, # number of households producing
+    perc_obs = n_obs*100/nrow(ag), # percentage of agricultural household producing items in type (only of included househodls)
+    average = mean(produced), # average production quantity of producers
+    # weighted sample
+    neq = sum(weight_adj[produced>0]), # hh eq producing item
+    perc = neq*100/ag_eq, # percentage of smallholders producing
+    production = sum(w_produced), # total production
+    av_w = production/neq) %>%   # average number of items per group being produced
+# scale and round prior to table
+  arrange(desc(group)) %>%
+  ungroup() %>% 
+  mutate(production = round(production/tokt,1), # to kilotonne
+         neq = round(neq/1000,1),
+         type = str_to_sentence(type)) %>% 
+  rd()
+  
+tab1 %>% 
+  filter(!grepl("Other|other", type)) %>% 
+#   filter(!grepl("Other", type)) %>% 
+  mutate(type = str_remove(type, "Slaughter - "),
+         type = str_to_sentence(type)) %>% 
+  select(-group) %>% 
+  relocate(av_w, .after = perc) %>% 
+  kbltbl(
+    caption = "Annual food production",
+    col_names = c(" ","n", "%", "Mean annual production (kg)", "Household equivalents (1000s)", "%", "Mean annual production (kg)", "Total annual production (kt)")
+  ) %>% 
+  pack_rows(index = c("Plant - other crops" = 1, "Plant - Food crops" = 7, "Animal - Animal products" = 3, "Animal - Slaughter product" = 4)) %>% 
+  column_spec(1, width = "2cm") %>% 
+  column_spec(2:8, width = "1.3cm") %>% 
+  add_header_above(
+    c(" " = 1,
+      "Producers" = 2,
+      " " = 1,
+      "Producers" = 2,
+      " " = 2)) %>% 
+  add_header_above(
+        c(" " = 1, 
+      "Unweighted survey data" = 3, 
+      "Weighted,  nationally representative data" = 4
+      ),
+    # c(" " = 1, 
+    #   "\\\\parbox{2.6cm}{Number of observations producing at least one item of group}" = 2, 
+    #   " " = 1, 
+    #   "\\\\parbox{2.6cm}{Total household equivalent}" = 2, 
+    #   " " = 3),
+    escape = FALSE) %>%
+  kableExtra::footnote(general = "'Slaughter product' refers to total live weight before slaughter" )
+```
+
+
+```{r production-old, echo=FALSE, eval=FALSE}
+# Table 1 - x
+# adjust order, scaling & other formatting issues
+# tab1$type <- ifelse(tab1$type == "Large ruminants" & tab1$product_type == "Animal product", "Milk - Large ruminants", tab1$type)
+# tab1$type <- ifelse(tab1$type == "Small ruminants" & tab1$product_type == "Animal product", "Milk - Small ruminants", tab1$type)
+
+tab1v2 <- tab1 %>% 
+  arrange(desc(category)) %>%
+  ungroup() %>% 
+  mutate(production = round(production/tokt,1), # to kilotonne
+         neq = round(neq/1000,1)) 
+
+tab1v2 %>% 
+  select(tab3:avitems) %>% 
+  filter(!grepl("Other", tab3)) %>% 
+#   filter(!grepl("Other", type)) %>% 
+  relocate(av_w, .after = perc) %>% 
+  kbltbl(
+    caption = "Annual food production",
+    col_names = c(" ","n", "%", "Mean annual production (kg)", "Household equivalents (1000s)", "%", "Mean annual production (kg)", "Total annual production (kt)",  "Average number of items produced")
+  ) %>% 
+  pack_rows(index = c("Plant - Food crops" = 7, "Plant - other crops" = 1, "Animal - Animal products" = 3, "Animal - Slaughter product" = 4)) %>% 
+  column_spec(1, width = "2cm") %>% 
+  column_spec(2:9, width = "1.3cm") %>% 
+  add_header_above(
+    c(" " = 1,
+      "Producers" = 2,
+      " " = 1,
+      "Producers" = 2,
+      " " = 3)) %>% 
+  add_header_above(
+        c(" " = 1, 
+      "Unweighted survey data" = 3, 
+      "Weighted,  nationally representative data" = 5
+      ),
+    # c(" " = 1, 
+    #   "\\\\parbox{2.6cm}{Number of observations producing at least one item of group}" = 2, 
+    #   " " = 1, 
+    #   "\\\\parbox{2.6cm}{Total household equivalent}" = 2, 
+    #   " " = 3),
+    escape = FALSE) %>%
+  kableExtra::footnote(general = "'Slaughter product' refers to total live weight before slaughter" )
+
+```
+
+```{r inline production, include=FALSE}
+totalneq <- observed_wide_fin %>% select(y4_hhid, weight_adj) %>% unique() %>% 
+  summarise(total = sum(weight_adj)) 
+
+# inline code
+# scaling... rounding...
+grains <- tab1 %>% filter(type == "Grains & cereals") %>% pull(production)
+grainsp <- tab1 %>% filter(type == 'Grains & cereals') %>% pull(perc)
+rtp <- tab1 %>% filter(type == 'Roots & tubers') %>% pull(perc)
+nutsp <- tab1 %>% filter(type == 'Nuts & seeds') %>% pull(perc)
+vegp <- tab1 %>% filter(type == 'Vegetables') %>% pull(perc)
+legp <- tab1 %>% filter(type == 'Legumes') %>% pull(perc)
+
+leg <- tab1 %>% filter(type == 'Legumes') %>% pull(production)
+nuts <- tab1 %>% filter(type == 'Nuts & seeds') %>% pull(production)
+milk <- tab1 %>% filter(type == 'Milk (large ruminants)') %>% pull(production)
+
+poulp <- tab1 %>% filter(type == 'Poultry') %>% pull(perc)
+meat <- produce_long %>% filter(grepl("meat", item)) %>% filter(produced>0)
+meathh <- meat %>% select(y4_hhid, weight_adj) %>% unique()
+milkhh <- produce_long %>% filter(grepl("Milk", item)) %>% filter(produced>0)
+```
+
+**Crops**
+
+Table \@ref(tab:production-tab) shows the production volumes for each food group across observations and extrapolated to nationally representative data. The production of grains & cereals was by far the largest of all food groups with `r round(sc_mt(grains),1)` Mt, of which `r produce_long %>% filter(item == "Maize") %>% summarise(sum = sm(w_produced)) %>% sc_mt() %>% rd()` Mt are maize. Overall, `r grainsp`% of households produced at least one type of cereal or grain. This was followed by fruits, legumes and roots & tubers. Overall, a larger share of households engaged in legume production (`r legp`%) compared roots & tubers (`r rtp`%) and nuts & seeds (`r nutsp`%) which were produced by a similar share of households. Yet, the overall quantities of roots & tubers and nuts & seeds exceeded the total quantity of legumes produced. A small share of households (`r vegp`%) engaged in vegetable production.\par
+
+**Animal products**
+
+A smaller proportion of households engaged in livestock husbandry. An equivalent of n = `r sum(meathh$weight_adj)/t` thousand households are estimated to slaughtered animals for meat (`r round(sum(meathh$weight_adj)*100/totalneq,1)`%), of which `r round(meat %>% filter(type == "Poultry") %>% summarise(sum = sm(w_produced))/t/t,1)` Mt were poultry meat. Consistently, `r tab1 %>% filter(grepl("Eggs", type)) %>% pull(perc)`% of households produced eggs. A smaller proportion of households were estimated to produce milk (`r round(sum(milkhh$weight_adj)*100/totalneq,1)`%).\par
+
+<!-- possibly refer to the range for the milk estimate -->
+
+### Virtual and pre-harvest losses
+
+<!-- The LSMS survey does not allow for an accurate quantification of pre-harvest losses. However, I are able to estimate the yield gap for several crops and further determine for how many households pre-harvest losses have contributed to this gap (and the primary causes). -->
+
+```{r, echo=FALSE}
+yieldgaps <- read_csv("data/c3/yieldgaps.csv")
+# YP in t/ha
+
+# total yield gap by type
+yg_stat <- yieldgaps %>% 
+  filter(!is.na(YP)) %>% # no need to include items I didnt calculate YP for
+  mutate(virt_yield = YP*area_planted_new) %>% # total yield without gap
+  group_by(cropid) %>% 
+  summarise(
+    # unweighted
+    n = n(), # number of plots
+    harvest = sm(total_harvest), # total harvest in kg
+    # yieldt = sm(yield), # contains NA, total yield, i.e. harvest per area, this has no value as it is a relative figure
+    area = sm(area_planted_new),
+    mn_yield = mn(yield), # average kg/ha yield
+    ypt = sm(YP), # total per hectare yield potential
+    ypt_area = sm(virt_yield), # total yield if potential met
+    ha_gap = mn(YG), # average gap per ha in t
+    virt_yield = sm(virt_yield),
+    # perc_gap = yieldt*100/ypt, # total gap between potential and actual, yield as percentage of potential -> same as mean_gap -> rename mean_gap to perc_gap
+    perc_gap = mn(pyg), # average yield of yield potential household-crop-plot
+    # weighted
+    growers_est = sm(weight_adj), # plot-crop equivalent
+    w_yp = sm(w_yp), # accounts for area
+    w_yg = sm(w_yg),
+    w_harvest = sm(w_harvest), # in t
+    w_area = sm(w_area),
+    w_perc = w_harvest*100/w_yp # yield as a percentage of yield potential
+  ) %>% 
+  arrange(desc(perc_gap)) %>% 
+  mutate(tot_p_gap = harvest/1000*100/virt_yield, # convert all to t
+         w_yg = (w_yp-w_harvest)/t # in kilotonne
+         ) %>%
+  rd()
+
+yg_prelost <- yieldgaps %>% 
+  filter(YP>0) %>% 
+  filter(preharvest_losses == "yes") %>% 
+  group_by(cropid) %>% # could include irrigation but only affects rice, not necessary
+  summarise(
+    # unweighted
+    n = n(), # number of plots
+    area = sm(area_planted_new),
+    harvest = sm(total_harvest), # total harvest in kg
+    # yieldt = sm(yield), # contains NA, total yield, i.e. harvest per area, this has no value as it is a relative figure
+    ypt = sm(YP), # total per hectare yield potential
+    ha_gap = mn(YG), # average gap per ha in t
+    # perc_gap = yieldt*100/ypt, # total gap between potential and actual, yield as percentage of potential -> same as mean_gap -> rename mean_gap to perc_gap
+    perc_gap = mn(pyg), # average yield of yield potential household-crop-plot
+    # weighted
+    losers_est = sm(weight_adj), # plot-crop equivalent
+    w_yp = sm(w_yp), # accounts for area
+    w_yg = sm(w_yg),
+    w_harvest = sm(w_harvest), # in t
+    w_area = sm(w_area),
+    w_perc = w_harvest*100/w_yp # yield as a percentage of yield potential
+  ) %>% 
+  left_join(select(yg_stat, growers_est, cropid)) %>% 
+  mutate(
+    perc = losers_est*100/growers_est
+  ) %>% 
+  rd()
+```
+
+The highest per hectare yield estimate achieved relative to yield potential was for wheat (`r yg_stat %>% filter(cropid == "wheat") %>% pull(perc_gap)`% across `r round(yg_stat %>% filter(cropid == "wheat") %>% pull(growers_est)/t,1)` thousand plot-equivalents and `r yg_stat %>% filter(cropid == "wheat") %>% pull(w_area)` ha), with the yield of other crops substantially lower compared to the per hectare potential (Table \@ref(tab:yg)). For example, per hectare sorghum yield represented `r yg_stat %>% filter(cropid == "sorghum") %>% pull(perc_gap)`% (across `r round(yg_stat %>% filter(cropid == "sorghum") %>% pull(growers_est)/t,1)` thousand plot equivalents, `r round(yg_stat %>% filter(cropid == "sorghum") %>% pull(w_area)/t,1)` thousand ha), rice `r yg_stat %>% filter(cropid == "paddy") %>% pull(perc_gap)`% across `r round(yg_stat %>% filter(cropid == "paddy") %>% pull(growers_est)/mio,1)` million plots (`r round(yg_stat %>% filter(cropid == "paddy") %>% pull(w_area)/t,1)` thousand ha) of the estimated potential and groundnut (`r yg_stat %>% filter(cropid == "groundnut") %>% pull(perc_gap)`%, `r round(yg_stat %>% filter(cropid == "groundnut") %>% pull(growers_est)/mio,1)` million plot equivalents). Among crops for which a yield gap estimate was available maize is estimated to have been most frequently planted across plots (n = `r round(yg_stat %>% filter(cropid == "maize") %>% pull(growers_est)/mio,1)` million plots) with a corresponding average yield at `r yg_stat %>% filter(cropid == "maize") %>% pull(perc_gap)`% of the yield potential. The largest per hectare yield gap was estimated for pigeon pea (`r yg_stat %>% filter(cropid == "pigeon pea") %>% pull(perc_gap)`%, across `r round(yg_stat %>% filter(cropid == "pigeon pea") %>% pull(growers_est)/t,1)` thousand plots, `r round(yg_stat %>% filter(cropid == "pigeon pea") %>% pull(w_area)/t,1)` thousand ha). The total yield forgone across the five crop types was estimated to have been `r round(sum(yg_stat$w_yg)/t,1)` kt. In absolute terms the largest amount of yield forgone occurred for maize (`r round(yg_stat %>% filter(cropid == "maize") %>% pull(w_yg)/t,1)` kt, a `r yg_stat %>% filter(cropid == "maize") %>% pull(ha_gap)` tonne gap per hectare), followed by rice (`r round(yg_stat %>% filter(cropid == "paddy") %>% pull(w_yg)/t,1)` kt, a gap of `r yg_stat %>% filter(cropid == "paddy") %>% pull(ha_gap)` tonne gap per hectare).\par
+
+\newpage
+\begin{landscape}
+
+```{r yg, echo=FALSE}
+yg_stat$group <- c("grains", "grains", "grains", "legume", "grains", "grains", "legume")
+yg_stat %>% 
+  arrange(group) %>% 
+  mutate(cropid = str_to_sentence(cropid),
+         harvest = harvest/t,
+         growers_est = growers_est/t,
+         w_area = w_area * 0.01) %>% 
+  rd() %>% 
+  select(cropid, n, area, mn_yield, ha_gap, perc_gap, tot_p_gap,
+         growers_est, w_area, w_yg, w_perc) %>% 
+  kbltbl(
+    caption = "Overview of yield gaps",
+    col_names = c(" ", 
+                  "Plots", "Area planted (ha)", "Average yield (t/ha)","Average yield gap (t/ha)", "Average yield of potential (%)", "Total yield of potential (%)", 
+                  "Plot-equivalents (1000s)", "Area planted (km2)", "Yield gap (kt)","Total yield of potential (%)")
+  ) %>% 
+  add_header_above(
+    c(" " = 1,
+      "Unweighted sample" = 6,
+      "Weighted, nationally representative" = 4)
+  ) %>%
+  pack_rows(index = c("Grains & cereals" = 5, "Legumes" = 2)) %>% 
+  column_spec(1, width = "2cm") %>%
+  column_spec(2:11, width = "1.5cm") 
+
+```
+
+\newpage
+\end{landscape}
+<!-- Analysis accounting for pre-harvest losses; ATTENTION: percentages lower, meaning gap is larger!-->
+
+```{r echo=FALSE}
+prelost <- read_csv("data/c3/prelost.csv")
+
+pl_stat <- prelost %>%
+  filter(!is.na(cropid)) %>% 
+  mutate(
+    n_crops = 1,
+    lost = ifelse(!is.na(loss_cause), 1, 0)) %>% 
+  group_by(type, loss_cause) %>% 
+  summarise(
+    n = sum(n_crops),
+    losses = sum(lost)) %>% 
+  mutate(loss_cause = ifelse(is.na(loss_cause), "no loss", loss_cause)) %>% 
+  setDT() %>% 
+  rd()
+
+pl_stat[, gr := sum(n, na.rm = TRUE), by = "type"] # what's this?
+pl_stat[, perc := round(losses*100/gr,1)] # percentage of crops within type affected by loss cause
+  
+pr_tots <- pl_stat %>% 
+  group_by(type) %>% 
+  summarise(
+    total = sm(n), # total grown
+    all_losses = sm(losses)
+  ) %>% 
+  mutate(
+    perc = all_losses*100/total
+  ) %>% 
+  rd()
+
+pl_causes <- pl_stat %>% 
+  group_by(loss_cause) %>% 
+  summarise(count = sum(n)) %>% 
+  mutate(
+    perc = count*100/sum(pr_tots$all_losses)
+  ) %>% 
+  rd()
+```
+
+Physical pre-harvest losses are estimated to have occurred with the average per hectare yield of `r round(mean(yg_prelost$perc_gap),1)`% of the YP. In absolute terms at least some of the `r round(sum(yg_prelost$w_yg)/t/t,1)` Mt (`r round(sum(yg_prelost$w_yg)/t*100/sum(yg_stat$w_yg),1)`% of the total yield gap affected) of crops lost were attributed to pre-harvest losses (beside other contributors to limited yield). Further, `r yg_prelost %>% filter(cropid == "sorghum") %>% pull(perc)`% with sorghum, `r yg_prelost %>% filter(cropid == "paddy") %>% pull(perc)`% of plots planted with rice, and `r yg_prelost %>% filter(cropid == "maize") %>% pull(perc)`% with maize incurred pre-harvest losses. Overall, half of fruit production <!--(`r pr_tots %>% filter(type == "fruits") %>% pull(perc)`%)--> and a quarter of grains & cereals (`r pr_tots %>% filter(type == "grains & cereals") %>% pull(perc)`%), and vegetables (`r pr_tots %>% filter(type == "vegetables") %>% pull(perc)`%) were affected by pre-harvest losses. The most common cause of pre-harvest losses independent of crop type were insects (`r pl_causes %>% filter(loss_cause == "insects") %>% pull(perc)`%) followed by animals (`r pl_causes %>% filter(loss_cause == "animals") %>% pull(perc)`%). Vegetables and grains were the most frequent target of theft, `r pl_stat %>% filter(loss_cause == "theft" & grepl("veg", type)) %>% pull(perc)` and `r pl_stat %>% filter(loss_cause == "theft" & grepl("grains", type)) %>% pull(perc)`% of losses across crop-plot combinations, respectively (Figure \@ref(fig:prelost)).\par
+
+
+```{r prelost, fig.cap="Proportion of plot-crop pre-harvest losses by cause", out.width="90%", echo=FALSE}
+
+pl_stat %>% 
+  filter(loss_cause != "no loss") %>% 
+  mutate(loss_cause = ifelse(grepl("other", loss_cause), "undefined", loss_cause)) %>% 
+  rename(group = loss_cause, subgroup = type) %>% 
+  ggplot(aes(area = perc, fill = group,  
+             label = paste0(group, "\n", perc, "%"),
+             subgroup = subgroup)) +
+  geom_treemap() +
+  geom_treemap_subgroup_border(colour = "white", size = 5) +
+  geom_treemap_subgroup_text(
+    place = "centre", grow = TRUE,
+    alpha = 0.5, colour = "black",
+    fontface = "italic"
+  ) +
+  geom_treemap_text(
+    colour = "black", place = "centre",
+    alpha = 0.7, size = 10, grow = FALSE
+  ) +
+  # Remove scale_fill_brewer (since theme_thesis will apply color scales)
+  # scale_fill_brewer(palette = "Blues", name = "Status") +
+  labs(
+    caption = "Data excludes plot-crop combinations with no losses."
+  ) +
+  theme_thesis(
+    base_size = 11,
+    caption_size = 8,
+    caption_face = "italic",
+    caption_hjust = 0,
+    legend_pos = "none",  # removes the legend
+    colour_type = "tableau10" # or any other palette you prefer
+  )
+```
+
+<!-- was theft (`r pl_causes %>% filter(loss_cause == "theft") %>% pull(perc)`%) followed by -->
+
+```{r include=FALSE}
+mass_residue <- read_csv("data/c3/mass_residue.csv")
+
+residue_stats <- mass_residue %>% 
+  mutate(perc = Residues/harvest) %>% 
+  group_by(type) %>% 
+  summarise(
+    # total residue
+    sum = sum(Residues),
+    ofharvest = sum*100/sum(harvest), # residue quantities relative to harvest
+    # residue available & intended for animals - wet!
+    animalresidue = sum(grazing_res),
+    forcons = animalresidue*100/sum) %>% 
+  rd()
+```
+
+Besides losses incurred in yield gaps and pre-harvest losses, crops grown also yielded residues that can fulfil multiple purposes. For some food groups such as grains & cereals and legumes the volume of residue far exceeded yield (`r residue_stats %>% filter(type == "grains & cereals") %>% pull(ofharvest)` and `r residue_stats %>% filter(type == "legumes") %>% pull(ofharvest)`%). Most residue across all food groups produced were reported to be allocated to animal grazing (Table \@ref(tab:residue)).\par
+
+```{r text3: animals, include=FALSE}
+animals_fin <- read_csv("data/c3/animals_fin.csv")
+
+# must be better and more central way...
+lvstowners <- animals_fin %>% select(y4_hhid, weight_adj) %>% unique() %>% setDT()
+
+# select animal loss categories
+lshh <- animals_fin %>% select(y4_hhid, type, lvstckid, slaughter, disease, theft, injury, max_owned, all_lost, all_lost2) %>% setDT()
+
+# Animal ownership across categories with hh equivalent - x
+aown <- animals_fin %>%  
+  filter(ownershp == "yes") %>% 
+  filter(!is.na(type)) %>% # weighting "completes" household list (intentionally) 
+  select(y4_hhid, weight_adj, type) %>% 
+  unique() %>% # is this necessary?
+  group_by(type) %>%  
+  summarise(
+    n_obs = n(),
+    neqg = sum(weight_adj),
+    perc = neqg/ag_eq) # percentage of households owning
+
+# Overview of animals lost per category (and animal equivalents) - x
+txt3 <- lshh[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)] # collapse to type
+text3 <- txt3 %>%
+  # equivalent of animals lost to range of causes
+  weigh() %>% 
+  mutate(across(c(slaughter:all_lost2), ~. * weight_adj, .names = "w_{col}")) %>% # not sure this is the correct appraoch...
+  group_by(type) %>%
+  summarise(
+    # unweighted
+    diseased = sm(disease),
+    stolen = sm(theft),
+    injured = sm(injury),
+    slaughtered = sm(slaughter),
+    total_owned = sm(max_owned),
+    total_lost = sm(all_lost),
+    # weighted equivalents
+    w_diseased = sm(w_disease),
+    w_stolen = sm(w_theft),
+    w_injured = sm(w_injury),
+    w_slaughtered = sm(w_slaughter),
+    w_total_owned = sm(w_max_owned),
+    w_total_lost = sm(w_all_lost),
+  ) %>%
+  mutate(
+    # unweighted
+    pdis = diseased/total_lost,
+    pstolen = stolen/total_lost,
+    pinjured = injured/total_lost,
+    # weighted
+    w_pdis = w_diseased*100/w_total_lost, # percentage by loss category
+    w_pstolen = w_stolen*100/w_total_lost,
+    w_pinjured = w_injured*100/w_total_lost,
+  ) %>% 
+  rd()
+ # %>%
+  # mutate(across(c("diseased", "stolen", "injured", "slaughtered", "total_owned", "total_lost"), sct)) 
+
+# Overview of households affected by losses per category - x
+hhls <- lshh %>% filter(all_lost>0) %>% 
+  group_by(y4_hhid) %>% 
+  summarise(
+    # unweighted
+    slaughter = sm(slaughter),
+    disease = sm(disease),
+    theft = sm(theft),
+    injury = sm(injury),
+    all_lost = sm(all_lost)
+  ) %>% 
+  ungroup() %>% 
+  setDT() %>% 
+  # weighted hh equivalents that lost any animal to the categories listed
+  weigh() %>% 
+  mutate(across(c(slaughter:all_lost), 
+               ~ ifelse(.x > 0, weight_adj, 0), .names = "w_{col}"))
+
+sum(hhls$w_slaughter)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_disease)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_theft)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_injury)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_all_lost) # number of households with losses
+
+aown
+text3
+hhls
+```
+
+An estimated `r round(sum(hhls$w_all_lost)/mio,1)` million households (`r round(sum(hhls$w_all_lost)*100/sum(lvstowners$weight_adj),1)`% of livestock owning households) incurred livestock losses of a total of an equivalent of `r round(sum(text3$w_total_lost)/mio,1)` million animals. The cause of loss that affected most households was disease (`r round(sum(hhls$w_disease)*100/sum(lvstowners$weight_adj),1)`%), followed by injury (`r round(sum(hhls$w_injury)*100/sum(lvstowners$weight_adj),1)`%) and `r round(sum(hhls$w_theft)*100/sum(lvstowners$weight_adj),1)`% of households were affected by theft. In terms of animals lost the most animals across livestock category died of disease, accounting for `r text3 %>% filter(type == "large ruminants") %>% pull(w_pdis)`% and `r text3 %>% filter(type == "small ruminants") %>% pull(w_pdis)`% among large and small ruminants and `r text3 %>% filter(type == "poultry") %>% pull(w_pdis)`% among poultry. Between `r text3 %>% filter(type == "large ruminants") %>% pull(w_pinjured)`% (large ruminants) and `r text3 %>% filter(type == "poultry") %>% pull(w_pdis)`% (poultry) were lost to injury. Theft was a relatively uncommon causes of loss ranging between `r text3 %>% filter(type == "large ruminants") %>% pull(w_pstolen)`% for large ruminants and `r text3 %>% filter(type == "pigs") %>% pull(w_pstolen)`% for pigs (Table \@ref(tab:animalloss)).\par
+
+
+### Destinations: storage, processing, sales and household consumption
+
+```{r storage, include=FALSE}
+# take from mass_crops to maintain unweighted sample
+# mass_crops <- readRDS("data/c3/mass_crops.RDS") %>% 
+#   clear.labels() %>% 
+#   select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
+#   weigh() # included hhs only
+# 
+# mass_trees <- readRDS("data/c3/mass_trees.RDS") %>% 
+#   clear.labels() %>% 
+#   select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
+#   weigh() # included hhs only
+# 
+# storage <- mass_crops %>% 
+#   bind_rows(mass_trees)
+
+storage <- read_csv("data/c3/storage.csv") %>% setDT()
+
+storage[, `:=` (
+  pstor = stored/produced, # % of harvest in storage
+  pseed = seed/stored, # % of storage for seed
+  n = ifelse(stored>0, 1, 0), # count of items in storage
+  w_produced = produced*weight_adj,
+  w_stored = stored*weight_adj,
+  w_seed = seed*weight_adj,
+  w_pstor = (stored*weight_adj)/(produced*weight_adj),
+  w_pseed = (seed*weight_adj)/(stored*weight_adj))] 
+
+# Overview of households storing, quantities in storage and proportion of which are seed, weighted - x
+storage_stats <- storage %>% 
+  filter(produced>0) %>% # contains only livestock owning households
+  group_by(type, cropid) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = n(), # producers
+    n_stor = length(stored[stored>0]), # storers
+    perc = n_stor/n_obs*100,   # perc of producers storing
+    total = sm(stored),
+    ptotal = sm(stored)/sm(produced)*100,
+    totalseed = sm(seed),
+    pseed = sm(seed)/sm(stored),
+    # weighted sample
+    neq = sum(weight_adj), # household equivalents storing
+    w_total = sm(w_stored), # total quantity stored
+    w_ptotal = sm(w_stored)/sm(w_produced)*100, # proportion stored
+    w_totalseed = sm(w_seed), # total seed stored
+    w_pseed = sm(w_seed)/sm(w_stored)*100 # proportion seed stored
+  ) %>% 
+  filter(ptotal>.1) %>% 
+  arrange(desc(w_ptotal)) %>% 
+  rd()
+
+seed <- sm(storage_stats$w_totalseed)
+```
+
+```{r include=F}
+# crop_disp <- readRDS("data/c3/crop_disp.RDS") %>% 
+#   clear.labels() %>% 
+#   select(y4_hhid, cropid, type, stored, method = ag5a_25, protection = ag5a_27, purpose = storage_purpose) %>% 
+#   weigh()
+# 
+# tree_disp <- readRDS("data/c3/tree_disp.RDS") %>% 
+#   clear.labels() %>% 
+#   select(y4_hhid, cropid, type, stored, method = ag7a_10, protection = ag7a_12) %>%  # no purpose
+#   weigh()
+# 
+# storagemethods <- crop_disp %>% 
+#   bind_rows(tree_disp) 
+
+storagemethods <- read_csv("data/c3/storagemethods.csv")
+
+hhstor <- storagemethods %>% 
+  
+  mutate(storbin = ifelse(stored>0, 1,0)) %>% 
+  select(y4_hhid, storbin, weight_adj) %>% 
+  filter(storbin == 1) %>% 
+  unique()
+
+# Purpose of storage - TBD
+
+# Overview of methods used, number of households and total quantities affected - x
+stor_stat <- storagemethods %>% 
+  group_by(method) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(), # count of method-crop
+    storage = sum(stored),
+    pstor = storage*100/sum(storagemethods$stored), # percentage of total with method
+    # weighted
+    neq = sum(weight_adj), # not accurate as double counts households if used method multiple times
+    w_storage = sum(w_stored),
+    wpstor = w_storage*100/sum(storagemethods$w_stored)
+  ) %>% 
+  arrange(desc(pstor)) %>% 
+  rd()
+```
+
+```{r include=FALSE}
+processed <- produce_long %>% 
+  filter(product_type == "Processed crop"| subtype == "Processed milk") %>%  # to be added: 
+  group_by(type, subtype, item) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(), # double counts households in food category
+    sum = sum(produced), # total produce (not relative to overall production)
+    # weighted
+    w_sum = sum(w_produced),
+    psold = sum(w_sold)*100/w_sum, # sold is given, consumed is estimated
+    w_waste = sum(w_uncertain), # estimated waste; should not be 0 since new calculation
+    neq = sm(weight_adj))
+```
+
+The largest volume of a single crop in storage was for maize (`r round(max(storage_stats$w_total)/ht,1)` Mt) representing `r storage_stats %>% filter(cropid == "maize") %>% pull(w_ptotal)`% of total production, followed by sorghum (`r round(storage_stats %>% filter(cropid == "sorghum") %>% pull(w_total)/ht,1)` Mt, `r round(storage_stats %>% filter(cropid == "sorghum") %>% pull(ptotal),1)`%)  and rice (`r round(storage_stats %>% filter(cropid == "paddy") %>% pull(w_total)/ht,1)` Mt, `r round(storage_stats %>% filter(cropid == "paddy") %>% pull(ptotal),1)`%). Proportionally, the largest share of any crop in storage was for wheat (`r round(storage_stats %>% filter(cropid == "wheat") %>% pull(ptotal),1)`%) and bulrush millet (`r round(storage_stats %>% filter(cropid == "bulrush millet") %>% pull(ptotal),1)`%). Seed for the next season made up `r round(seed/sm(storage_stats$w_total),1)`% of total quantities in storage. Most common storage methods were sack and open drums, a method used for `r max(stor_stat$wpstor)`% of storage volumes followed by locally made traditional structures (`r stor_stat %>% filter(grepl("traditional", method)) %>% pull(wpstor)`%). Only `r stor_stat %>% filter(method == "modern store") %>% pull(wpstor) + stor_stat %>% filter(method == "modern structure") %>% pull(wpstor)`% of crop was stored in modern storage or structures. Eight households (`r round(8/nrow(hhstor)*100,1)`% of households storing crops) reported to have used modern storage (equivalent to `r round((stor_stat %>% filter(method == "modern store") %>% pull(neq) + stor_stat %>% filter(method == "modern structure") %>% pull(neq))/1000,1)` thousand households at the national level). A total of `r round(sm(processed$w_sum)/ht,1)` thousand Mt of product were used for processing (including milk). Of these, the largest amount was used to transform maize into flour, primarily for home consumption. All crops entering processing were fully utilised across main and by-product not leaving any waste.\par 
+
+```{r include=FALSE}
+produce_long[, itemcount :=ifelse(sold>0, 1, 0)] # number of items consumed
+
+sale <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, category, product_type, type, subtype)]
+
+# replace weights
+sales <- sale %>% 
+  select(!weight_adj) %>% 
+  weigh()
+
+sales_stats <- sales %>% 
+  filter(produced>0) %>% # many empties, some of them not clear why
+  filter(product_type!="Processed crop" & product_type!="other") %>% # check milk, eggs filter  
+  mutate(
+    perc_sold = sold*100/produced # that's for each category
+  ) %>% 
+  group_by(category, product_type, type, subtype) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = length(sold[sold>0]), # number of observed sellers
+    perc = n_obs/nrow(ag), # percentage of sellers among agricultural households (more meaningful if among producers)
+    percprod = n_obs/length(produced[produced>0]), # percentage of producers that sell
+    average = mean(sold[sold>0]), # mean quantities sold of producers
+    pav = mean(sold*100/produced), # mean proportion sold from production (across sample, makes it comparable to weighted)
+    pavsales = mean(sold[sold>0]*100/produced[sold>0]), # mean proportion of production sold by sellers...
+    pavsales2 = mn(perc_sold[sold[sold>0]]), # should be the same as pavsales..
+    # weighted sample
+    neq = sum(weight_adj[sold>0]), # equivalent of sellers
+    pneq = neq*100/ag_eq, # percentage sellers of all households included
+    neqprod = sum(weight_adj[produced>0]), # producers
+    pneqprod = neq*100/sum(weight_adj[produced>0]), # percentage of sellers among producers
+    sales = sum(w_sold), # total sales
+    av_w = sales/neq, # average sale per household... mmmh not fully sure this is accurate....
+    psale = sum(w_sold)*100/sum(w_produced)) %>%  # proportion of total production sold
+  filter(n_obs>0) %>% 
+  rd()
+
+sales_stats
+```
+
+Total sales volume amounted to `r round(sm(sales_stats$sales)/ht,1)` Mt. Of all food groups, sample households were most likely to sell milk (`r sales_stats %>% filter(subtype == "Milk") %>% pull(pneqprod)`% of food producing households), followed by spices, cash crops and nuts & seeds (`r sales_stats %>% filter(subtype == "Spices") %>% pull(pneqprod)`, `r sales_stats %>% filter(subtype == "Cashcrops") %>% pull(pneqprod)` and `r sales_stats %>% filter(subtype == "Nuts & seeds") %>% pull(pneqprod)`% of food producing households, respectively). In terms of proportion of production of food crops sold, the highest proportion are sold for vegetables (`r sales_stats %>% filter(subtype == "Vegetables") %>% pull(psale)`%, an average of `r sales_stats %>% filter(subtype == "Vegetables") %>% pull(av_w)` kg annually per selling household), spices (`r sales_stats %>% filter(subtype == "Spices") %>% pull(psale)`%) and nuts & seeds (`r sales_stats %>% filter(subtype == "Nuts & seeds") %>% pull(psale)`%). In absolute terms the largest food group for sales were grains & cereals (`r round(sales_stats %>% filter(subtype == "Grains & cereals") %>% pull(sales) %>% sc_mt(),1)` Mt), with an annual average of (`r sales_stats %>% filter(subtype == "Grains & cereals") %>% pull(av_w)` kg per selling household), followed by fruits (`r format(sales_stats %>% filter(subtype == "Fruits") %>% pull(sales)/ht, nsmall = 1)` Mt, or `r sales_stats %>% filter(subtype == "Fruits") %>% pull(av_w)` kg per selling household)) and milk (`r round(sales_stats %>% filter(subtype == "Milk") %>% pull(sales) %>% sc_mt(),1)` Mt, or `r sales_stats %>% filter(subtype == "Milk") %>% pull(av_w)` kg per selling household). Figure \@ref(fig:b1fig) shows the proportion of sales transactions by location and buyer. More than half of all transactions are conducted in village proximity, wiht an even allocation to formal and informal markets.\par
+
+```{r sales-tab, echo=FALSE}
+# consistency in naming etc. should happen on top/simplify for all chunks using mfadata
+# transf <- mfadata$crops
+# transf <- transf[,.(y4_hhid, cropid, type, harvest, sold, payment, gifts, transfer)]
+# transf <- transf[, lapply(.SD, sm), .SDcols=is.numeric, by= .(y4_hhid, type)]
+# transf <- weights(transf)
+# 
+# # range of transfers
+# transtab <- transf %>%
+#   filter(!is.na(type)) %>% 
+#   group_by(type) %>%
+#   summarise(
+#     gif = sum(gifts),
+#     neqgif = sum(weight_adj[gifts>0]), # hh eq gifting
+#     # gifp = sum(weight_adj[gifts>0])*100/ag_eq,
+#     gifp = neqgif*100/sum(weight_adj[harvest>0]),
+#     pay = sum(payment),
+#     neqpay = sum(weight_adj[payment>0]), # hh eq payment
+#     # payp = sum(weight_adj[payment>0])*100/ag_eq),
+#     payp = neqpay*100/sum(weight_adj[harvest>0])
+#     )%>%
+#   mutate(across(c("gif", "pay"), sct)) %>% 
+#   mutate(neqgif = neqgif/ht,
+#          neqpay = neqpay/ht,
+#          type = str_to_sentence(type)) %>% 
+#   rd()
+```
+
+
+```{r b1fig, fig.cap="Proportion of sales by location and buyer type", fig.align='center', out.width="90%", echo=FALSE}
+ b1 <- read_csv("data/c3/b1.csv") %>% 
+  weigh() %>% 
+  mutate(w_sold = sold*weight_adj) %>% 
+  dplyr::rename(type = type_new) # where does _new come from??
+# table(b1$new_name)
+# table(b1$new_location)
+
+# Allocation as alluvial by frequency - x
+summary_data <- b1 %>%
+  # filter(product != "cashcrops") %>%
+#  group_by(type, new_name, new_location) %>%
+  group_by(new_name, new_location) %>%
+  summarise(
+    TotalSales = n(), .groups = 'drop'
+  ) %>% 
+  mutate(Proportion = TotalSales / sum(TotalSales)) %>% 
+  filter(!is.na(new_name)) %>% 
+  rename(BuyerType = new_name, Location = new_location)
+
+# Visualize the data using a heatmap
+ggplot(summary_data, aes(x = Location, y = BuyerType, fill = Proportion)) +
+  geom_tile(color = "white", size = 0.5) +
+  scale_fill_gradient(low ="lightblue", high = "darkblue", labels = scales::percent) +
+  labs(
+    title = ,
+    x = "Location",
+    y = "Buyer type",
+    fill = "Proportion of total sales"
+  ) +
+  theme_thesis(colour_type = NULL) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)  # Add a black border
+  )
+```
+
+```{r include=FALSE}
+produce_long[, itemcount :=ifelse(consumed>0, 1, 0)] # number of items consumed
+
+cons <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, category, product_type, type, subtype)]
+
+# replace weights
+consumption <- cons %>% 
+  select(!weight_adj) %>% 
+  weigh()
+
+cons_stat <- consumption %>% 
+  filter(produced>0) %>% # many empties, some of them not clear why
+  filter(product_type!="Processed crop" & product_type!="other") %>% # check milk, eggs filter  
+  group_by(category, product_type, type, subtype) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = length(consumed[consumed>0]), # households consuming
+    perc = n_obs*100/nrow(ag), # consumed fo all households.
+    average = mean(consumed), # mean consumption of producers
+    pav = mean(consumed*100/produced), # mean proportion consumed from production (across sample, makes it comparable to weighted)
+    pavconsumers = mean(consumed[consumed>0]*100/produced[consumed>0]), # mean proportion of production consumed by consuming household
+    # weighted sample
+    neq = sum(weight_adj[consumed>0]),
+    pneq = neq*100/ag_eq, # percentage consumers of all households included
+    consumption = sum(w_consumed), # total consumption
+    av_w = consumption/neq, # average consumption of consumers
+    pcons = sum(w_consumed)/sum(w_produced), # proportion of total production consumed
+    avitems = mean(itemcount[consumed>0])) %>%  # item count for consumers only
+  arrange(desc(perc)) %>% 
+  rd() %>% 
+  ungroup()
+
+cons_stat
+```
+
+
+
+
+```{r end-tab, echo=FALSE}
+produce_long <- read_csv("data/c3/produce_long.csv") %>% setDT()
+
+# Reduce households to food group
+produce_long[, itemcount :=ifelse(produced>0, 1, 0)] # number of items produced
+
+sc1 <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(y4_hhid, category, product_type, type)] # type is smallest category - milk, eggs should be types at next run!
+
+# slaughter product is only inedible stuff, while animal product contains all the meat/offal for the first summary table this needs to be adjusted (may be the source of the error of totals??)
+
+# replace weights
+tab4 <- sc1 %>% 
+  select(!weight_adj) %>% 
+  weigh()
+
+tab4gr <- tab4 %>%
+  filter(grepl("crop", product_type)) %>% 
+  mutate(perc_cons = consumed*100/produced,
+             perc_sold = sold*100/produced) %>% 
+  ungroup() %>%
+  group_by(type) %>%
+  summarise(
+    neqprod = sum(weight_adj[produced>0]),
+    consumed_tot = sum(consumed),
+    perc_cons = sum(consumed)*100/sum(produced),
+    w_consumed = sm(w_consumed),
+    mn_consumed = mn(consumed),
+    neqc = sum(weight_adj[consumed>0]),
+    # neqcp = neqc*100/neqprod, # move to more detailed section
+    neqcp = neqc*100/ag_eq, # Alternative: percentage of all ag households
+    hh_obsc = length(consumed[consumed>0]),
+    sold_tot = sum(sold),
+    perc_sold = sold_tot/sum(produced)*100,
+    neqs = sum(weight_adj[sold>0]),
+    # neqsp = neqs*100/neqprod, # move to more detailed section
+    neqsp = neqs*100/ag_eq, # Alternative: percentage of all ag households
+    hh_obss = length(sold[sold>0])
+  ) %>% 
+  rd()
+```
+
+In terms of consumption more than half of all roots & tubers produced were allocated to household consumption (`r tab4gr %>% filter(grepl("tubers", type)) %>% pull(perc_cons)`% of total production volume), followed by grains & cereal (`r tab4gr %>% filter(grepl("cereals", type)) %>% pull(perc_cons)`%), fruits (`r tab4gr %>% filter(grepl("Fruits", type)) %>% pull(perc_cons)`%), and legumes (`r tab4gr %>% filter(grepl("Legumes", type)) %>% pull(perc_cons)`%). The smallest proportion of production allocated to household consumption were vegetables (`r tab4gr %>% filter(grepl("Vege", type)) %>% pull(perc_cons)`%). Detailed food consumption flows are subject of \@ref(chapter4).\par
+
+### Waste and unallocated flows
+
+```{r phl text new, include=FALSE}
+phlosses <- read_csv("data/c3/phlosses.csv") %>% setDT()
+
+# some duplication
+phlosses <- phlosses[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, cropid, type)]
+phlosses <- phlosses %>% 
+  mutate(across(c(produced:losses), ~.* weight_adj, .names = "w_{col}"),
+         n_lost = ifelse(losses>0, 1, 0),
+         n_crops = ifelse(produced>0,1,0))
+
+# Quantity, proportion and count lost for each crop, including weighting - x
+top10 <- phlosses[, `:=`(
+  perc = losses*100/produced)]
+# top 10 lost --> to compare with APHLIS once weighted; all much lower...
+top10 <- top10 %>%
+  filter(produced>0) %>% 
+  # mutate(w_perc = w_losses*100/w_produced) %>% 
+  group_by(type, cropid) %>%
+  summarise(
+    # unweighted
+    n_obs = n(), # number of households growing crop
+    n = sum(n_lost), # number of times the crop was lost/same as number of households affected; weighted eq to weight_adj as hh
+    lost = sum(losses),
+    perc_mn = mean(perc[losses>0]), # average losses of losers
+    perc = sum(losses)*100/sum(produced[losses>0]),
+    perctot = sum(losses)*100/sum(produced),
+    # weighted
+    w_n = sum(weight_adj[n_lost>0]), # hh equivalents affected/times the crop was lost 
+    w_lost = sum(w_losses),
+    w_perc = sum(w_losses)*100/sum(w_produced[w_losses>0]), # percentage lost among losers
+    w_perctot = sum(w_losses)*100/sum(w_produced), # percentage lost among producers
+    ) %>% 
+  rd()
+  
+top10 %>% 
+  arrange(desc(perc)) %>% 
+  filter(lost>0 & n>1)
+```
+
+
+```{r phl figure, include=FALSE}
+# phl <- read_csv("data/c3/phl.csv") %>% 
+#   rd()
+
+phtype <- phlosses[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
+
+phl <- phtype %>% 
+  mutate(p_lost = losses*100/produced) %>% 
+  filter(type != "cashcrops") %>% 
+  select(!weight_adj) %>% 
+  weigh() %>% 
+  # filter(losses>0) %>% 
+  group_by(type) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(),
+    lost = sm(losses),
+    unw_p_losers = sm(losses)*100/sm(produced[losses>0]),
+    mn_p = mn(p_lost[losses>0]),
+    unw_p = lost*100/sum(produced),
+    # weighted
+    w_lost = sum(w_losses),
+    perc = w_lost*100/sum(w_produced), # all lost relative to all produced
+    neq = sum(weight_adj[w_losses>0]), # hh eq with losses
+    neq_p = neq*100/sum(weight_adj[w_produced>0]), # proportion of hh eq producing with losses
+    avprod = sum(w_produced[w_losses>0])/neq, # av production of hh eq affected 
+    av = w_lost/neq, # average losses per hh eq affected
+    # pm = mean(perc),
+    pmn = av*100/avprod # av perc loss per hh eq
+    ) %>% 
+  arrange(desc(w_lost)) %>% 
+  filter(lost>0) %>% 
+  rd()
+
+processing <- mfa_unweighted <- fread("data/c3/mfa_unweighted.csv") %>% filter(grepl("processing", source) | grepl("processing", target) | grepl("waste", target))
+processed_crops <- (48588.5+4359.5+18+525324.7)
+```
+
+
+Across all production a total of `r round(sum(phl$w_lost)/ht,1)` Mt (`r sm(phl$perc)`%) of total food crop production are estimated to have been lost at the post-harvest stage. Overall, the largest quantity of post-harvest losses occurred for grains & cereals, yet this represented less than 1% of their total production volume. Relative post-harvest losses were highest for vegetables. Producers of fruits, grains & cereals and vegetables were most commonly affected by post-harvest losses (`r phl %>% filter(type == "fruits") %>%  pull(neq_p)`, `r phl %>% filter(type == "grains & cereals") %>%  pull(neq_p)` and `r phl %>% filter(type == "vegetables") %>%  pull(neq_p)`% of producers, respectively). Among affected households, average total losses were highest for vegetables (`r phl %>% filter(type == "vegetables") %>%  pull(av)` kg), roots & tubers (`r phl %>% filter(type == "roots & tubers") %>%  pull(av)` kg) and grains & cereals (`r phl %>% filter(type == "grains & cereals") %>%  pull(av)` kg). Relative to total production volume of affected households highest average losses were recorded for roots & tubers (`r phl %>% filter(type == "roots & tubers") %>%  pull(pmn)`%), vegetables <!--(`r phl %>% filter(type == "vegetables") %>%  pull(pmn)`%)--> and fruits <!--(`r phl %>% filter(type == "fruits") %>%  pull(pmn)`%)-->, both 19.1%. All food groups had at least one food item of which a substantial (>25%) volume lost post-harvest. <!--Add table? (table \ref(tab:)) *More about individual %>% of interest*--> On average, when lost, the highest average proportion is lost by cassava growers (`r top10 %>% filter(cropid == "cassava") %>% pull(w_perc)`%), followed by mango (`r top10 %>% filter(cropid == "mango") %>% pull(w_perc)`), tomato (`r top10 %>% filter(cropid == "tomatoes") %>% pull(w_perc)`%), and pigeon pea (`r top10 %>% filter(cropid == "pigeon pea") %>% pull(w_perc)`%). In absolute terms maize and mangos are lost most, `r round(top10 %>% filter(cropid == "maize") %>% pull(w_lost)/ht,1)` Mt or `r top10 %>% filter(cropid == "mango") %>% pull(w_perc)`% of total production. In addition to postharvest losses, crops also generated processing waste which was estimated to have been `r round(29639.7*100/processed_crops,1)`% of the total volume used for processing.\par
+
+\newpage
+\begin{landscape}
+
+```{r phl, echo=FALSE}
+phl %>% 
+  mutate(type = str_to_sentence(type),
+         lost = lost/t,
+         w_lost = w_lost/t/t,
+         neq = neq/t
+         ) %>% 
+  rd() %>% 
+  select(type,
+         n_obs, lost, unw_p,
+         neq, neq_p, w_lost, perc, av, pmn) %>% 
+
+  kbltbl(
+    caption = "Post-harvest losses",
+    col_names = c("Group", 
+                  "Producers affected", "Volume lost (t)", "Average losses (%)",
+                  "1000s", "%", # Household equivalents
+                  "kt", "%", # total losses
+                  "kg", "%" # average losses
+                  )) %>% 
+    add_header_above(c(
+      " " = 4,
+      "Household equivalents" = 2,
+      "Total losses" = 2,
+      "Average losses" = 2
+    )) %>%
+    add_header_above(c(
+      " "= 1,
+      "Unweigted sample" = 3,
+      "Weighted sample" = 6
+    )) %>% 
+  column_spec(1, width = "2cm") %>%
+  column_spec(2:10, width = "1.5cm") 
+  
+```
+
+\end{landscape}
+\newpage
+
+
+```{r, echo=FALSE}
+sl_waste <- read_csv("data/c3/sl_waste.csv")
+```
+
+Last, based on the number of animals slaughtered for consumption the estimation of truly inedible parts (all parts beside meat and offal) of slaughtered animals amounts to `r round(sl_waste %>% filter(type == "poultry") %>% pull(w_totined)/ht,1)` Mt for poultry alone, followed by `r round(sl_waste %>% filter(type == "small ruminants") %>% pull(w_totined)/ht,1)` Mt and `r round(sl_waste %>% filter(type == "large ruminants") %>% pull(w_totined)/ht,1)` Mt for small and large ruminants. Of the total weight of skins and hides available from slaughtered animals, a third was used to be further processed, with the remainder assumed to have been discarded.\par
+
+
+```{r eval=FALSE, echo=FALSE}
+# source("03-MCS_household.R")
+# source("03_MFA.R")
+# source("03-sankey.R")
+# source("03-uncertainty.R")
+# source("03-performance.R")
+```
+
+
+```{r echo=FALSE}
+# summary table, weighted, unweighted of missing by food group 
+# dataframe written below
+# positive <- observed_wide %>% filter(perc_miss>0)
+
+missingtab <- observed_wide_fin %>% 
+  group_by(group, type) %>% 
+  summarise(
+    # unweighted data
+    n = n(),
+    n_pos = length(positive[positive>0]), # "waste" households
+    n_neg = length(negative[negative>0]), # "over-users"
+    sumpos = sm(positive)/t,
+    meanpos = mn(positive[produced>0]), # mean across producers only
+    sdpos = sd(positive[produced>0]),
+    meanppos = mn(p_positive[produced>0]),
+    sumneg = sm(negative)/t, # total uncertain from overestimate
+    # weighted data
+    neq = sum(weight_adj[produced>0])/t, # number of household equivalents producing
+    neq_pos = sum(weight_adj[positive>0])/t, # household equivalent with losses
+    neq_neg = sum(weight_adj[negative>0])/t, # household equivalent with losses
+    sumwpos = sm(w_positive)/t/t,
+    # ptot = sm(w_positive)*100/sm(w_produced),
+    meanpposw = sm(w_positive)*100/sm(w_produced),
+    meanwpos = sm(w_positive)/(neq*t),
+    sumwneg = sm(w_negative)/t/t, # total uncertain from overestimate
+  ) %>% 
+  ungroup() %>% 
+  rd()
+```
+```{r echo=FALSE}
+posonly <- observed_wide_fin %>%
+  filter(dest_missing>0) %>%
+  group_by(group, type) %>%
+  summarise(
+    # unweighted data
+    n = n(),
+    # n_pos = length(positive[positive>0]), # "waste" households
+    # n_neg = length(negative[negative>0]), # "over-users"
+    sumpos = sm(positive)/t,
+    meanpos = mn(positive[produced>0]), # mean across producers only
+    sdpos = sd(positive[produced>0]),
+    meanppos = mn(p_positive[produced>0]),
+#    sumneg = sm(negative)/t, # total uncertain from overestimate
+    # weighted data
+    neq = sum(weight_adj[produced>0])/t, # number of household equivalents producing
+    # neq_pos = sum(weight_adj[positive>0])/t, # household equivalent with losses
+    # neq_neg = sum(weight_adj[negative>0])/t, # household equivalent with losses
+    sumwpos = sm(w_positive)/t/t,
+    meanwpos = sm(w_positive)/(neq*t),
+    meanpposw = sm(w_positive)*100/sm(w_produced),
+#    sumwneg = sm(w_negative)/t/t, # total uncertain from overestimate
+  ) %>%
+  rd()
+```
+
+
+<!-- Unallocated flows across food groups and households, breakdown table -->
+In addition to clearly lost volumes, some of production volume remained unallocated/missing. On average `r round(mn(missingtab$meanpposw),1)`% of households production was not allocated to a destination (`r round(sum(observed_wide_fin$w_positive)/totalneq,1)` kg per household across food groups) (Table \@ref(tab:missingtab)). The largest unaccounted volume was determined for grains & cereals (`r max(missingtab$sumwpos)`kt), representing `r missingtab %>% filter(grepl("grains", type)) %>% pull(meanpposw)`% of total production. The food group with the largest proportion of missing volumes relative to production was milk (`r missingtab %>% filter(grepl("eggs", type)) %>% pull(meanpposw)`%). The highest average missing volume per household was for milk (`r missingtab %>% filter(grepl("milk", type)) %>% pull(meanpposw)` kg), followed by fruits (`r missingtab %>% filter(grepl("fruits", type)) %>% pull(meanpposw)` kg) and grains (`r missingtab %>% filter(grepl("grains", type)) %>% pull(meanpposw)` kg). Only considering the households that had a positive mass balance, average missing flows were as high as `r posonly %>% filter(grepl("fruit", type)) %>% pull(meanwpos)` kg for fruit (`r posonly %>% filter(grepl("fruit", type)) %>% pull(meanpposw)`%),  `r posonly %>% filter(grepl("milk", type)) %>% pull(meanwpos)` kg for milk (`r posonly %>% filter(grepl("milk", type)) %>% pull(meanpposw)`% of production), and `r posonly %>% filter(grepl("grains", type)) %>% pull(meanwpos)` kg (`r posonly %>% filter(grepl("grains", type)) %>% pull(meanpposw)`%) for grains and cereals. The total volume of eggs unallocated remained at `r round(missingtab %>% filter(grepl("eggs", type)) %>% pull(sumwpos),1)` kg or `r missingtab %>% filter(grepl("eggs", type)) %>% pull(meanpposw)`% across the entire sample and `r posonly %>% filter(grepl("eggs", type)) %>% pull(meanpposw)`% (`r posonly %>% filter(grepl("eggs", type)) %>% pull(meanwpos)`kg) across households with a positive mass balance.\par
+
+
+\newpage
+\begin{landscape}
+
+```{r missingtab, echo=FALSE}
+missingtab %>% 
+  arrange(desc(group)) %>% 
+  ungroup() %>% 
+  select(!group) %>% 
+  filter(!grepl("slaughter", type)) %>%
+  mutate(type = str_to_sentence(type)) %>% 
+  kbltbl(
+    caption = "Overview of positive mass balance",
+    col_names = c(" ", 
+                  "Producers", "Positive balance", "Negative balance",
+                  "Total (t)", "Average (kg)", "SD", "%",
+                  "Total negative (t)",
+                  "Producers", "Positive balance", "Negative balance",
+                  "Total (t)", "%", "Average (kg)", 
+                  "Total negative (kt)"
+                  ),
+    longtable = T) %>% 
+    add_header_above(c(
+      " " = 1,
+      "Number of households" = 3,
+      "Missing volume" = 4, 
+      " " = 1,
+      "Household equivalents (1000s)" = 3,
+      "Missing volume" = 3,
+      " " = 1)) %>% 
+    add_header_above(c(
+      " " = 1,
+      "Unweigted sample" = 8,
+      "Weighted sample" = 7
+    )) %>%
+  pack_rows(
+    index = c("Crops" = 9, "Animal products" = 3)) %>%
+  column_spec(1, width = "2cm") %>%
+  column_spec(2:16, width = "1cm") 
+```
+\end{landscape}
+\newpage
+
+### Data uncertainty
+
+<!-- maybe something about how reliable hosueholds are -->
+
+```{r echo=FALSE}
+# hosuehold food group
+hhrangegroup <- observed_wide_fin %>% 
+  filter(produced>0) 
+
+# group range
+grouprange <- hhrangegroup %>% 
+  group_by(type) %>% 
+  summarise(
+    produced = sum(produced),
+    negative = sum(negative),
+    positive = sum(positive)
+  ) %>% 
+  mutate(
+    diff = positive-negative,
+    pdiff = diff*100/produced) %>%   # net
+  rd()
+
+# household balance
+hhrange <- hhrangegroup %>% 
+  group_by(y4_hhid) %>% 
+  summarise(
+    produced = sum(produced),
+    negative = sum(negative),
+    positive = sum(positive)
+  ) %>% 
+  mutate(
+    diff = positive-negative,
+    pdiff = diff/produced) %>%   # net
+  rd()
+
+# total balance
+totalbalance <- observed_wide_fin %>% 
+  group_by(y4_hhid) %>% 
+  summarise(
+    produced = sum(produced),
+    negative = sum(negative),
+    positive = sum(positive)
+  ) %>%
+  ungroup() %>% 
+  summarise(
+    n = n(),
+    meanpos = mean(positive),
+    meanneg = mean(negative),
+    sumpos = sum(positive),
+    sumneg = sum(negative),
+    sumproduced = sum(produced)
+  ) %>% 
+  rd()
+```
+
+Following the principles of conservation of mass, the negative mass balance for any given household was set to zero and the difference was reallocated across flows. Notwithstanding, we assumed that negative as well as positive net balance (as reported above) are at least partially due to measurement error. Overall, the mass balance of `r round(hhrange %>% filter(diff==0) %>% nrow()*100/nrow(hhrange),1)`% households across food groups reported was balanced and `r round(hhrange %>% filter(diff<0) %>% nrow()*100/nrow(hhrange),1)`% negative (compared to `r round(hhrange %>% filter(diff>0) %>% nrow()*100/nrow(hhrange),1)`% positive). Across all households the negative balance accumulated to an average of `r totalbalance %>% pull(meanneg)` kg of the total production volume, compared to `r totalbalance %>% pull(meanpos)` kg of produce in positive balance. The distribution of negative and positive mass balances across households and food groups is shown in Figure \@ref(fig:distr)).\par
+
+```{r distr, fig.cap="Distribution of negative vs positive mass balance by food group", fig.align='center', out.width="90%", echo=FALSE}
+hhrangegroup %>%
+  mutate(
+    total_severity = positive - negative,
+    perc = total_severity / produced,
+    type = str_to_sentence(type)
+  ) %>%
+  rename(value = total_severity) %>%
+  filter(!grepl("slaughter", type)) %>%
+  ggplot(aes(x = type, y = value, color = value > 0)) +
+  geom_segment(aes(x = type, xend = type, y = 0, yend = value), size = 1) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    values = c("TRUE" = "#1F77B4", "FALSE" = "#FF7F0E")  # Tableau 10 Blue and Orange
+  ) +
+  labs(
+    x = "Food group",
+    y = "Total severity (kg)",
+    caption = "Slaughtered animals not displayed."
+  ) +
+  theme_thesis(colour_type = NULL) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+```
+
+
+The largest proportion of negative mass balance was recorded for vegetables (`r grouprange %>% filter(grepl("vegetables", type)) %>% pull(pdiff)*-1`% relative to total production was over-allocated). For most other food groups (except "other" and cashcrops) the final balance across households was positive. The largest positive difference was estimated for eggs (`r grouprange %>% filter(grepl("eggs", type)) %>% pull(pdiff)`%), followed by milk (`r grouprange %>% filter(grepl("milk - large", type)) %>% pull(pdiff)`%) and legumes (`r grouprange %>% filter(grepl("legumes", type)) %>% pull(pdiff)`%). A comparison of overall negative and positive mass balance across food groups is shown in Figure \@ref(fig:negpos).\par
+
+<!-- this is either systematic overrreporting or waste -->
+
+```{r negpos, fig.cap="Comparison of negative vs positive severity by food group", fig.align='center', out.width="90%", echo=FALSE}
+# Summarize the data
+summary_data <- hhrangegroup %>% 
+  group_by(type) %>% 
+  summarise(
+    totneg = sum(negative, na.rm = TRUE),  # Include na.rm = TRUE for robustness
+    totpos = sum(positive, na.rm = TRUE),
+    totprod = sum(produced, na.rm = TRUE)
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    total_severity = totpos - totneg,  # Calculate total severity
+    proportion = ifelse(totprod == 0, NA, total_severity / totprod),  # Avoid division by zero
+    type = str_to_sentence(type)  # Ensure type is in sentence case
+  ) %>% 
+  filter(!is.na(type) & !grepl("Slaughter", type))  # Exclude "slaughter" types and handle NA
+
+# Visualization: Compare Negative vs Positive Severity
+summary_data %>%
+  ggplot(aes(x = type, y = total_severity, fill = total_severity > 0)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  scale_fill_manual(
+    values = c("TRUE" = "#1F77B4", "FALSE" = "#FF7F0E"),  # Tableau 10 Blue and Orange
+    labels = c("Positive", "Negative")
+  ) +
+  labs(
+    x = "Food group",
+    y = "Total severity (kg)",
+    fill = "Sign",  # Legend title
+    caption = "Results for unweighted data."
+  ) +
+  theme_thesis(colour_type = NULL) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5),
+    panel.border = element_rect(color = "black", fill = NA, size = 1),
+    legend.position = "none"
+  )
+```
+
+```{r eval=FALSE, echo=FALSE}
+# uncertainty across households
+neg_observed <- observed_data %>% 
+  anti_join(excl_3a) %>% 
+  filter(observed_value<0) %>% select(y4_hhid) %>% unique() %>% left_join(weighting) 
+
+wide_neg <- observed_wide_fin
+wide_neg %>%
+  group_by(range_group) %>%
+  summarise(count = n(),
+            sum = sm(dest_missing),
+            meanp = mean(perc_miss[perc_miss>0]),
+            meanpn = mean(perc_miss[perc_miss<0])*-1)
+            
+
+neg_group <- wide_neg %>%
+  group_by(type, range_group) %>%
+  summarise(count = n(),
+            sum = sm(dest_missing),
+            meanp = mn(perc_miss))
+            
+negative_data <- neg_group %>%
+  filter(range_group == "Negative") %>%
+  group_by(type) %>%
+  summarise(
+    total_negative_count = sum(count),
+    total_negative_severity = sum(sum),
+    average_negative_severity = mean(meanp))
+
+
+# uncertainty after propagating negative values
+household_mcs <- fread("data/c3/household_mcs.csv")
+```
+
+```{r eval=FALSE, echo=FALSE}
+# REMOVE DUPLICAITONS BELOW
+# Filter for Negative rows
+
+# Filter for Negative and Positive rows
+filtered_data <- neg_group %>%
+  filter(range_group %in% c("Negative", "Postive")) %>%
+  group_by(type, range_group) %>%
+  summarise(
+    total_count = sum(count),
+    total_severity = sum(sum),
+    average_severity = mean(meanp)
+  )
+
+# Calculate proportion of "Negative" rows
+overall_data <- neg_group %>%
+  group_by(type) %>%
+  summarise(total_count = sum(count))
+
+summary_data <- negative_data %>%
+  left_join(overall_data, by = "type") %>%
+  mutate(proportion_negative = total_negative_count / total_count)
+
+
+
+
+# Calculate the overall count for each type
+overall_data <- neg_group %>%
+  group_by(type) %>%
+  summarise(total_count_all = sum(count))
+```
+
+```{r eval=FALSE, echo=FALSE}
+# Wide format transformation and quintile calculation
+
+# negative households
+neg_meat <- fread("data/c3/negative_meat.csv") %>% setDT() %>% 
+  group_by(type, y4_hhid = household_id, destination) %>% 
+  summarise(mean = mean(simulated_values),
+            sd = sd(simulated_values))
+neg_crops <- fread("data/c3/negative_crops.csv") %>% setDT() %>% 
+  group_by(type, y4_hhid = household_id, destination) %>% 
+  summarise(mean = mean(simulated_values),
+            sd = sd(simulated_values))
+neg_ap <- fread("data/c3/negative_ap.csv")  %>% setDT() %>% 
+  group_by(type, y4_hhid = household_id, destination) %>% 
+  summarise(mean = mean(simulated_values),
+            sd = sd(simulated_values))
+
+negative_households <- rbind(neg_meat, neg_crops, neg_ap)
+
+negsim <- negative_households %>% 
+  setDT() %>% 
+  dcast(
+  y4_hhid + type ~ destination, value.var = "mean"
+) 
+
+
+```
+
+```{r echo=FALSE}
+household_mcs <- read_csv("data/c3/household_mcs.csv") %>% setDT()
+mcs_weighted <- fread("data/c3/mcs_weighted.csv") %>% setDT()
+system_uncertainty <- household_mcs[, .(
+  Sum = sum(mean_value),                          # Sum of values
+  SD_Sum = sqrt(sum(sd_value^2)),                  # Combined SD of the sum
+  CI_Lower = sum(mean_value) - 1.96 * sqrt(sum(sd_value^2)), # Lower bound of 95% CI
+  CI_Upper = sum(mean_value) + 1.96 * sqrt(sum(sd_value^2)),
+  Percentage_Uncertainty = (sqrt(sum(sd_value^2)) / sum(mean_value)) * 100# Upper bound of 95% CI
+)]
+```
+
+\newpage
+\begin{landscape}
+```{r uncertainty, echo=FALSE}
+left <- household_mcs[, .(
+  Sum = sum(mean_value),                          # Sum of values
+  SD_Sum = sqrt(sum(sd_value^2)),                  # Combined SD of the sum
+  CI_Lower = sum(mean_value) - 1.96 * sqrt(sum(sd_value^2)), # Lower bound of 95% CI
+  CI_Upper = sum(mean_value) + 1.96 * sqrt(sum(sd_value^2)),
+  Percentage_Uncertainty = (sqrt(sum(sd_value^2)) / sum(mean_value)) * 100# Upper bound of 95% CI
+), by = c("type", "destination")]
+
+right <- mcs_weighted[, .(
+  Sum = sum(mean_value),                          # Sum of values
+  SD_Sum = sqrt(sum(sd_value^2)),                  # Combined SD of the sum
+  CI_Lower = sum(mean_value) - 1.96 * sqrt(sum(sd_value^2)), # Lower bound of 95% CI
+  CI_Upper = sum(mean_value) + 1.96 * sqrt(sum(sd_value^2)),
+  Percentage_Uncertainty = (sqrt(sum(sd_value^2)) / sum(mean_value)) * 100# Upper bound of 95% CI
+), by = c("type", "destination")]
+
+uncertainty <- left %>% 
+  full_join(right, by = c("type", "destination")) %>%
+  rd() %>% 
+  filter(grepl("missing|waste|loss|inedible", destination)) %>% 
+  filter(!is.na(Percentage_Uncertainty.x)) %>% 
+  filter(Sum.x>0) %>%  # no waste for slaughtered animals (contained in inedible)
+  # mutate(
+  #   across(3:6, ~./t)
+  # ) %>% 
+  mutate(
+    across(8:11, ~./t/t)
+  ) %>% 
+  mutate(type = str_to_sentence(type))
+
+uncertainty %>% 
+  rd() %>% 
+  arrange(desc(destination)) %>%
+  select(-destination) %>% 
+  kbltbl(
+    caption = "Uncertainty of inefficiency flows by food group",
+    col_names = c("Food group", 
+                  "Sum (kg)", "SD (kg)", "Lower bound (kg)", "Upper bound (kg)",
+                  "% uncertainty",
+                  "Sum (Mt)", "SD (Mt)", "Lower bound (Mt)", "Upper bound (Mt)",
+                  "% uncertainty")
+  ) %>% 
+  add_header_above(c(
+    " " = 1,
+    "Unweighted sample" = 5,
+    "Weighted sample" = 5
+  )) %>%
+  pack_rows(
+     index = c("Missing flow" = 10, "Losses flow" = 8, "Slaughter waste flow" = 4)
+  ) %>%
+  column_spec(1, width = "3cm") %>%
+  column_spec(2:11, width = "1.5cm") 
+
+```
+\end{landscape}
+\newpage
+
+Overall system-level uncertainty after applying the MCS approach showed a percentage uncertainty of 0.3% for the unweighted and 0.4% for the weighted data. Table \@ref(tab:uncertainty) shows the uncertainty of the inefficiency flows across food groups. Finally, the goodness of fit metrics when comparing the observed with the simulated data showed a moderate fit of the model with 62.6% of the variance explained and a Mean Absolute Error of 59.8.\par
+
+<!-- > cat("RMSE:", rmse, "\n") -->
+<!-- RMSE: 334.8  -->
+<!-- > cat("MAE:", mae, "\n") -->
+<!-- MAE: 59.77  -->
+<!-- > cat("R-squared:", r_squared, "\n") -->
+<!-- R-squared: 0.6258  -->
+
+```{r echo=FALSE}
+mcs_weighted <- fread("data/c3/mcs_weighted.csv") %>% setDT()
+
+group_uncertainty_weighted <- mcs_weighted[, .(
+  Sum = sum(mean_value),                          # Sum of values
+  SD_Sum = sqrt(sum(sd_value^2)),                  # Combined SD of the sum
+  CI_Lower = sum(mean_value) - 1.96 * sqrt(sum(sd_value^2)), # Lower bound of 95% CI
+  CI_Upper = sum(mean_value) + 1.96 * sqrt(sum(sd_value^2)),
+  Percentage_Uncertainty = (sqrt(sum(sd_value^2)) / sum(mean_value)) * 100  # Upper bound of 95% CI
+), by = type]
+```
+
+### Visualisation of material flows
+
+```{r eval=FALSE, echo=FALSE}
+# revise all below
+summary_crops <- read_csv("data/c3/summary_crops.csv") %>% 
+  select(type, produced, upper, lower, mean, sd) %>% 
+  filter(!is.na(type)) %>% 
+  mutate(lower = as.numeric(lower))
+mfaw <- read_csv("data/c3/mfaw.csv")
+household <- mfaw %>% filter(target == "Household")
+sales <- mfaw %>% filter(target == "Sales")
+flw <- mfaw %>% filter(grepl("Loss", target))
+unallocated <- mfaw %>% filter(target == "Unallocated")
+gifts <- mfaw %>% filter(target == "Gifts" | target == "Payment")
+total <- sec1 %>% filter(!(grepl("Processed", product_type)))
+total <- sm(total$w_produced)
+
+missing <- mfaw %>% filter(target == "Missing")
+
+lvstcktot <- animals_fin %>% group_by(lvstckid) %>% 
+  summarise(produced = sm(w_slaughter))
+
+smtotal <- summary_crops %>% 
+  select(type, produced) %>% 
+  bind_rows(select(milk_stats, type = subtype, produced = total_prod)) %>% 
+  bind_rows(select(lvstcktot, type = lvstckid, produced))
+
+milk <- smtotal %>% filter(type == "Milk")
+mtotal <- sm(summary_crops$produced) + sm(milk_stats$total_prod) + sm(animals_fin$w_slaughter) # slightly lower than total
+```
+
+```{r echo=FALSE}
+list <- readRDS("data/c3/weighted_flows.RDS")
+mfaW <- mfafun(list)
+
+# for appendix
+data <- mfaW %>% setDT()
+nodes <- data.frame(name = unique(c(as.character(data$source), as.character(data$target))))
+
+# Map source and target to node IDs
+data <- data %>%
+     mutate(
+         IDsource = match(source, nodes$name) - 1,
+         IDtarget = match(target, nodes$name) - 1
+     )
+
+# Ensure proper capitalization for node names
+nodes$name <- stringr::str_to_sentence(nodes$name)
+
+overview_table <- data %>%
+     group_by(source, target) %>%
+     summarise(total_value = sum(value), .groups = "drop") %>%
+     arrange(desc(total_value)) # Sort by descending flow value
+
+# Display the overview table, needs variability
+# overview_table %>%
+#      kable(
+#          caption = "Overview of MFA Data for Sankey Diagram",
+#          col.names = c("Source", "Target", "Total Flow Value"),
+#          booktabs = TRUE,
+#          longtable = TRUE
+#      ) %>%
+#   column_spec(1:3, width = "3cm") %>%
+#   kbltbl()
+```
+
+```{r echo=FALSE}
+weighted_flows_wide <- fread("data/c3/weighted_flows_wide.csv") %>% 
+  mutate(totsold = ifelse(!is.na(prodsold), prodsold+sold, sold))
+
+totalprod_w <- sm(weighted_flows_wide$produced)
+
+flw <- overview_table %>% filter(grepl("waste", target)) %>% summarise(sum = sm(total_value)) + overview_table %>% filter(grepl("losses", target)) %>% summarise(sum = sm(total_value))
+
+
+```
+
+The Sankey diagram in Figure \@ref(fig:sankey) graphically summarises the flows for all commodities based on the MCS results and extrapolated to national representativeness. The figure highlights the relative contribution of all flows within the system, including loss and waste flows and those assumed to be system inefficiencies (i.e., "missing"). Examples of individual household Sankey diagrams that have been aggregated to create the nationally representative material flows are shown in subsequent chapters (\@ref(chapter4) and \@ref(chapter5)).\par
+
+The figure shows an almost even split between the allocation of food to household and towards sales, `r round(overview_table %>% filter(target == "sold") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% and `r round(overview_table %>% filter(target == "consumed") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of total production, respectively. A further `r round(overview_table %>% filter(target == "transfer") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of total production was allocated towards the informal food economy as gifts and payments. The Sankey diagram shows visually the relative contribution of each food group to the smallholder production system. Accordingly, grains & cereal represented the largest production entity `r round(overview_table %>% filter(grepl("grains", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of the total production, followed by fruits and roots & tubers (`r round(overview_table %>% filter(grepl("fruits", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)` and `r round(overview_table %>% filter(grepl("tubers", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`%). Milk had the largest production volume of animal products, `r round(overview_table %>% filter(grepl("milk", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of total production. The total flow of losses and waste represents `r round(flw*100/totalprod_w,1)`% of total production value compared to `r round(overview_table %>% filter(target == "missing") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of unallocated flows. This is equivalent `r round(flw/ht,1)` Mt of FLW across post-harvest losses, processing waste and inedible produce from slaughter. Unallocated flows amounted to `r round(overview_table %>% filter(target == "missing") %>% summarise(sum = sm(total_value))/ht,1)` Mt.\par 
+
+\newpage
+\begin{landscape}
+
+```{r sankey, fig.cap = "Sankey diagram showing flows of all production and allocation volumes", out.width = "100%", echo=FALSE}
+list <- readRDS("data/c3/weighted_flows.RDS")
+mfaW <- mfafun(list)
+sankeyfig <- sankey(mfaW)
+# Save the Sankey diagram as a static image using orca
+htmlwidgets::saveWidget(sankeyfig, "figure/c3/sankey.html")
+knitr::include_graphics("figure/c3/sankey.png")
+```
+
+\end{landscape}
+\newpage
+
+## Discussion
+
+
+### Quantifying food allocation & inefficiencies
+
+Food production estimates in this study are largely comparable with other reports. For example, the current estimate of annual maize production of `r round(sec1_detail %>% filter(item == "Maize") %>% pull(w_produced) %>% sc_mt(),1)` Mt is largely comparable to what is estimated in the official LSMS-ISA report (5 Mt) and only slightly below the FAO estimate (5.9 Mt) [@FAOSTAT]. While the estimate of cattle milk production differed more than twofold compared to official Tanzanian statistics (`r round(observed_wide_fin %>% filter(grepl("milk", type)) %>% summarise(sum = sum(w_produced))/tokt,1)` kt vs. 1,905 Mt [@helgilibrary_milk_2014]), most other estimates are much closer to official reports, such as mango which we estimate at `r round(sec1_detail %>% filter(item == "Mango") %>% pull(w_produced)/t/t,1)` Mt compared to 427.6 Mt reported for 2015 (440.4 Mt in 2014) [@FAOSTAT]. In terms of inefficiencies, we were able to highlight `r round(flw/ht,1)` Mt of food lost/wasted, and `r round(overview_table %>% filter(target == "missing") %>% summarise(sum = sm(total_value))/ht,1)` Mt as unallocated which stands in a net balance relative to all negative mass balance that we corrected for. It is reasonable to assume that a non-negligible fraction of this balance represents waste. While not all waste can be considered as a sign of inefficiency, yet it is still relevant to quantify this concept to consider the potential of a given (waste) resource. For example, the `r round(sum(sl_waste$w_totined)/ht,1)` Mt of inedible animal material generated from the `r round(sum(animals_fin$w_slcons)/mio,1)` million animals slaughtered for consumption (not considering those on-sold live) has the potential to contribute to food security and income [@Jayathilakan.2012; @Rolker.2022]. Below we provide a discussion of key findings by food group and point of inefficiency.\par
+
+**Staple crops: grains & cereals and roots & tubers**
+
+Roots & tubers and grains & cereals have been the primary focus of food loss and waste studies to date [@Stathers.2020; @Kaminski.2014; @Tesfaye.2018]. Staple crops are crucial to meet the population's energy requirements, and their storability is a safeguard throughout the year not only in terms of consumption but also as income strategy [@Kumar.2017]. Not surprisingly, therefore, grains & cereals (maize in particular) are central to the production system in Tanzania, and represent the largest production quantity and the largest number of households that engage in production. The estimate of post-harvest losses for maize is `r round(top10 %>% filter(cropid == "maize") %>% mutate(lost = round(lost/t,1)) %>% pull(lost),1)` t, representing less than 1% of overall maize production and `r round(top10 %>% filter(cropid == "maize") %>% pull(perc),1)`% of the production of households that incurred losses. This value is far below previously reported estimates, including 728,000 t estimated by the FAO [@FAOSTAT] and 789,762 t reported by APHLIS [@APHLIS]. It is however broadly in line with a previous analysis that showed a 19.7% loss among loss-incurring households included in a preceding LSMS-ISA wave for Tanzania [@Kaminski.2014].
+
+**Fruits & vegetables**
+
+```{r availabil, echo=FALSE}
+veg <- tab1 %>% filter(type == "Vegetables")
+fruit <- tab1 %>% filter(type == "Fruits")
+```
+
+Previous analyses have shown that to achieve adequate nutrient supply from fruits and vegetables reducing food loss and waste would be insufficient in Tanzania [@Mason.2019], as only a small proportion of households produce these riskier commodities [@Fakayode.2012]. Notwithstanding, the results here indicate that fruit and vegetables are attractive and valuable, as evidenced by the frequent choice as gifts (they are also often the subject to theft). Although a wide range of losses has previously been reported for vegetables [@Xue.2017], a relatively small proportion of producers in the current sample align with this conclusion. The analysis further translates to a vegetable and fruit availability of `r round((veg %>% pull(production)/veg %>% pull(neq))/365,1)` kg/day for producing households and `r round((fruit %>% pull(production)/fruit %>% pull(neq))/365,1)` kg per fruit producing household. <!-- add per capita information --> Yet, we show further that a large majority of vegetable production is allocated to sales rather than to the household for consumption. This may be explained by perceived health risks due to pesticide use, which makes producers reluctant to consume vegetables [@Ngowi.2007].
+
+**Animal products**
+
+```{r fao data, include=FALSE}
+FAOSTAT_all_losses <- read_csv("data/c3/FAOSTAT_all_losses.csv") %>% setDT() %>% 
+  filter(`Year Code` == 2014 | `Year Code` == 2015)
+```
+
+<!-- - large standard error and little reliability -->
+<!-- - questionnaire not good enough to derive accurate information -->
+<!-- - volumes hard to capture (liquid, small and daily, easily breakable) -->
+<!-- - important considerable gap in knowledge and literature: value of animal products for nutrition and health, also susceptible to decay, food safety concerns etc. -->
+<!-- - unclear if more consumed (eggs) , possible to adjust assumption -->
+<!-- - focus on these two categories in next chapter -->
+<!-- - too few households? -->
+<!-- - misses in kind donations etc -->
+
+
+Available estimates on losses and wastage of animal products are scarce [@Affognon.2015]. <!--The FAO Food Balance Sheets aim at presenting a comprehensive picture of food production and availability for most countries. As part of this data compilation the FAO provides estimates of food losses across the value chain up to the retail level (i.e., post-harvest losses, processing, transport). The estimates are based on reference values from the literature, available local data sources and other information derived from data and text mining approaches [@foodbal2023]. --> The FAO Food Balance Sheet estimates all milk and milk product losses in 2014 and 2015 at 41 and 40 kt, thus the current estimate of `r round(observed_wide_fin %>% filter(grepl("milk", type)) %>% summarise(miss = sum(w_missing))/tokt,1)` kt of milk is less than half for each 2014 and 2015 [@foodbal2023]. <!-- The FAO estimates egg losses across the value chain at 9 t for each year of interest, giving reasonably comparable values to the estimate of **r round(milk_stats %>% filter(item == "Eggs") %>% pull(w_unsum)/t/t,1)** thousand t. --> It needs to be noted, however, that it is not always apparent from the LSMS-ISA data whether post-wholesale transport losses are included in the data and therefore these values may not cover the same system boundaries. Lastly, the FAO estimates offal losses and discard at 12 thousand t for both years. From the current data it is not possible to provide a disaggregated estimate of how much of the offal of slaughtered animals has been allocated to consumption or was not suitable for human consumption and required condemnation [@Mellau.2011]. Notwithstanding, the estimate of edible offal for animals allocated to household consumption accounts for `r round(sum(sl_waste$w_totoffal)/t/t,1)` thousand tons. <!-- \- eggs - meat: consumption of offal possibly following a socio-economic divide [@Baker.2016]  -->
+
+**Pre-harvest relative to post-harvest losses and wastage**
+
+```{r pre-post, include=FALSE}
+# weighted data only
+# prepare yield gaps
+yg_relative <- yieldgaps %>% 
+  mutate(
+    prelostdum = ifelse(preharvest_losses == "yes", 1,0),
+    otherloss = ifelse(lessharvest == "yes", 1, 0)) %>% 
+  group_by(y4_hhid, type, item = cropid) %>% 
+  summarise(
+    n_plots = n(), # number of plots
+    n_lost = sum(prelostdum), # number of plots affected by prelosses
+    n_other = sum(otherloss),
+    yp = sm(w_yp), # total expected yield potential
+    yg = sm(w_yg), # total estimated gap
+    harvest = sm(w_harvest) # total estimated harvest
+  ) %>% 
+  mutate(
+    p_yield = ifelse(
+      yp>0, harvest*100/yp, NA), # harvest as percentage of potential
+    p_yg = 100-p_yield) # yield forgone preharvest
+
+crops_relative <- produce_long %>% 
+  filter(category == "Plant" & product_type != "Processed crop") %>% 
+  filter(w_produced>0) %>% 
+  select(y4_hhid, item, type, w_produced, w_uncertain) %>% 
+  mutate(type = str_to_lower(type),
+         item = str_to_lower(item)) %>% 
+  left_join(yg_relative) %>% 
+  left_join(select(phlosses, y4_hhid, item = cropid, w_losses)) %>% 
+  mutate(
+    harvest = harvest*1000, # back to kg
+    harvest = ifelse(is.na(harvest), w_produced, harvest), # not available for permanent & fruits
+    # otherloss = ifelse(n_other>0, harvest - w_produced, NA),
+    # p_other = otherloss*100/harvest, # nonsense
+    p_harvested = w_produced*100/harvest, # percentage harvested
+    p_remaining = 100-p_harvested, # perc yet to be harvested
+    p_losses = w_losses*100/w_produced, # once harvested, not of total harvest
+    p_unclear = w_uncertain*100/w_produced
+  ) %>% 
+  rd()
+
+rel_stats <- crops_relative %>% 
+  select(y4_hhid, item, type, starts_with("p_"))
+
+fin_percs <- rel_stats %>% 
+  filter(!is.infinite(p_harvested)) %>%  # excludes one Inf
+  filter(p_yield>0) %>% 
+  group_by(item) %>% 
+  summarise(
+    across(starts_with("p_"), ~ mean(.x, na.rm=T))
+  ) %>% 
+  rd()
+
+# same for animals
+```
+
+For crops with an available yield potential estimate the quantities unaccounted for pre-harvest by far outweigh any losses incurred during or after harvest. In the survey years the harvest across the seven crops available was on average `r round(mean(fin_percs$p_yg),1)`% lower than potential yield. The yield gap estimates here are higher than the estimates provided by the GYGA; for example for maize, we estimate a yield of `r fin_percs %>% filter(item == "maize") %>% pull(p_yield)`% of the yield potential, whereas the GYGP places the estimate at `r round((1.9+1.7)*100/(6.6+6.8),1)`% across the two survey years. These figures contrasts to the relatively minor losses of `r round(mean(fin_percs$p_losses),1)`% post-harvest. \par
+
+Overall, post-harvest losses make up a relatively minor factor and account for an average of less than one percent across crops and households (`r round(mn(crops_relative$p_losses),1)`%). Given data limitations a distinction between pre-slaughter losses and condemnation or wastage of animal product after slaughter cannot be made. Yet, of the total possible number of livestock owned across those years `r round(sum(animals_fin$w_all_lost)*100/sum(animals_fin$w_owned),1)`% of animals are estimated to have been lost to disease, injury and theft. This compares to `r round(sum(animals_fin$w_slaughter)*100/sum(animals_fin$w_owned),1)`% of animals slaughtered that were subsequently unutilised. As a whole and based on the Sankey diagram constructed the system seems to indicate relatively low levels of overall wastage. Whether at the household level these can be considered efficient or maximising household benefits in light of potential trade-offs requires further investigation (see \@ref(chapter6)). 
+
+### Reflections on the methodology
+
+An MFA has several advantages at displaying a system resource use. Firstly, it allows a perspective on a range of activities and materials within a system and compares their overall impact across system materials and activities [@Brunner.2019]. The method can be used at any scale from human metabolism to the path of a single item [@Amicarelli.2020b] to global food systems [@Alexander.2017]. In the first instance it is easily conducted and relies on simple mathematical balancing that follows the law of conservation of matter. The use of data from a range of sources to trace and cross-reference material flows and the ability to alter, adjust and improve assumptions when estimating missing allocations (i.e., use of *proxy data* and improved algorithms), improves reliability and allows for flexibility when modelling material flows. As such, the validity of an MFA largely depends on the quality of the underlying data; cross-referencing and reconciling data across multiple sources can result in good estimates of material flows that include a range of uncertainty to represent a system and guide decision making [@Brunner.2019].\par <!--Disadvantages: dependency on data quality, assumptions (especially when using secondary data). Survey data may suffer from recall bias and reporting error [@Corrado.2019], and in the final model the data quality may not be apparent [@ref].  -->
+
+<!-- **Uncertainty** -->
+
+<!-- - assumed in the inflow, may underestimate overall system uncertainty -->
+<!-- - addressing inconsistencies, inaccuracies, and uncertainties within the dataset while maintaining the **mass balance principle** -->
+
+
+<!-- **1. Understand the Data** - done -->
+<!--    - **Survey Design**: -->
+<!--      - Review the survey methodology to identify potential biases or errors in data collection (e.g., sampling errors, measurement errors, or inconsistencies in reporting). -->
+<!--    - **Key Variables**: -->
+<!--      - Identify the **inflows**, **outflows**, **stocks**, and **transformations** measured in the survey. -->
+<!--    - **Mass Balance Equation**: -->
+
+<!-- ### **2. Identify Sources of Inconsistencies** -->
+<!--    - **Measurement Errors**: -->
+<!--      - Check for systematic errors (e.g., underreporting or overreporting) in inflows, outflows, or stocks. -->
+<!--    - **Missing Data**: -->
+<!--      - Identify missing or incomplete data points, such as unreported flows or stock changes. -->
+<!--    - **Survey Limitations**: -->
+<!--      - Recognize limitations in survey granularity (e.g., aggregated data might mask smaller flows). -->
+<!--    - **Uncertainty in Estimates**: -->
+<!--      - Quantify uncertainty in the reported values (e.g., using confidence intervals or ranges). -->
+
+
+<!-- ### **3. Apply Data Reconciliation Techniques** -->
+<!--    Data reconciliation ensures consistency while minimizing adjustments to the original data. Some common approaches include: -->
+
+<!--    #### A. **Mathematical Reconciliation**: -->
+<!--    - Use **optimization techniques** to adjust data while maintaining mass balance. -->
+<!--    - Example: Minimize the sum of squared deviations between the original and adjusted data while enforcing the mass balance equation: -->
+<!--    #### B. **Monte Carlo Simulations**: -->
+<!--    - Generate random values for inflows, outflows, and stocks within their uncertainty ranges and check for mass balance consistency. -->
+<!--    - Use the results to estimate reconciled data distributions. -->
+<!--    #### C. **Iterative Proportional Scaling**: -->
+<!--    - If the data is presented in a matrix format (e.g., flow between sectors), adjust row and column totals iteratively to satisfy mass balance constraints. -->
+
+<!-- --- -->
+
+<!-- ### **4. Use Expert Judgment** -->
+<!--    - Collaborate with domain experts to validate adjustments and interpret ambiguous or conflicting data. -->
+<!--    - Revisit survey assumptions (e.g., underreporting of certain flows) and make adjustments based on knowledge of the system. -->
+
+<!-- --- -->
+
+<!-- ### **5. Handle Missing Data** -->
+<!--    - **Imputation**: -->
+<!--      - Use imputation techniques (e.g., mean imputation, regression, or multiple imputation) to fill in missing data. -->
+<!--    <!-- - **Proportional Allocation**: --> -->
+<!--    <!--   - Allocate missing flows proportionally based on related flows or known ratios. -->
+
+<!-- --- -->
+
+<!-- ### **6. Address Uncertainty** -->
+<!--    - Incorporate uncertainty ranges for all flows (e.g., ±10%) and propagate these uncertainties through the system. -->
+<!--    - Report reconciled results with uncertainty bounds to communicate the reliability of the analysis. -->
+
+<!-- --- -->
+
+<!-- ### **7. Document the Reconciliation Process** -->
+<!--    - Clearly document all assumptions, adjustments, and reconciliation methods used. -->
+<!--    - Include: -->
+<!--      - Original and adjusted values. -->
+<!--      - Sources of uncertainty. -->
+<!--      - Justifications for changes. -->
+
+
+
+**Mass as a measure of outcome**
+
+The first step of any MFA is establishing the mass of material flows before the path and concentration of certain *substances* contained in the materials can be established [@Brunner.2019]. Depending on the research question and commodity types at hand, however, mass as a mid-point outcome measure of inefficiency can only be a crude indicator of the implications of the waste generated. It is reasonably common to estimate food waste in an MFA using mass as a measure of outcome [@Amicarelli.2020b; @Caldeira.2019; @Ju.2017; @Courtonne.2015], in particular when the initial purpose lies in quantifying waste. To highlight the implications of food systems inefficiencies mass estimates can be expressed using other indicators. This can be particularly meaningful when the inefficiencies across multiple food groups and production systems are presented comparatively. Other means of expressing food system inefficiencies to improve compatibility include dry matter, protein and energy [@Alexander.2017], embedded water, crop land, fertiliser [@Kummu.2012] and carbon footprint [@Jiang.2023]. Expressing material flows in terms of their environmental implications in particular has become common and covers a range of contexts (see \@ref(chapter5)) [@Jiang.2023; @Kovanda.2022; @Amicarelli.2021a]. \par
+
+In this regard, the primary purpose of this chapter was to quantify food system inefficiencies and thus weight or mass is meaningful as it highlights what items and food groups are most affected and where interventions can be targeted. Ultimately, this mass based quantification effort can be seen as a proxy and is further expanded on in subsequent chapters that highlight the wider implications of the material flows in terms of the substances contained within the weight measure.
+
+**Suitability of MFA based on LSMS-ISA data**
+
+In this chapter an MFA using LSMS-ISA survey data was constructed. Overall, the survey provided sufficiently detailed information that was coherent in reporting to construct a MFA. Yet, this may be a unique feature of the Tanzanian dataset as initial (non-holistic) attempts to replicate this analysis with other country datasets (Uganda, Ethiopia, Niger, Nigeria, Malawi) were either unsuccessful or deemed substantially more time intensive due to needs for additional data manipulation. The production, sales, consumption and loss estimates were generally aligned to other reports, although for a subset of commodities the representativeness of the data warrants further investigation.\par
+
+<!-- ### Next steps -->
+
+<!-- This chapter builds the basis of subsequent analyses in this thesis. Here, I show inefficiencies and waste up to the point of sale/consumption, however, I are unable to infer that these quantities are used (fully) at the point of destination. The next chapter will estimate the mismatch between reported production for consumption and consumption from production and from there extrapolate overall waste quantities generated by the household at the point of consumption. I therefore aim at “completing” the MFA to include the household questionnaire in our cross-referencing of the data. -->
+
+## Conclusion
+
+In this chapter, we have provided an estimate of quantities of food flows across a nationally representative sample of smallholder farm households in the Republic of Tanzania. Total annual production across all food groups (except fish), and the subsequent allocation of these foods to processing, sales, household consumption and others were quantified. In terms of inefficacies, we were able to highlight multiple points in the system from pre-harvest to allocation to sales and household consumption. Despite food being allocated to the household it may not be fully consumed. The next chapter extends the MFA to quantify inefficiencies between food being allocated to the household and being consumed by it.\par
+
+<!-- Other possible discussion points: -->
+
+<!-- -  The methodology has several shortcomings, bias associated with survey recall @Corrado.2019 -->
+
+<!-- -   selection bias based on data quality restrictions -->
+
+<!-- -   egg consumption is estimated in different ways -->
+
+<!-- -   I may observe a dependence on certain buyers or locality -->
+
+<!-- -   private business person: definition lacking, power balance and consequences observed and described elsewhere -->
+
+<!-- - pre-harvest losses: what has been reported elsewhere? Quantify and compared to post-harvest losses. -->
+
+<!-- - type of storage and methods used for preservation: how are they further linked to storage and post-harvest losses? Can more be said based on the practices recorded. -->
+
+<!-- *Uncertainties/sensitivity analyses* -->
+
+<!-- *Next steps/resulting research questions* -->
+
+<!-- Continuation in thesis: -->
+
+<!-- - cross-reference with household survey to estimate how much of allocation to the household is consumed by it -->
+
+<!-- - identify food allocation patterns and their impacts on household well-being, what is the cost (nutritional, economic, well-being) of losses? At who to target interventions? -->
+
+<!-- - identify household and community determinants of losses and "missing" quantities; where to target, what interventions? -->
+
+<!-- Other recommended research:  -->
+
+<!-- - to gain better understanding of the complexity of decision making and power imbalances within the household. LSMS records decisions about what is done with the income but decisions on what to grow and what to process or who to sell to is not recorded and often not the focus. Yet, evidence suggests that greater participation and intra-household negotiation power for women can be associated with better household health and nutrition outcomes [@UPAVAN/Harris-Fry; @Bonis-Profumo.2022].  -->
+
+<!-- - to fill data gaps/improve questionnaires: storage loss, details on processing (esp milk), record allocation to household for all -->
+
+<!-- - to investigate low proportion of households producing vegetables, understanding of the risk of theft -->
+
+\newpage
+
+## Appendix
+
+```{r sections, fig.cap = "Survey questionnaires and sections", out.width="90%", echo=FALSE}
+knitr::include_graphics("figure/c3/sections.png")
+```
+
+```{r qualMFA, fig.cap = "Qualitative/theoretical model of the material flows from the LSMS-ISA survey", out.width="90%", echo=FALSE}
+# ignore for now, unless its asked for, should be the same as the STAN highlighting which flows are imputed and which are present in the survey, if methods are written well enough this should not be necessary
+```
+
+```{r feed, echo=FALSE}
+feedtbl <- readRDS("data/c3/feedtbl.RDS")
+breakdown <- read_excel("data/c3/breakdown.xlsx", sheet = "conv") %>% 
+  setDT() %>% 
+  filter(animal != "Beef")
+
+fcr <- breakdown[,.(type, fcr = FCR_A16, ew = EW_A16)]
+fcradd <- data.table(
+  type = c("eggs", "milk (small ruminants)", "milk (large ruminants)"),
+  fcr = c(2.3, 0.7, 0.7),
+  ew = NA
+)
+fcr <- rbind(fcr, fcradd)
+# eggs: fcr 2.3
+# milk: fcr 0.7 (no small rum value)
+
+feedtbl <- feedtbl %>%
+  unite("ratio", c(feed, grazed), sep = "/", remove = FALSE) %>%
+  select(feed1, ratio, type) %>%
+  pivot_wider(names_from = feed1, values_from = ratio) %>%
+  left_join(fcr, by = "type") %>%
+  mutate(type = str_to_sentence(type))
+
+feedtbl %>%
+  kbltbl(
+    caption = "Animal feeds",
+    col_names = c(
+      "Animal product", 
+      "Feeding only", "Mainly feeding with some feeding", "Grazing/ scavenging only", "Mainly feeding with some grazing/scavening", "Tethering","Feed conversion ratio (kg DM feed/kg EW)", "Percentage edible weight of live weight (%)")
+  ) %>% 
+  pack_rows(
+    index = c(" " = 1, "Feed to grazing/scavenging ratio" = 5, " " = 2)
+  ) %>% 
+  column_spec(1, width = "3cm") %>% 
+  column_spec(2:8, width = "1.5cm") 
+```
+
+```{r breakdown, echo=F}
+breakdown[, `:=` (`Inedible parts` = `Bone meal` + Bloodmeal + `Meat & bonemeal`,
+                  Offal = Offals + Fat)]
+
+breakdown <- breakdown[,.(Type = type, `Raw meat`, `Inedible parts`, Offal, `Feather meal/hides`)]
+
+breakdown %>%
+  mutate(Type = str_to_sentence(Type)) %>%
+  kbltbl(
+    caption = "Animal breakdown (kg/kg live weight)"
+  ) %>% 
+  column_spec(1, width = "3cm") %>% 
+  column_spec(2:5, width = "2cm") 
+```
+
+
+```{r yieldgap, echo=FALSE}
+# reference values for crops and irrigation type
+```
+
+
+\newpage
+
+```{r}
+
+```
+
+
+\newpage
+
+```{r residue, echo=FALSE}
+residue_stats %>% 
+  filter(!is.na(type)) %>% 
+  filter(type != "cashcrops") %>% 
+  filter(!is.na(forcons)) %>% 
+  arrange(desc(forcons)) %>% 
+  select(!animalresidue) %>% 
+  mutate(type = str_to_sentence(type),
+         sum = sum/t/t
+         ) %>% 
+  rd() %>% 
+  kbltbl(
+    caption = "Residue production and allocation",
+    col_names = c("Group", "Total residue (kt)", "Residue relative to production (%)", "Residue as animal feed (%)")) %>% 
+  column_spec(1, width = "3cm") %>% 
+  column_spec(2:4, width = "2cm") 
+
+```
+\newpage
+\begin{landscape}
+
+
+```{r animalloss, echo=FALSE}
+text3 %>% 
+  filter(!is.na(type)) %>% 
+  mutate(type = str_to_sentence(type),
+         perc = total_lost*100/total_owned,
+         w_diseased = w_diseased/t,
+         w_stolen = w_stolen/t,
+         w_injured = w_injured/t) %>% 
+  rd() %>% 
+  select(
+    type, diseased, stolen, injured, perc, w_diseased, w_stolen, w_injured, w_pdis, w_pstolen, w_pinjured
+    ) %>% 
+  kbltbl(
+    caption = "Animals lost",
+    col_names = c("Type", "Diseased", "Stolen", "Injured", "Total (%)",
+                  "Diseased", "Stolen", "Injured",
+                  "Diseased", "Stolen", "Injured")
+  ) %>% 
+    add_header_above(
+      c(" "= 1,
+        "Unweighed sample" = 4,
+        "Weighted sample (1000s)" = 3,
+        "Proportion of losses (%)" = 3)
+    ) %>% 
+  column_spec(1, width = "2cm") %>% 
+  column_spec(2:11, width = "1.1cm") 
+```
+```{r posmissonly, echo=FALSE}
+# Maybe appendix but not sure it'll be necessary
+# posonly %>% 
+#   kable()
+```
+ \newpage
+ \end{landscape}
+
+## References
+
+
+
+
+
