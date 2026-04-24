@@ -37,9 +37,9 @@ Because many of the conversion factors used in this pipeline (processing yields,
 
 ## Tools Used
 
+- **SQL** — in progress
 - **R** — primary language for data cleaning, pipeline construction, and Monte Carlo simulation
 - **Python** — translation in progress
-- **SQL** — in progress
 
 ---
 
