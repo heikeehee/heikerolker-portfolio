@@ -1,3 +1,15 @@
+---
+title: "Chapter 3 — Smallholder Material Flow Analysis"
+author: "Heike Rolker"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(here)
+```
+
 # Estimating intra-household food losses and food allocation efficiency of food producers using routine survey data {#chapter3}
 
 ## Overview {.unnumbered}
@@ -15,9 +27,9 @@ Losses and waste in the food system hinder achieving the best possible outcomes 
 ```{r echo=FALSE}
 library(treemapify)
 # files
-excl_3a <- read_csv("data/c3/excl_3a.csv") %>% setDT() # should not need to skip, change write function at source
+excl_3a <- read_csv(here::here("data", "processed", "01", "excl_3a.csv")) %>% setDT() # should not need to skip, change write function at source
 
-weighting <- read_csv("data/c3/weighting.csv") %>% 
+weighting <- read_csv(here::here("data", "processed", "01", "weighting.csv")) %>% 
   clear.labels()
 
 # weighting %>% inner_join(excl_3a, by = "y4_hhid") # no intersection as it should be!
@@ -120,7 +132,7 @@ ggplot(food_system, aes(x = x, y = y)) +
 **Survey structure**
 
 ```{r include=FALSE}
-hhs_3a <- read_csv("data/c3/hhs_3a.csv") %>% setDT()
+hhs_3a <- read_csv(here::here("data", "processed", "01", "hhs_3a.csv")) %>% setDT()
 # basic numbers
 
 # all households surveyed
@@ -443,7 +455,7 @@ Table \@ref(tab:consort) shows the number of households affected by each exclusi
 
 ```{r consort, echo=FALSE}
 # group categories
-ex <- read.csv("data/c3/excl_list.csv") %>% 
+ex <- read.csv(here::here("data", "processed", "01", "excl_list.csv")) %>% 
   select(y4_hhid, item, excl = excl_new) %>% 
   setDT()
 
@@ -470,7 +482,7 @@ criteria_combinations %>%
 ```{r include=FALSE}
 # shoudl be fully replaced by observed_data/wide_fin
 # reconstruct produce_long
-produce_long <- read_csv("data/c3/produce_long.csv") %>% setDT() # 
+produce_long <- read_csv(here::here("data", "processed", "01", "produce_long.csv")) %>% setDT() # 
 
 # Reduce households to food group
 produce_long[, itemcount :=ifelse(produced>0, 1, 0)] # number of items produced
@@ -487,6 +499,7 @@ sec1_detail <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(item)] 
 ```
 
 ```{r include=FALSE, eval=FALSE}
+# 🚩 UNHEALTHY: candidate for function extraction
 sc1 <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(y4_hhid, category, product_type, tab3)] # type is smallest category - milk, eggs should be types at next run!
 
 # slaughter product is only inedible stuff, while animal product contains all the meat/offal for the first summary table this needs to be adjusted (may be the source of the error of totals??)
@@ -522,7 +535,7 @@ produce_long[, producer := ifelse(produced>0,1,0)]
 ```
 
 ```{r production-tab, echo=FALSE}
-observed_data <- fread("data/c3/observed_data.csv") %>% setDT()
+observed_data <- fread(here::here("data", "processed", "01", "observed_data.csv")) %>% setDT()
 
 observed_wide <- observed_data %>% 
   dcast(
@@ -530,7 +543,8 @@ observed_wide <- observed_data %>%
 ) %>% 
   mutate(across(is.numeric, ~ replace_na(., 0))) 
 
-fwrite(observed_wide, "data/c3/observed_wide.csv")
+# 🚩 UNHEALTHY: silent data change — add comment explaining why
+fwrite(observed_wide, here::here("data", "processed", "01", "observed_wide.csv"))
 
 observed_wide_fin <- observed_wide %>%
   # mutate(
@@ -695,7 +709,7 @@ A smaller proportion of households engaged in livestock husbandry. An equivalent
 <!-- The LSMS survey does not allow for an accurate quantification of pre-harvest losses. However, I are able to estimate the yield gap for several crops and further determine for how many households pre-harvest losses have contributed to this gap (and the primary causes). -->
 
 ```{r, echo=FALSE}
-yieldgaps <- read_csv("data/c3/yieldgaps.csv")
+yieldgaps <- read_csv(here::here("data", "processed", "01", "yieldgaps.csv"))
 # YP in t/ha
 
 # total yield gap by type
@@ -798,7 +812,7 @@ yg_stat %>%
 ````
 
 ```{r echo=FALSE}
-prelost <- read_csv("data/c3/prelost.csv")
+prelost <- read_csv(here::here("data", "processed", "01", "prelost.csv"))
 
 pl_stat <- prelost %>%
   filter(!is.na(cropid)) %>% 
@@ -874,7 +888,7 @@ pl_stat %>%
 ```
 
 ```{r include=FALSE}
-mass_residue <- read_csv("data/c3/mass_residue.csv")
+mass_residue <- read_csv(here::here("data", "processed", "01", "mass_residue.csv"))
 
 residue_stats <- mass_residue %>% 
   mutate(perc = Residues/harvest) %>% 
@@ -892,7 +906,7 @@ residue_stats <- mass_residue %>%
 Besides losses incurred in yield gaps and pre-harvest losses, crops grown also yielded residues that can fulfil multiple purposes. For some food groups such as grains & cereals and legumes the volume of residue far exceeded yield (`r residue_stats %>% filter(type == "grains & cereals") %>% pull(ofharvest)` and `r residue_stats %>% filter(type == "legumes") %>% pull(ofharvest)`%). Most residue across all food groups produced were reported to be allocated to animal grazing (Table \@ref(tab:residue)).
 
 ```{r text3: animals, include=FALSE}
-animals_fin <- read_csv("data/c3/animals_fin.csv")
+animals_fin <- read_csv(here::here("data", "processed", "01", "animals_fin.csv"))
 
 # must be better and more central way...
 lvstowners <- animals_fin %>% select(y4_hhid, weight_adj) %>% unique() %>% setDT()
@@ -984,12 +998,13 @@ An estimated `r round(sum(hhls$w_all_lost)/mio,1)` million households (`r round(
 
 ```{r storage, include=FALSE}
 # take from mass_crops to maintain unweighted sample
-# mass_crops <- readRDS("data/c3/mass_crops.RDS") %>% 
+# 🚩 UNHEALTHY: commented-out code — remove or document why retained
+# mass_crops <- readRDS(here::here("data", "processed", "01", "mass_crops.RDS")) %>% 
 #   clear.labels() %>% 
 #   select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
 #   weigh() # included hhs only
 # 
-# mass_trees <- readRDS("data/c3/mass_trees.RDS") %>% 
+# mass_trees <- readRDS(here::here("data", "processed", "01", "mass_trees.RDS")) %>% 
 #   clear.labels() %>% 
 #   select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
 #   weigh() # included hhs only
@@ -997,7 +1012,7 @@ An estimated `r round(sum(hhls$w_all_lost)/mio,1)` million households (`r round(
 # storage <- mass_crops %>% 
 #   bind_rows(mass_trees)
 
-storage <- read_csv("data/c3/storage.csv") %>% setDT()
+storage <- read_csv(here::here("data", "processed", "01", "storage.csv")) %>% setDT()
 
 storage[, `:=` (
   pstor = stored/produced, # % of harvest in storage
@@ -1037,12 +1052,13 @@ seed <- sm(storage_stats$w_totalseed)
 ```
 
 ```{r include=F}
-# crop_disp <- readRDS("data/c3/crop_disp.RDS") %>% 
+# 🚩 UNHEALTHY: commented-out code — remove or document why retained
+# crop_disp <- readRDS(here::here("data", "processed", "01", "crop_disp.RDS")) %>% 
 #   clear.labels() %>% 
 #   select(y4_hhid, cropid, type, stored, method = ag5a_25, protection = ag5a_27, purpose = storage_purpose) %>% 
 #   weigh()
 # 
-# tree_disp <- readRDS("data/c3/tree_disp.RDS") %>% 
+# tree_disp <- readRDS(here::here("data", "processed", "01", "tree_disp.RDS")) %>% 
 #   clear.labels() %>% 
 #   select(y4_hhid, cropid, type, stored, method = ag7a_10, protection = ag7a_12) %>%  # no purpose
 #   weigh()
@@ -1050,7 +1066,7 @@ seed <- sm(storage_stats$w_totalseed)
 # storagemethods <- crop_disp %>% 
 #   bind_rows(tree_disp) 
 
-storagemethods <- read_csv("data/c3/storagemethods.csv")
+storagemethods <- read_csv(here::here("data", "processed", "01", "storagemethods.csv"))
 
 hhstor <- storagemethods %>% 
   
@@ -1167,7 +1183,7 @@ Total sales volume amounted to `r round(sm(sales_stats$sales)/mio,1)` Mt. Of all
 ```
 
 ```{r b1fig, fig.cap="Proportion of sales by location and buyer type", fig.align='center', out.width="90%", echo=FALSE}
- b1 <- read_csv("data/c3/b1.csv") %>% 
+ b1 <- read_csv(here::here("data", "processed", "01", "b1.csv")) %>% 
   weigh() %>% 
   mutate(w_sold = sold*weight_adj) %>% 
   dplyr::rename(type = type_new) # where does _new come from??
@@ -1240,7 +1256,8 @@ cons_stat
 ```
 
 ```{r end-tab, echo=FALSE}
-produce_long <- read_csv("data/c3/produce_long.csv") %>% setDT()
+# 🚩 UNHEALTHY: repeated block — candidate for loop or purrr::map()
+produce_long <- read_csv(here::here("data", "processed", "01", "produce_long.csv")) %>% setDT()
 
 # Reduce households to food group
 produce_long[, itemcount :=ifelse(produced>0, 1, 0)] # number of items produced
@@ -1285,7 +1302,7 @@ In terms of consumption more than half of all roots & tubers produced were alloc
 ### Waste and unallocated flows
 
 ```{r phl text new, include=FALSE}
-phlosses <- read_csv("data/c3/phlosses.csv") %>% setDT()
+phlosses <- read_csv(here::here("data", "processed", "01", "phlosses.csv")) %>% setDT()
 
 # some duplication
 phlosses <- phlosses[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, cropid, type)]
@@ -1324,7 +1341,8 @@ top10 %>%
 ```
 
 ```{r phl figure, include=FALSE}
-# phl <- read_csv("data/c3/phl.csv") %>% 
+# 🚩 UNHEALTHY: commented-out code — remove or document why retained
+# phl <- read_csv(here::here("data", "processed", "01", "phl.csv")) %>% 
 #   rd()
 
 phtype <- phlosses[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
@@ -1357,7 +1375,7 @@ phl <- phtype %>%
   filter(lost>0) %>% 
   rd()
 
-processing <- mfa_unweighted <- fread("data/c3/mfa_unweighted.csv") %>% filter(grepl("processing", source) | grepl("processing", target) | grepl("waste", target))
+processing <- mfa_unweighted <- fread(here::here("data", "processed", "01", "mfa_unweighted.csv")) %>% filter(grepl("processing", source) | grepl("processing", target) | grepl("waste", target))
 processed_crops <- (48588.5+4359.5+18+525324.7)
 ```
 
@@ -1408,12 +1426,13 @@ phl %>%
 ````
 
 ```{r, echo=FALSE}
-sl_waste <- read_csv("data/c3/sl_waste.csv")
+sl_waste <- read_csv(here::here("data", "processed", "01", "sl_waste.csv"))
 ```
 
 Based on the number of animals slaughtered for consumption the estimation of truly inedible parts (all parts beside meat and offal) of slaughtered animals amounted to `r round(sl_waste %>% filter(type == "poultry") %>% pull(w_totined)/mio,1)` Mt for poultry alone, followed by `r round(sl_waste %>% filter(type == "small ruminants") %>% pull(w_totined)/mio,1)` Mt and `r round(sl_waste %>% filter(type == "large ruminants") %>% pull(w_totined)/mio,1)` Mt for small and large ruminants. Of the total weight of skins and hides available from slaughtered animals, a third was used to be further processed, with the remainder presumably to have been discarded.
 
 ```{r eval=FALSE, echo=FALSE}
+# 🚩 UNHEALTHY: commented-out code — remove or document why retained
 # source("03-MCS_household.R")
 # source("03_MFA.R")
 # source("03-sankey.R")
@@ -1683,10 +1702,11 @@ negative_data <- neg_group %>%
 
 
 # uncertainty after propagating negative values
-household_mcs <- fread("data/c3/household_mcs.csv")
+household_mcs <- fread(here::here("data", "processed", "01", "household_mcs.csv"))
 ```
 
 ```{r eval=FALSE, echo=FALSE}
+# 🚩 UNHEALTHY: commented-out code — remove or document why retained
 # REMOVE DUPLICAITONS BELOW
 # Filter for Negative rows
 
@@ -1722,15 +1742,16 @@ overall_data <- neg_group %>%
 # Wide format transformation and quintile calculation
 
 # negative households
-neg_meat <- fread("data/c3/negative_meat.csv") %>% setDT() %>% 
+# 🚩 UNHEALTHY: repeated block — candidate for loop or purrr::map()
+neg_meat <- fread(here::here("data", "processed", "01", "negative_meat.csv")) %>% setDT() %>% 
   group_by(type, y4_hhid = household_id, destination) %>% 
   summarise(mean = mean(simulated_values),
             sd = sd(simulated_values))
-neg_crops <- fread("data/c3/negative_crops.csv") %>% setDT() %>% 
+neg_crops <- fread(here::here("data", "processed", "01", "negative_crops.csv")) %>% setDT() %>% 
   group_by(type, y4_hhid = household_id, destination) %>% 
   summarise(mean = mean(simulated_values),
             sd = sd(simulated_values))
-neg_ap <- fread("data/c3/negative_ap.csv")  %>% setDT() %>% 
+neg_ap <- fread(here::here("data", "processed", "01", "negative_ap.csv"))  %>% setDT() %>% 
   group_by(type, y4_hhid = household_id, destination) %>% 
   summarise(mean = mean(simulated_values),
             sd = sd(simulated_values))
@@ -1746,8 +1767,8 @@ negsim <- negative_households %>%
 ```
 
 ```{r echo=FALSE}
-household_mcs <- read_csv("data/c3/household_mcs.csv") %>% setDT()
-mcs_weighted <- fread("data/c3/mcs_weighted.csv") %>% setDT()
+household_mcs <- read_csv(here::here("data", "processed", "01", "household_mcs.csv")) %>% setDT()
+mcs_weighted <- fread(here::here("data", "processed", "01", "mcs_weighted.csv")) %>% setDT()
 system_uncertainty <- household_mcs[, .(
   Sum = sum(mean_value),                          # Sum of values
   SD_Sum = sqrt(sum(sd_value^2)),                  # Combined SD of the sum
@@ -1822,7 +1843,8 @@ uncertainty %>%
 Overall system-level uncertainty after applying the MCS approach showed a percentage uncertainty of 0.3% for the unweighted and 0.4% for the weighted data. Table \@ref(tab:uncertainty) shows the uncertainty of the inefficiency flows across food groups. Finally, the goodness of fit metrics when comparing the observed with the simulated data showed a moderate fit of the model with 62.6% of the variance explained and a Mean Absolute Error of 59.8.
 
 ```{r echo=FALSE}
-mcs_weighted <- fread("data/c3/mcs_weighted.csv") %>% setDT()
+# 🚩 UNHEALTHY: repeated block — candidate for loop or purrr::map()
+mcs_weighted <- fread(here::here("data", "processed", "01", "mcs_weighted.csv")) %>% setDT()
 
 group_uncertainty_weighted <- mcs_weighted[, .(
   Sum = sum(mean_value),                          # Sum of values
@@ -1836,12 +1858,13 @@ group_uncertainty_weighted <- mcs_weighted[, .(
 ### Visualisation of material flows
 
 ```{r eval=FALSE, echo=FALSE}
+# 🚩 UNHEALTHY: commented-out code — remove or document why retained
 # revise all below
-summary_crops <- read_csv("data/c3/summary_crops.csv") %>% 
+summary_crops <- read_csv(here::here("data", "processed", "01", "summary_crops.csv")) %>% 
   select(type, produced, upper, lower, mean, sd) %>% 
   filter(!is.na(type)) %>% 
   mutate(lower = as.numeric(lower))
-mfaw <- read_csv("data/c3/mfaw.csv")
+mfaw <- read_csv(here::here("data", "processed", "01", "mfaw.csv"))
 household <- mfaw %>% filter(target == "Household")
 sales <- mfaw %>% filter(target == "Sales")
 flw <- mfaw %>% filter(grepl("Loss", target))
@@ -1865,7 +1888,7 @@ mtotal <- sm(summary_crops$produced) + sm(milk_stats$total_prod) + sm(animals_fi
 ```
 
 ```{r echo=FALSE}
-list <- readRDS("data/c3/weighted_flows.RDS")
+list <- readRDS(here::here("data", "processed", "01", "weighted_flows.RDS"))
 mfaW <- mfafun(list)
 
 # for appendix
@@ -1900,7 +1923,7 @@ overview_table <- data %>%
 ```
 
 ```{r echo=FALSE}
-weighted_flows_wide <- fread("data/c3/weighted_flows_wide.csv") %>% 
+weighted_flows_wide <- fread(here::here("data", "processed", "01", "weighted_flows_wide.csv")) %>% 
   mutate(totsold = ifelse(!is.na(prodsold), prodsold+sold, sold))
 
 totalprod_w <- sm(weighted_flows_wide$produced)
@@ -1913,7 +1936,8 @@ The Sankey diagram in Figure \@ref(fig:sankey) graphically summarises the flows 
 The figure shows an almost even split between the allocation of food to household and towards sales, `r round(overview_table %>% filter(target == "sold") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% and `r round(overview_table %>% filter(target == "consumed") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of total production, respectively. A further `r round(overview_table %>% filter(target == "transfer") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of total production was allocated towards the informal food economy as gifts and payments. The Sankey diagram shows visually the relative contribution of each food group to the smallholder production system. Accordingly, grains & cereal represented the largest production entity `r round(overview_table %>% filter(grepl("grains", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of the total production, followed by fruits and roots & tubers (`r round(overview_table %>% filter(grepl("fruits", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)` and `r round(overview_table %>% filter(grepl("tubers", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`%). Milk had the largest production volume of animal products, `r round(overview_table %>% filter(grepl("milk", source)) %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of total production. The total flow of losses and waste represents `r round(flw*100/totalprod_w,1)`% of total production value compared to `r round(overview_table %>% filter(target == "missing") %>% summarise(sum = sm(total_value))*100/totalprod_w,1)`% of unallocated flows. This is equivalent `r round(flw/mio,1)` Mt of FLW across post-harvest losses, processing waste and inedible produce from slaughter. Unallocated flows amounted to `r round(overview_table %>% filter(target == "missing") %>% summarise(sum = sm(total_value))/mio,1)` Mt.
 
 ```{r sankeyprep3, include=FALSE, echo=FALSE}
-list <- readRDS("data/c3/weighted_flows.RDS")
+# 🚩 UNHEALTHY: repeated block — candidate for loop or purrr::map()
+list <- readRDS(here::here("data", "processed", "01", "weighted_flows.RDS"))
 mfaW <- mfafun(list)
 sankeyfig <- sankey(mfaW)
 # Save the Sankey diagram as a static image using orca
@@ -1957,7 +1981,7 @@ Previous analyses have shown that to achieve adequate nutrient supply from fruit
 **Animal products**
 
 ```{r fao data, include=FALSE}
-FAOSTAT_all_losses <- read_csv("data/c3/FAOSTAT_all_losses.csv") %>% setDT() %>% 
+FAOSTAT_all_losses <- read_csv(here::here("data", "processed", "01", "FAOSTAT_all_losses.csv")) %>% setDT() %>% 
   filter(`Year Code` == 2014 | `Year Code` == 2015)
 ```
 
