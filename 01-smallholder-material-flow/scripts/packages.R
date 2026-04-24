@@ -102,3 +102,27 @@ if(!require(hrbrthemes)){
   install.packages("hrbrthemes")
   library(hrbrthemes)
 }
+if(!require(ggthemes)){
+  install.packages("ggthemes")
+  library(ggthemes)
+}
+
+if(!require(ggimage)){
+  install.packages("ggimage")
+  library(ggimage)
+}
+
+if(!require(treemapify)){
+  install.packages("treemapify")
+  library(treemapify)
+}
+
+if(!require(purrr)){
+  install.packages("purrr")
+  library(purrr)
+}
+
+if(!require(here)){
+  install.packages("here")
+  library(here)
+}
