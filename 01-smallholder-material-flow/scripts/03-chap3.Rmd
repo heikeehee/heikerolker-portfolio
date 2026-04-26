@@ -543,7 +543,7 @@ observed_wide <- observed_data %>%
 ) %>% 
   mutate(across(is.numeric, ~ replace_na(., 0))) 
 
-# 🚩 UNHEALTHY: silent data change — add comment explaining why
+# Data needed for Chapter 4
 fwrite(observed_wide, here::here("data", "processed", "01", "observed_wide.csv"))
 
 observed_wide_fin <- observed_wide %>%
@@ -997,21 +997,6 @@ An estimated `r round(sum(hhls$w_all_lost)/mio,1)` million households (`r round(
 ### Destinations: Storage, processing, sales and household consumption
 
 ```{r storage, include=FALSE}
-# take from mass_crops to maintain unweighted sample
-# 🚩 UNHEALTHY: commented-out code — remove or document why retained
-# mass_crops <- readRDS(here::here("data", "processed", "01", "mass_crops.RDS")) %>% 
-#   clear.labels() %>% 
-#   select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
-#   weigh() # included hhs only
-# 
-# mass_trees <- readRDS(here::here("data", "processed", "01", "mass_trees.RDS")) %>% 
-#   clear.labels() %>% 
-#   select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
-#   weigh() # included hhs only
-# 
-# storage <- mass_crops %>% 
-#   bind_rows(mass_trees)
-
 storage <- read_csv(here::here("data", "processed", "01", "storage.csv")) %>% setDT()
 
 storage[, `:=` (
@@ -1052,20 +1037,6 @@ seed <- sm(storage_stats$w_totalseed)
 ```
 
 ```{r include=F}
-# 🚩 UNHEALTHY: commented-out code — remove or document why retained
-# crop_disp <- readRDS(here::here("data", "processed", "01", "crop_disp.RDS")) %>% 
-#   clear.labels() %>% 
-#   select(y4_hhid, cropid, type, stored, method = ag5a_25, protection = ag5a_27, purpose = storage_purpose) %>% 
-#   weigh()
-# 
-# tree_disp <- readRDS(here::here("data", "processed", "01", "tree_disp.RDS")) %>% 
-#   clear.labels() %>% 
-#   select(y4_hhid, cropid, type, stored, method = ag7a_10, protection = ag7a_12) %>%  # no purpose
-#   weigh()
-# 
-# storagemethods <- crop_disp %>% 
-#   bind_rows(tree_disp) 
-
 storagemethods <- read_csv(here::here("data", "processed", "01", "storagemethods.csv"))
 
 hhstor <- storagemethods %>% 
@@ -1341,10 +1312,6 @@ top10 %>%
 ```
 
 ```{r phl figure, include=FALSE}
-# 🚩 UNHEALTHY: commented-out code — remove or document why retained
-# phl <- read_csv(here::here("data", "processed", "01", "phl.csv")) %>% 
-#   rd()
-
 phtype <- phlosses[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
 
 phl <- phtype %>% 
@@ -1432,7 +1399,7 @@ sl_waste <- read_csv(here::here("data", "processed", "01", "sl_waste.csv"))
 Based on the number of animals slaughtered for consumption the estimation of truly inedible parts (all parts beside meat and offal) of slaughtered animals amounted to `r round(sl_waste %>% filter(type == "poultry") %>% pull(w_totined)/mio,1)` Mt for poultry alone, followed by `r round(sl_waste %>% filter(type == "small ruminants") %>% pull(w_totined)/mio,1)` Mt and `r round(sl_waste %>% filter(type == "large ruminants") %>% pull(w_totined)/mio,1)` Mt for small and large ruminants. Of the total weight of skins and hides available from slaughtered animals, a third was used to be further processed, with the remainder presumably to have been discarded.
 
 ```{r eval=FALSE, echo=FALSE}
-# 🚩 UNHEALTHY: commented-out code — remove or document why retained
+# Run in order to update analysis (after any changes to cleaning process/inclusion)
 # source("03-MCS_household.R")
 # source("03_MFA.R")
 # source("03-sankey.R")
@@ -1706,10 +1673,6 @@ household_mcs <- fread(here::here("data", "processed", "01", "household_mcs.csv"
 ```
 
 ```{r eval=FALSE, echo=FALSE}
-# 🚩 UNHEALTHY: commented-out code — remove or document why retained
-# REMOVE DUPLICAITONS BELOW
-# Filter for Negative rows
-
 # Filter for Negative and Positive rows
 filtered_data <- neg_group %>%
   filter(range_group %in% c("Negative", "Postive")) %>%
@@ -1858,7 +1821,7 @@ group_uncertainty_weighted <- mcs_weighted[, .(
 ### Visualisation of material flows
 
 ```{r eval=FALSE, echo=FALSE}
-# 🚩 UNHEALTHY: commented-out code — remove or document why retained
+# Breakdown of single categories, useful for inline code
 # revise all below
 summary_crops <- read_csv(here::here("data", "processed", "01", "summary_crops.csv")) %>% 
   select(type, produced, upper, lower, mean, sd) %>% 
