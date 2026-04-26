@@ -499,7 +499,9 @@ sec1_detail <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(item)] 
 ```
 
 ```{r include=FALSE, eval=FALSE}
-# 🚩 UNHEALTHY: candidate for function extraction
+# NOTE (backlog): this aggregate → reweigh → summarise pattern is repeated in
+# sales_stats, cons_stat, tab4gr, and end-tab. Candidate for extraction into
+# a weighted_summary() helper function. Deferred — does not affect reproducibility.
 sc1 <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(y4_hhid, category, product_type, tab3)] # type is smallest category - milk, eggs should be types at next run!
 
 # slaughter product is only inedible stuff, while animal product contains all the meat/offal for the first summary table this needs to be adjusted (may be the source of the error of totals??)
@@ -1701,32 +1703,20 @@ overall_data <- neg_group %>%
   summarise(total_count_all = sum(count))
 ```
 
-```{r eval=FALSE, echo=FALSE}
+```{r eval=TRUE, echo=FALSE}
 # Wide format transformation and quintile calculation
-
 # negative households
-# 🚩 UNHEALTHY: repeated block — candidate for loop or purrr::map()
-neg_meat <- fread(here::here("data", "processed", "01", "negative_meat.csv")) %>% setDT() %>% 
-  group_by(type, y4_hhid = household_id, destination) %>% 
-  summarise(mean = mean(simulated_values),
-            sd = sd(simulated_values))
-neg_crops <- fread(here::here("data", "processed", "01", "negative_crops.csv")) %>% setDT() %>% 
-  group_by(type, y4_hhid = household_id, destination) %>% 
-  summarise(mean = mean(simulated_values),
-            sd = sd(simulated_values))
-neg_ap <- fread(here::here("data", "processed", "01", "negative_ap.csv"))  %>% setDT() %>% 
-  group_by(type, y4_hhid = household_id, destination) %>% 
-  summarise(mean = mean(simulated_values),
-            sd = sd(simulated_values))
-
-negative_households <- rbind(neg_meat, neg_crops, neg_ap)
-
+negative_households <- purrr::map_dfr(
+  c("negative_meat", "negative_crops", "negative_ap"),
+  ~ fread(here::here("data", "processed", "01", paste0(.x, ".csv"))) |>
+      group_by(type, y4_hhid = household_id, destination) |>
+      summarise(mean = mean(simulated_values), sd = sd(simulated_values), .groups = "drop")
+)
 negsim <- negative_households %>% 
   setDT() %>% 
   dcast(
   y4_hhid + type ~ destination, value.var = "mean"
 ) 
-
 ```
 
 ```{r echo=FALSE}
