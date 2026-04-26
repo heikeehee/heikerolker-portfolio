@@ -553,9 +553,19 @@ b1_gr <- b1 %>%
 
 saveRDS(b1_gr, "2_data/final/b1.RDS", compress = T)
 ```
+```{r export for python}
+# Export RDS inputs to CSV for Python translation
+library(here)
+saveRDS_to_csv <- function(rds_name, csv_name) {
+  readRDS(here::here("data", "processed", "01", rds_name)) |>
+    data.table::fwrite(here::here("data", "processed", "01", csv_name))
+}
 
-
-
+saveRDS_to_csv("mfa_crops.RDS",   "mfa_crops.csv")
+saveRDS_to_csv("mfa_eggs.RDS",    "mfa_eggs.csv")
+saveRDS_to_csv("mfa_milk.RDS",    "mfa_milk.csv")
+saveRDS_to_csv("mfa_animals.RDS", "mfa_animals.csv")
+```
 
 
 
