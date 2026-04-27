@@ -141,3 +141,27 @@
 ---
 
 *This file is a working document — not public-facing. It lives on the working branch only and will not be merged to main.*
+
+# navigate to your repo (if not already there)
+cd /Users/heikerolker/Documents/GitHub/heikerolker-portfolio
+
+# check you're on the right branch
+git branch
+
+# stage a specific file
+git add 01-smallholder-material-flow/scripts/packages.R
+
+# stage everything changed in the project folder
+git add 01-smallholder-material-flow/
+
+# commit
+git commit -m "..."
+
+# push to remote
+git push origin work/ch3-material-flow
+
+clean:	Removing dead code, fixing paths
+fix:	Correcting logic or broken behaviour
+refactor:	Restructuring without changing behaviour
+translate:	Python or SQL equivalents added
+docs:	README or comment updates

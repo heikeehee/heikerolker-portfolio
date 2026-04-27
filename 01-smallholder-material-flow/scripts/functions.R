@@ -30,7 +30,7 @@ tokt <- 1000000
 mio  <- 1000000
 ht   <- 100000
 tt   <- 10000
-t    <- 1000
+kt    <- 1000
 
 
 # -----------------------------------------------------------------------------
@@ -449,6 +449,7 @@ name_months <- function(df) {
     )
 }
 
+# NOTE (backlog): 'fun' parameter unused — remove when Chapter 4 scripts reviewed
 calc.diffs <- function(df, fun) {
   df %>%
     mutate(
