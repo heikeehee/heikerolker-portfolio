@@ -704,7 +704,7 @@ Table \@ref(tab:production-tab) shows the production volumes for each food group
 
 **Animal products**
 
-A smaller proportion of households engaged in livestock husbandry. An equivalent of n = `r round(sum(meathh$weight_adj)/mio,1)` million households (`r round(sum(meathh$weight_adj)*100/totalneq,1)`%) were estimated to have slaughtered animals for meat consumption, of which `r round(meat %>% filter(type == "Poultry") %>% summarise(sum = sm(w_produced))/t/t,1)` Mt were poultry meat. Consistently, almost half (`r tab1 %>% filter(grepl("Eggs", type)) %>% pull(perc)`%) of households produced eggs. A smaller proportion of households were estimated to produce milk (`r round(sum(milkhh$weight_adj)*100/totalneq,1)`%).
+A smaller proportion of households engaged in livestock husbandry. An equivalent of n = `r round(sum(meathh$weight_adj)/mio,1)` million households (`r round(sum(meathh$weight_adj)*100/totalneq,1)`%) were estimated to have slaughtered animals for meat consumption, of which `r round(meat %>% filter(type == "Poultry") %>% summarise(sum = sm(w_produced))/mio,1)` Mt were poultry meat. Consistently, almost half (`r tab1 %>% filter(grepl("Eggs", type)) %>% pull(perc)`%) of households produced eggs. A smaller proportion of households were estimated to produce milk (`r round(sum(milkhh$weight_adj)*100/totalneq,1)`%).
 
 ### Virtual and pre-harvest losses
 
@@ -742,7 +742,7 @@ yg_stat <- yieldgaps %>%
   ) %>% 
   arrange(desc(perc_gap)) %>% 
   mutate(tot_p_gap = harvest/1000*100/virt_yield, # convert all to t
-         w_yg = (w_yp-w_harvest)/t # in kilotonne
+         w_yg = (w_yp-w_harvest)/kt # in kilotonne
          ) %>%
   rd()
 
@@ -775,7 +775,7 @@ yg_prelost <- yieldgaps %>%
   rd()
 ```
 
-The highest per hectare yield estimate achieved relative to yield potential was for wheat (`r yg_stat %>% filter(cropid == "wheat") %>% pull(perc_gap)`% across `r round(yg_stat %>% filter(cropid == "wheat") %>% pull(growers_est)/t,1)` thousand plot-equivalents and `r yg_stat %>% filter(cropid == "wheat") %>% pull(w_area)` ha), with the yield of other crops substantially lower compared to the per hectare potential (Table \@ref(tab:yg)). For example, per hectare sorghum yield represented `r yg_stat %>% filter(cropid == "sorghum") %>% pull(perc_gap)`% (across `r round(yg_stat %>% filter(cropid == "sorghum") %>% pull(growers_est)/t,1)` thousand plot equivalents, `r round(yg_stat %>% filter(cropid == "sorghum") %>% pull(w_area)/t,1)` thousand ha), rice `r yg_stat %>% filter(cropid == "paddy") %>% pull(perc_gap)`% (across `r round(yg_stat %>% filter(cropid == "paddy") %>% pull(growers_est)/mio,1)` million plots, `r round(yg_stat %>% filter(cropid == "paddy") %>% pull(w_area)/t,1)` thousand ha) of the estimated potential and groundnut (`r yg_stat %>% filter(cropid == "groundnut") %>% pull(perc_gap)`%, `r round(yg_stat %>% filter(cropid == "groundnut") %>% pull(growers_est)/mio,1)` million plot equivalents). Among crops for which a yield gap estimate was available maize is estimated to have been most frequently planted across plots (n = `r round(yg_stat %>% filter(cropid == "maize") %>% pull(growers_est)/mio,1)` million plots) with a corresponding average yield at `r yg_stat %>% filter(cropid == "maize") %>% pull(perc_gap)`% of the yield potential. The largest per hectare yield gap was estimated for pigeon pea (`r yg_stat %>% filter(cropid == "pigeon pea") %>% pull(perc_gap)`%, across `r round(yg_stat %>% filter(cropid == "pigeon pea") %>% pull(growers_est)/t,1)` thousand plots, `r round(yg_stat %>% filter(cropid == "pigeon pea") %>% pull(w_area)/t,1)` thousand ha). The total yield forgone across the five crop types was estimated to have been `r round(sum(yg_stat$w_yg)/t,1)` kt. In absolute terms the largest amount of yield forgone occurred for maize (`r round(yg_stat %>% filter(cropid == "maize") %>% pull(w_yg)/t,1)` kt, a `r yg_stat %>% filter(cropid == "maize") %>% pull(ha_gap)` tonne gap per hectare), followed by rice (`r round(yg_stat %>% filter(cropid == "paddy") %>% pull(w_yg)/t,1)` kt, a `r yg_stat %>% filter(cropid == "paddy") %>% pull(ha_gap)` tonne gap per hectare).
+The highest per hectare yield estimate achieved relative to yield potential was for wheat (`r yg_stat %>% filter(cropid == "wheat") %>% pull(perc_gap)`% across `r round(yg_stat %>% filter(cropid == "wheat") %>% pull(growers_est)/kt,1)` thousand plot-equivalents and `r yg_stat %>% filter(cropid == "wheat") %>% pull(w_area)` ha), with the yield of other crops substantially lower compared to the per hectare potential (Table \@ref(tab:yg)). For example, per hectare sorghum yield represented `r yg_stat %>% filter(cropid == "sorghum") %>% pull(perc_gap)`% (across `r round(yg_stat %>% filter(cropid == "sorghum") %>% pull(growers_est)/kt,1)` thousand plot equivalents, `r round(yg_stat %>% filter(cropid == "sorghum") %>% pull(w_area)/kt,1)` thousand ha), rice `r yg_stat %>% filter(cropid == "paddy") %>% pull(perc_gap)`% (across `r round(yg_stat %>% filter(cropid == "paddy") %>% pull(growers_est)/mio,1)` million plots, `r round(yg_stat %>% filter(cropid == "paddy") %>% pull(w_area)/kt,1)` thousand ha) of the estimated potential and groundnut (`r yg_stat %>% filter(cropid == "groundnut") %>% pull(perc_gap)`%, `r round(yg_stat %>% filter(cropid == "groundnut") %>% pull(growers_est)/mio,1)` million plot equivalents). Among crops for which a yield gap estimate was available maize is estimated to have been most frequently planted across plots (n = `r round(yg_stat %>% filter(cropid == "maize") %>% pull(growers_est)/mio,1)` million plots) with a corresponding average yield at `r yg_stat %>% filter(cropid == "maize") %>% pull(perc_gap)`% of the yield potential. The largest per hectare yield gap was estimated for pigeon pea (`r yg_stat %>% filter(cropid == "pigeon pea") %>% pull(perc_gap)`%, across `r round(yg_stat %>% filter(cropid == "pigeon pea") %>% pull(growers_est)/kt,1)` thousand plots, `r round(yg_stat %>% filter(cropid == "pigeon pea") %>% pull(w_area)/kt,1)` thousand ha). The total yield forgone across the five crop types was estimated to have been `r round(sum(yg_stat$w_yg)/kt,1)` kt. In absolute terms the largest amount of yield forgone occurred for maize (`r round(yg_stat %>% filter(cropid == "maize") %>% pull(w_yg)/kt,1)` kt, a `r yg_stat %>% filter(cropid == "maize") %>% pull(ha_gap)` tonne gap per hectare), followed by rice (`r round(yg_stat %>% filter(cropid == "paddy") %>% pull(w_yg)/kt,1)` kt, a `r yg_stat %>% filter(cropid == "paddy") %>% pull(ha_gap)` tonne gap per hectare).
 
 ````{=tex}
 \newpage
@@ -786,8 +786,8 @@ yg_stat$group <- c("grains", "grains", "grains", "legume", "grains", "grains", "
 yg_stat %>% 
   arrange(group) %>% 
   mutate(cropid = str_to_sentence(cropid),
-         harvest = harvest/t,
-         growers_est = growers_est/t,
+         harvest = harvest/kt,
+         growers_est = growers_est/kt,
          w_area = w_area * 0.01) %>% 
   rd() %>% 
   select(cropid, n, area, mn_yield, ha_gap, perc_gap, tot_p_gap,
@@ -852,7 +852,7 @@ pl_causes <- pl_stat %>%
   rd()
 ```
 
-Physical pre-harvest losses were estimated to have occurred with the average per hectare yield of `r round(mean(yg_prelost$perc_gap),1)`% of the YP. In absolute terms at least some of the `r round(sum(yg_prelost$w_yg)/t/t,1)` Mt (`r round(sum(yg_prelost$w_yg)/t*100/sum(yg_stat$w_yg),1)`% of the total yield gap affected) of crops lost were attributed to pre-harvest losses. Further, `r yg_prelost %>% filter(cropid == "sorghum") %>% pull(perc)`% of plots planted with sorghum, `r yg_prelost %>% filter(cropid == "paddy") %>% pull(perc)`% with rice, and `r yg_prelost %>% filter(cropid == "maize") %>% pull(perc)`% with maize incurred pre-harvest losses. Overall, half of fruit production <!--(`r pr_tots %>% filter(type == "fruits") %>% pull(perc)`%)--> and a quarter of grains & cereals (`r pr_tots %>% filter(type == "grains & cereals") %>% pull(perc)`%), and vegetables (`r pr_tots %>% filter(type == "vegetables") %>% pull(perc)`%) were affected by pre-harvest losses. The most common cause of pre-harvest losses independent of crop type was insects (`r pl_causes %>% filter(loss_cause == "insects") %>% pull(perc)`%) followed by animals (`r pl_causes %>% filter(loss_cause == "animals") %>% pull(perc)`%). Vegetables and grains were the most frequent target of theft, `r pl_stat %>% filter(loss_cause == "theft" & grepl("veg", type)) %>% pull(perc)` and `r pl_stat %>% filter(loss_cause == "theft" & grepl("grains", type)) %>% pull(perc)`% of losses across crop-plot combinations, respectively (Figure \@ref(fig:prelost)).
+Physical pre-harvest losses were estimated to have occurred with the average per hectare yield of `r round(mean(yg_prelost$perc_gap),1)`% of the YP. In absolute terms at least some of the `r round(sum(yg_prelost$w_yg)/mio,1)` Mt (`r round(sum(yg_prelost$w_yg)/kt*100/sum(yg_stat$w_yg),1)`% of the total yield gap affected) of crops lost were attributed to pre-harvest losses. Further, `r yg_prelost %>% filter(cropid == "sorghum") %>% pull(perc)`% of plots planted with sorghum, `r yg_prelost %>% filter(cropid == "paddy") %>% pull(perc)`% with rice, and `r yg_prelost %>% filter(cropid == "maize") %>% pull(perc)`% with maize incurred pre-harvest losses. Overall, half of fruit production <!--(`r pr_tots %>% filter(type == "fruits") %>% pull(perc)`%)--> and a quarter of grains & cereals (`r pr_tots %>% filter(type == "grains & cereals") %>% pull(perc)`%), and vegetables (`r pr_tots %>% filter(type == "vegetables") %>% pull(perc)`%) were affected by pre-harvest losses. The most common cause of pre-harvest losses independent of crop type was insects (`r pl_causes %>% filter(loss_cause == "insects") %>% pull(perc)`%) followed by animals (`r pl_causes %>% filter(loss_cause == "animals") %>% pull(perc)`%). Vegetables and grains were the most frequent target of theft, `r pl_stat %>% filter(loss_cause == "theft" & grepl("veg", type)) %>% pull(perc)` and `r pl_stat %>% filter(loss_cause == "theft" & grepl("grains", type)) %>% pull(perc)`% of losses across crop-plot combinations, respectively (Figure \@ref(fig:prelost)).
 
 ```{r prelost, fig.cap="Proportion of plot-crop pre-harvest losses by cause", out.width="90%", echo=FALSE}
 
@@ -1357,9 +1357,9 @@ Across all production a total of `r round(sum(phl$w_lost)/mio,1)` Mt (`r sm(phl$
 ```{r phl, echo=FALSE}
 phl %>% 
   mutate(type = str_to_sentence(type),
-         lost = lost/t,
-         w_lost = w_lost/t/t,
-         neq = neq/t
+         lost = lost/kt,
+         w_lost = w_lost/mio,
+         neq = neq/kt
          ) %>% 
   rd() %>% 
   select(type,
@@ -1421,20 +1421,20 @@ missingtab <- observed_wide_fin %>%
     n = n(),
     n_pos = length(positive[positive>0]), # "waste" households
     n_neg = length(negative[negative>0]), # "over-users"
-    sumpos = sm(positive)/t,
+    sumpos = sm(positive)/kt,
     meanpos = mn(positive[produced>0]), # mean across producers only
     sdpos = sd(positive[produced>0]),
     meanppos = mn(p_positive[produced>0]),
-    sumneg = sm(negative)/t, # total uncertain from overestimate
+    sumneg = sm(negative)/kt, # total uncertain from overestimate
     # weighted data
-    neq = sum(weight_adj[produced>0])/t, # number of household equivalents producing
-    neq_pos = sum(weight_adj[positive>0])/t, # household equivalent with losses
-    neq_neg = sum(weight_adj[negative>0])/t, # household equivalent with losses
-    sumwpos = sm(w_positive)/t/t,
+    neq = sum(weight_adj[produced>0])/kt, # number of household equivalents producing
+    neq_pos = sum(weight_adj[positive>0])/kt, # household equivalent with losses
+    neq_neg = sum(weight_adj[negative>0])/kt, # household equivalent with losses
+    sumwpos = sm(w_positive)/mio,
     # ptot = sm(w_positive)*100/sm(w_produced),
     meanpposw = sm(w_positive)*100/sm(w_produced),
-    meanwpos = sm(w_positive)/(neq*t),
-    sumwneg = sm(w_negative)/t/t, # total uncertain from overestimate
+    meanwpos = sm(w_positive)/(neq*kt),
+    sumwneg = sm(w_negative)/mio, # total uncertain from overestimate
   ) %>% 
   ungroup() %>% 
   rd()
@@ -1449,17 +1449,17 @@ posonly <- observed_wide_fin %>%
     n = n(),
     # n_pos = length(positive[positive>0]), # "waste" households
     # n_neg = length(negative[negative>0]), # "over-users"
-    sumpos = sm(positive)/t,
+    sumpos = sm(positive)/kt,
     meanpos = mn(positive[produced>0]), # mean across producers only
     sdpos = sd(positive[produced>0]),
     meanppos = mn(p_positive[produced>0]),
-#    sumneg = sm(negative)/t, # total uncertain from overestimate
+#    sumneg = sm(negative)/kt, # total uncertain from overestimate
     # weighted data
-    neq = sum(weight_adj[produced>0])/t, # number of household equivalents producing
-    # neq_pos = sum(weight_adj[positive>0])/t, # household equivalent with losses
-    # neq_neg = sum(weight_adj[negative>0])/t, # household equivalent with losses
-    sumwpos = sm(w_positive)/t/t,
-    meanwpos = sm(w_positive)/(neq*t),
+    neq = sum(weight_adj[produced>0])/kt, # number of household equivalents producing
+    # neq_pos = sum(weight_adj[positive>0])/kt, # household equivalent with losses
+    # neq_neg = sum(weight_adj[negative>0])/kt, # household equivalent with losses
+    sumwpos = sm(w_positive)/mio,
+    meanwpos = sm(w_positive)/(neq*kt),
     meanpposw = sm(w_positive)*100/sm(w_produced),
 #    sumwneg = sm(w_negative)/t/t, # total uncertain from overestimate
   ) %>%
@@ -1758,10 +1758,10 @@ uncertainty <- left %>%
   filter(!is.na(Percentage_Uncertainty.x)) %>% 
   filter(Sum.x>0) %>%  # no waste for slaughtered animals (contained in inedible)
   # mutate(
-  #   across(3:6, ~./t)
+  #   across(3:6, ~./kt)
   # ) %>% 
   mutate(
-    across(8:11, ~./t/t)
+    across(8:11, ~./mio)
   ) %>% 
   mutate(type = str_to_sentence(type))
 
@@ -1916,11 +1916,11 @@ knitr::include_graphics("figure/c3/sankey.png")
 
 ### Quantifying food allocation and inefficiencies
 
-Food production estimates in this study are largely comparable with other reports. For example, the current estimate of annual maize production of `r round(sec1_detail %>% filter(item == "Maize") %>% pull(w_produced) %>% sc_mt(),1)` Mt is largely comparable to what is estimated in the official LSMS-ISA report (5 Mt) and only slightly below the FAO estimate (5.9 Mt) [@FAOSTAT]. While the estimate of cattle milk production differed more than twofold compared to official Tanzanian statistics (`r round(observed_wide_fin %>% filter(grepl("milk", type)) %>% summarise(sum = sum(w_produced))/tokt,1)` kt vs. 1,905 Mt [@helgilibrary_milk_2014]), most other estimates are much closer to official reports, such as mango which we estimate at `r round(sec1_detail %>% filter(item == "Mango") %>% pull(w_produced)/t/t,1)` Mt compared to 427.6 Mt reported for 2015 (440.4 Mt in 2014) [@FAOSTAT]. In terms of inefficiencies, we were able to highlight `r round(flw/mio,1)` Mt of food lost/wasted, and `r round(overview_table %>% filter(target == "missing") %>% summarise(sum = sm(total_value))/mio,1)` Mt as unallocated which stands in a net balance relative to all negative mass balance that we corrected for. It is reasonable to assume that a non-negligible fraction of this balance represents waste. While not all waste can be considered as a sign of inefficiency, yet it is still relevant to quantify this concept to consider the potential of a given (waste) resource. For example, the `r round(sum(sl_waste$w_totined)/mio,1)` Mt of inedible animal material generated from the `r round(sum(animals_fin$w_slcons)/mio,1)` million animals slaughtered for consumption (not considering those on-sold live) has the potential to contribute to food security and income [@Jayathilakan.2012; @Rolker.2022]. Below we provide a discussion of key findings by food group and point of inefficiency.
+Food production estimates in this study are largely comparable with other reports. For example, the current estimate of annual maize production of `r round(sec1_detail %>% filter(item == "Maize") %>% pull(w_produced) %>% sc_mt(),1)` Mt is largely comparable to what is estimated in the official LSMS-ISA report (5 Mt) and only slightly below the FAO estimate (5.9 Mt) [@FAOSTAT]. While the estimate of cattle milk production differed more than twofold compared to official Tanzanian statistics (`r round(observed_wide_fin %>% filter(grepl("milk", type)) %>% summarise(sum = sum(w_produced))/tokt,1)` kt vs. 1,905 Mt [@helgilibrary_milk_2014]), most other estimates are much closer to official reports, such as mango which we estimate at `r round(sec1_detail %>% filter(item == "Mango") %>% pull(w_produced)/mio,1)` Mt compared to 427.6 Mt reported for 2015 (440.4 Mt in 2014) [@FAOSTAT]. In terms of inefficiencies, we were able to highlight `r round(flw/mio,1)` Mt of food lost/wasted, and `r round(overview_table %>% filter(target == "missing") %>% summarise(sum = sm(total_value))/mio,1)` Mt as unallocated which stands in a net balance relative to all negative mass balance that we corrected for. It is reasonable to assume that a non-negligible fraction of this balance represents waste. While not all waste can be considered as a sign of inefficiency, yet it is still relevant to quantify this concept to consider the potential of a given (waste) resource. For example, the `r round(sum(sl_waste$w_totined)/mio,1)` Mt of inedible animal material generated from the `r round(sum(animals_fin$w_slcons)/mio,1)` million animals slaughtered for consumption (not considering those on-sold live) has the potential to contribute to food security and income [@Jayathilakan.2012; @Rolker.2022]. Below we provide a discussion of key findings by food group and point of inefficiency.
 
 **Staple crops: grains & cereals and roots & tubers**
 
-Roots & tubers and grains & cereals have been the primary focus of food loss and waste studies to date [@Stathers.2020; @Kaminski.2014; @Tesfaye.2018]. Staple crops are crucial to meet the population's energy requirements, and their storability is a safeguard throughout the year not only in terms of consumption but also as income strategy [@Kumar.2017]. Not surprisingly, therefore, grains & cereals (maize in particular) are central to the production system in Tanzania, and represent the largest production quantity and the largest number of households that engage in production. The estimate of post-harvest losses for maize is `r round(top10 %>% filter(cropid == "maize") %>% mutate(lost = round(lost/t,1)) %>% pull(lost),1)` t, representing less than 1% of overall maize production and `r round(top10 %>% filter(cropid == "maize") %>% pull(perc),1)`% of the production of households that incurred losses. This value is far below previously reported estimates, including 728,000 t estimated by the FAO [@FAOSTAT] and 789,762 t reported by APHLIS [@APHLIS]. It is however broadly in line with a previous analysis that showed a 19.7% loss among loss-incurring households included in a preceding LSMS-ISA wave for Tanzania [@Kaminski.2014].
+Roots & tubers and grains & cereals have been the primary focus of food loss and waste studies to date [@Stathers.2020; @Kaminski.2014; @Tesfaye.2018]. Staple crops are crucial to meet the population's energy requirements, and their storability is a safeguard throughout the year not only in terms of consumption but also as income strategy [@Kumar.2017]. Not surprisingly, therefore, grains & cereals (maize in particular) are central to the production system in Tanzania, and represent the largest production quantity and the largest number of households that engage in production. The estimate of post-harvest losses for maize is `r round(top10 %>% filter(cropid == "maize") %>% mutate(lost = round(lost/kt,1)) %>% pull(lost),1)` t, representing less than 1% of overall maize production and `r round(top10 %>% filter(cropid == "maize") %>% pull(perc),1)`% of the production of households that incurred losses. This value is far below previously reported estimates, including 728,000 t estimated by the FAO [@FAOSTAT] and 789,762 t reported by APHLIS [@APHLIS]. It is however broadly in line with a previous analysis that showed a 19.7% loss among loss-incurring households included in a preceding LSMS-ISA wave for Tanzania [@Kaminski.2014].
 
 **Fruits & vegetables**
 
@@ -1938,7 +1938,7 @@ FAOSTAT_all_losses <- read_csv(here::here("data", "processed", "01", "FAOSTAT_al
   filter(`Year Code` == 2014 | `Year Code` == 2015)
 ```
 
-Available estimates on losses and wastage of animal products are scarce [@Affognon.2015]. <!--The FAO Food Balance Sheets aim at presenting a comprehensive picture of food production and availability for most countries. As part of this data compilation the FAO provides estimates of food losses across the value chain up to the retail level (_i.e._, post-harvest losses, processing, transport). The estimates are based on reference values from the literature, available local data sources and other information derived from data and text mining approaches [@foodbal2023]. --> The FAO Food Balance Sheet estimates all milk and milk product losses in 2014 and 2015 at 41 and 40 kt, thus the current estimate of `r round(observed_wide_fin %>% filter(grepl("milk", type)) %>% summarise(miss = sum(w_missing))/tokt,1)` kt of milk is less than half for each 2014 and 2015 [@FAO_FBS]. <!-- The FAO estimates egg losses across the value chain at 9 t for each year of interest, giving reasonably comparable values to the estimate of **r round(milk_stats %>% filter(item == "Eggs") %>% pull(w_unsum)/t/t,1)** thousand t. --> It needs to be noted, however, that it is not always apparent from the LSMS-ISA data whether post-wholesale transport losses are included in the data and therefore these values may not cover the same system boundaries. Lastly, the FAO estimates offal losses and discard at 12 thousand t for both years. From the current data it is not possible to provide a disaggregated estimate of how much of the offal of slaughtered animals has been allocated to consumption or was not suitable for human consumption and required condemnation [@Mellau.2011]. Notwithstanding, the estimate of edible offal for animals allocated to household consumption accounts for `r round(sum(sl_waste$w_totoffal)/t/t,1)` thousand tons. <!-- \- eggs - meat: consumption of offal possibly following a socio-economic divide [@Baker.2016]  -->
+Available estimates on losses and wastage of animal products are scarce [@Affognon.2015]. <!--The FAO Food Balance Sheets aim at presenting a comprehensive picture of food production and availability for most countries. As part of this data compilation the FAO provides estimates of food losses across the value chain up to the retail level (_i.e._, post-harvest losses, processing, transport). The estimates are based on reference values from the literature, available local data sources and other information derived from data and text mining approaches [@foodbal2023]. --> The FAO Food Balance Sheet estimates all milk and milk product losses in 2014 and 2015 at 41 and 40 kt, thus the current estimate of `r round(observed_wide_fin %>% filter(grepl("milk", type)) %>% summarise(miss = sum(w_missing))/tokt,1)` kt of milk is less than half for each 2014 and 2015 [@FAO_FBS]. <!-- The FAO estimates egg losses across the value chain at 9 t for each year of interest, giving reasonably comparable values to the estimate of **r round(milk_stats %>% filter(item == "Eggs") %>% pull(w_unsum)/t/t,1)** thousand t. --> It needs to be noted, however, that it is not always apparent from the LSMS-ISA data whether post-wholesale transport losses are included in the data and therefore these values may not cover the same system boundaries. Lastly, the FAO estimates offal losses and discard at 12 thousand t for both years. From the current data it is not possible to provide a disaggregated estimate of how much of the offal of slaughtered animals has been allocated to consumption or was not suitable for human consumption and required condemnation [@Mellau.2011]. Notwithstanding, the estimate of edible offal for animals allocated to household consumption accounts for `r round(sum(sl_waste$w_totoffal)/mio,1)` thousand tons. <!-- \- eggs - meat: consumption of offal possibly following a socio-economic divide [@Baker.2016]  -->
 
 **Pre-harvest relative to post-harvest losses and wastage**
 
