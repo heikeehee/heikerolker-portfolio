@@ -1,7 +1,7 @@
 ## ----setup------------------------------------------------------------------------------------------------------
 library(data.table)
 library(haven)
-# library(here) # https://here.r-lib.org 
+library(here) # https://here.r-lib.org 
 library(knitr)
 library(Hmisc)
 library(lubridate)
@@ -16,8 +16,8 @@ library(tidyverse)
 
 ## ----plots hk---------------------------------------------------------------------------------------------------
 # load data
-ag_sec_2a <- read_dta("2_data/raw/ag_sec_2a.dta") # --> long rainy
-ag_sec_2b <- read_dta("2_data/raw/ag_sec_2b.dta") # --> short rainy
+ag_sec_2a <- read_dta(here::here("data", "raw", "ag_sec_2a.dta")) # --> long rainy
+ag_sec_2b <- read_dta(here::here("data", "raw", "ag_sec_2b.dta")) # --> short rainy
 
 # prepare for join
 long <- ag_sec_2a %>% 
@@ -85,7 +85,7 @@ plots <- upData(plots,
                 drop = .q(plotname, ag2a_06_1, ag2a_03, ag2a_06_2, ag2a_06_3, ag2a_06_4) 
                 )
 
-saveRDS(plots, file = "2_data/processed/plots.RDS", compress = TRUE)
+saveRDS(plots, file = here::here("data", "processed", "01", "plots.RDS"), compress = TRUE)
 
 
 ## ----plots stats------------------------------------------------------------------------------------------------
@@ -132,6 +132,7 @@ phh <- phh[pn, on="y4_hhid"]
 
 # group landownership into tertiles (no exclusions): small, medium, large --> in descriptive
 # redo once exclusions are applied?
+# NOTE (backlog): tertile grouping deferred — redo after exclusions applied
 # quantile(phh$land, probs = seq(0,1,1/3), na.rm=TRUE)
 # quantile(phh$land_gps, probs = seq(0,1,1/3), na.rm=TRUE)
 # 
@@ -140,16 +141,13 @@ phh <- phh[pn, on="y4_hhid"]
 #          tertile_gps = ntile(land_gps, 3))
 
 # save data
-saveRDS(phh, "2_data/processed/plots_stats.RDS", compress = T)
-
-# other chapters
-saveRDS(phh, file = "/Users/vk20281/Library/CloudStorage/OneDrive-UniversityofBristol/03c_PCA/2_data/files/plots_stats.RDS", compress = TRUE) # Chapter 3C
+saveRDS(phh, here::here("data", "processed", "01", "plots_stats.RDS"), compress = T)
 
 
 ## ----crops hk---------------------------------------------------------------------------------------------------
 # load data
-ag_sec_4a <- read_dta("2_data/raw/ag_sec_4a.dta") # --> long rainy
-ag_sec_4b <- read_dta("2_data/raw/ag_sec_4b.dta") # --> short rainy
+ag_sec_4a <- read_dta(here::here("data", "raw", "ag_sec_4a.dta")) # --> long rainy
+ag_sec_4b <- read_dta(here::here("data", "raw", "ag_sec_4b.dta")) # --> short rainy
 
 # prep for join
 long <- prep(ag_sec_4a, season = "long")
@@ -228,7 +226,7 @@ crops <- upData(crops,
   drop = .q(plotname, ag4a_01, ag4a_02)
 )
 
-saveRDS(crops, file = "2_data/processed/crops.RDS", compress = TRUE)
+saveRDS(crops, file = here::here("data", "processed", "01", "crops.RDS"), compress = TRUE)
 
 
 ## ----crops stats------------------------------------------------------------------------------------------------
@@ -274,6 +272,7 @@ pc[, quant_unharvested := ifelse(harvest_remain == 0 & quant_harvest == 0, 0, ha
 pc[, total_harvest := harvest_remain + quant_harvest]
 
 pc[, area_remain := area_planted_new - area_harvested_new]
+# NOTE (backlog): area loss estimation not accurately coded — retained for reference
 # pc[, area_losses := ifelse(harvest_remain == 0 & lessharvest == "yes" & preharvest_losses == "yes", area_harvested_new - area_harvested_new, NA)] -> useless or not coded accurately
 
 # tag entries for exclusion
@@ -308,6 +307,7 @@ pc <- upData(pc,
   )
 
 # detemine what plot estimates to use primarily
+# NOTE (backlog): diagnostic checks — retained for reference, not part of pipeline
 # pc[area_harvested_new>plotsize] # estimate & mostly gps measure
 # pc[area_harvested_alt>plotsize] # estimate as a proportion of gps measure & mostly gps measure
 # pc[area_harvested_new>area_new] # both farmers estimate, should these be excluded?
@@ -323,13 +323,13 @@ pc[is.na(quant_harvest)]
 pc[,mismatch := ifelse(is.na(quant_harvest), 1,mismatch)]
 
 # save file: used in destination
-saveRDS(pc, "2_data/processed/pc.RDS", compress = TRUE)
+saveRDS(pc, here::here("data", "processed", "01", "pc.RDS"), compress = TRUE)
 
 
 ## ----trees hk---------------------------------------------------------------------------------------------------
 # same as for crops disp
-ag_sec_6a <- read_dta("2_data/raw/ag_sec_6a.dta") # --> fruit
-ag_sec_6b <- read_dta("2_data/raw/ag_sec_6b.dta") # --> permanent
+ag_sec_6a <- read_dta(here::here("data", "raw", "ag_sec_6a.dta")) # --> fruit
+ag_sec_6b <- read_dta(here::here("data", "raw", "ag_sec_6b.dta")) # --> permanent
 
 # prep for join
 fruit <- prep(ag_sec_6a, season = "fruit")
@@ -374,21 +374,21 @@ trees <- upData(trees,
 head(trees)
 
 # save file
-saveRDS(trees, file = "2_data/processed/trees.RDS", compress = TRUE)
+saveRDS(trees, file = here::here("data", "processed", "01", "trees.RDS"), compress = TRUE)
 
 
 ## ----plots trees------------------------------------------------------------------------------------------------
 # select relevant variables
-t <- trees[,. (y4_hhid, plotnum, type, cropid, ntrees, harvest, pre_lost, loss_cause)]
+trees_sub <- trees[,. (y4_hhid, plotnum, type, cropid, ntrees, harvest, pre_lost, loss_cause)]
 
 # merge plots and trees
-pt <- p[t, on=c("y4_hhid", "plotnum")]
+pt <- p[trees_sub, on=c("y4_hhid", "plotnum")]
 
 # area not useful as contains plotsize and trees can be random/single
 pt[, .q(area_new, gps_area_new) := NULL]
 contents(pt)
 
-saveRDS(pt, "2_data/processed/pt.RDS", compress = T)
+saveRDS(pt, here::here("data", "processed", "01", "pt.RDS"), compress = T)
 
 
 ## ----plots trees stats------------------------------------------------------------------------------------------
@@ -411,5 +411,5 @@ prelost[,pre_lost := as.factor(pre_lost)]
 prelost[,loss_cause := as.factor(loss_cause)]
 
 summary(prelost)
-saveRDS(prelost, "2_data/processed/prelost.RDS", compress = TRUE)
+saveRDS(prelost, here::here("data", "processed", "01", "prelost.RDS"), compress = TRUE)
 
