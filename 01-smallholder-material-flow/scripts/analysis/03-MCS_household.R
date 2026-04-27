@@ -290,6 +290,10 @@ stopCluster(cl)
 fwrite(simulation_results, "data/c3/simulation_results_crops_negative.csv")
 
 ### Adjust negative----
+# NOTE (backlog): adjustment distributes the negative balance equally across
+# non-missing flows by row count. A stricter implementation would distribute
+# proportionally by flow magnitude. Consistent with R version — revisit if
+# uncertainty estimates are used for policy-sensitive comparisons.
 # Identify households with negative dest_missing
 negative_households <- simulation_results[destination == "dest_missing" & simulated_values < 0]
 
