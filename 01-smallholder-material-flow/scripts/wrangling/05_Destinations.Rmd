@@ -5,13 +5,10 @@ date: "2024-01-10"
 output: html_document
 ---
 
-```{r}
-library(haven)
-library(data.table)
-library(Hmisc)
-library(naniar)
-library(tidyverse)
-library(dplyr)
+```{r setup, include=FALSE}
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
 ```
 
 Overview:
@@ -38,8 +35,8 @@ Final:
 
 ```{r disp crops hk}
 # load data
-ag_sec_5a <- read_dta("2_data/raw/ag_sec_5a.dta") # --> long
-ag_sec_5b <- read_dta("2_data/raw/ag_sec_5b.dta") # --> short
+ag_sec_5a <- read_dta(here::here("data", "raw", "ag_sec_5a.dta")) # --> long
+ag_sec_5b <- read_dta(here::here("data", "raw", "ag_sec_5b.dta")) # --> short
 
 # prep for join
 long <- prep(ag_sec_5a, season = "long")
@@ -136,8 +133,10 @@ crop_disp <- upData(disp,
                  value_residue = 'T shilling'
                ))
 
+# Manual fix: household 8659-001 has a clear data entry error for maize consumption.
+# Hardcoded by design — verified against raw data. Flag for review if raw data changes.
 crop_disp[y4_hhid == "8659-001" & cropid == "maize", consumed := 480] # clear typo
-saveRDS(crop_disp, file = "2_data/processed/crop_disp.RDS", compress = TRUE)
+saveRDS(crop_disp, file = here::here("data", "processed", "01", "crop_disp.RDS"), compress = TRUE)
 ```
 
 Transport information could allow transport
@@ -161,8 +160,8 @@ Final:
 
 ```{r tree disp hk}
 # same as for crops disp
-ag_sec_7a <- read_dta("2_data/raw/ag_sec_7a.dta") # --> fruit
-ag_sec_7b <- read_dta("2_data/raw/ag_sec_7b.dta") # --> permanent
+ag_sec_7a <- read_dta(here::here("data", "raw", "ag_sec_7a.dta")) # --> fruit
+ag_sec_7b <- read_dta(here::here("data", "raw", "ag_sec_7b.dta")) # --> permanent
 
 # prep for join
 fruit <- prep(ag_sec_7a, season = "fruit")
@@ -242,7 +241,7 @@ tree_disp <- upData(disp,
                       feed = kg
                     ))
 
-saveRDS(tree_disp, file = "2_data/processed/tree_disp.RDS", compress = TRUE)
+saveRDS(tree_disp, file = here::here("data", "processed", "01", "tree_disp.RDS"), compress = TRUE)
 ```
 
 
@@ -254,7 +253,7 @@ Aim:
 
 ```{r crops hh}
 # crop/plot info
-pc <- readRDS("2_data/processed/pc.RDS") # to keep code intact
+pc <- readRDS(here::here("data", "processed", "01", "pc.RDS")) # to keep code intact
 
 # number of plots per crop and household
 pn <- pc %>% 
@@ -313,7 +312,6 @@ cd <- cd[, .(y4_hhid, type, cropid,
                     sold, stored, losses, consumed, seed, payment, gifts, feed, residue)]
 
 # collapse disposition to household level (ignores the seasons)
-sm <- function(x) sum(x, na.rm=TRUE)
 cd <- cd[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type, cropid)]
 
 crops <- merge(chh, cd, by=c("y4_hhid", "type", "cropid"), all=TRUE)
@@ -363,7 +361,7 @@ miss_var_summary(crops)
 contents(crops)
 
 # save
-saveRDS(crops, "2_data/processed/mass_crops.RDS", compress = TRUE)
+saveRDS(crops, here::here("data", "processed", "01", "mass_crops.RDS"), compress = TRUE)
 ```
 
 -   Full-merge & exclude:
@@ -371,16 +369,18 @@ saveRDS(crops, "2_data/processed/mass_crops.RDS", compress = TRUE)
     -   top 2% of household production for each crop (crop failure and bottom 2% is more plausible)
 
 ```{r exclusions crops}
-c <- copy(crops)
+crops_excl <- copy(crops)
+# NOTE (backlog): top2() already defined in functions.R — local definition redundant.
+# Remove once confirmed consistent with functions.R definition across all scripts.
 top2 <- function(x) quantile(x, probs = .99, na.rm=TRUE) # function to calculate top 2
-c[, top := top2(yield), by=cropid]
+crops_excl[, top := top2(yield), by=cropid]
 
 # add number of occurances -> for what?
-cropnums <- c %>% group_by(cropid) %>% summarise(nums = n()) %>% setDT()
+cropnums <- crops_excl %>% group_by(cropid) %>% summarise(nums = n()) %>% setDT()
 # merge back in -> find more elegant solution
-c <- cropnums[c, on = .(cropid)]
+crops_excl <- cropnums[crops_excl, on = .(cropid)]
 
-c[, yield := as.numeric(yield)] # to avoid class error below
+crops_excl[, yield := as.numeric(yield)] # to avoid class error below
 # too big to process...
 # c %>%
 #   filter(nums >10) %>%
@@ -399,12 +399,12 @@ c[, yield := as.numeric(yield)] # to avoid class error below
 # c %>% filter(cropid == "cucumber") %>% 
 #   ggplot(aes(yield)) + geom_histogram()
 
-c[, diff := harvest - smd]
-c[, diffp := diff*100/harvest]
+crops_excl[, diff := harvest - smd]
+crops_excl[, diffp := diff*100/harvest]
 
 # more elegant solution
 # below could have a more explicit hierarcy by adding & is.na(excl)
-c <- c[, excl := fcase(
+crops_excl <- crops_excl[, excl := fcase(
     is.na(sold),   "Data missing",
     is.na(yield), "Data missing",
     # mismatch != 0, "Harvested area exceeds plotsize", # overly strict and not too relevant for my purposes
@@ -414,27 +414,27 @@ c <- c[, excl := fcase(
                   )]
 
 # work around, should be integrated in fcase code below
-ex <- c %>% 
+ex <- crops_excl %>% 
   clear.labels() %>% 
   filter(is.na(excl)) %>% 
   filter_at(vars(sold:residue), any_vars(. > harvest*1.2)) %>% 
   mutate(excl = "Data inconsistent")
 
 # remove ex from c and add back in
-c <- c[!ex, on = .(y4_hhid, cropid)]
-c <- clear.labels(c)
-excl_crops <- bind_rows(c, ex)
+crops_excl <- crops_excl[!ex, on = .(y4_hhid, cropid)]
+crops_excl <- clear.labels(crops_excl)
+excl_crops <- bind_rows(crops_excl, ex)
 
-miss_var_summary(c)
+miss_var_summary(crops_excl)
 
-c[!is.na(excl)]
+crops_excl[!is.na(excl)]
 # View(c[top <= yield])
 
 excl_crops <- excl_crops %>% 
   select(y4_hhid, item = cropid, excl)
 
 # save list of exclusions
-write.csv(excl_crops, "2_data/processed/excl_crops.csv")
+write.csv(excl_crops, here::here("data", "processed", "01", "excl_crops.csv"))
 ```
 
 #### Trees
@@ -446,7 +446,7 @@ Aim:
 -   calculate yield (i.e., harvest/tree) --\> not a useful metric
 
 ```{r trees hh}
-pt <- readRDS("2_data/processed/pt.RDS")
+pt <- readRDS(here::here("data", "processed", "01", "pt.RDS"))
 
 # number of plots per crop and household
 pn <- pt %>% 
@@ -475,7 +475,7 @@ miss_var_summary(thh)
 
 ```{r trees destinations}
 # read in data
-tree_disp <- readRDS("2_data/processed/tree_disp.RDS")
+tree_disp <- readRDS(here::here("data", "processed", "01", "tree_disp.RDS"))
 td <- copy(tree_disp)
 
 # select disposition vars
@@ -525,19 +525,19 @@ miss_var_summary(trees)
 # trees[is.na(yield)] # scattered info, one entry might be worth saving
 # trees[is.na(sold)] # no disposition info
 
-saveRDS(trees, "2_data/processed/mass_trees.RDS", compress = T)
+saveRDS(trees, here::here("data", "processed", "01", "mass_trees.RDS"), compress = T)
 ```
 
 ```{r exclusions trees}
-t <- copy(trees)
+trees_excl <- copy(trees)
 
-t[, top := top2(yield), by=cropid]
+trees_excl[, top := top2(yield), by=cropid]
 
-t[, `:=` (harvest = as.numeric(harvest),
+trees_excl[, `:=` (harvest = as.numeric(harvest),
           ntrees = as.numeric(ntrees))] # same class problem as above
 
 # more elegant solution
-t <- t[, excl := fcase(
+trees_excl <- trees_excl[, excl := fcase(
     is.na(sold),   "Incomplete", # no disposition info
     is.na(yield), "Incomplete", 
     ntrees = 0 & harvest > 0, "Non-match", # numbers do not match up
@@ -547,28 +547,28 @@ t <- t[, excl := fcase(
                   )]
 
 # work around, should be integrated in fcase code below
-ex <- t %>% 
+ex <- trees_excl %>% 
   clear.labels() %>% 
   filter(is.na(excl)) %>% 
   filter_at(vars(sold:feed), any_vars(. > harvest*1.2)) %>% 
   mutate(excl = "Data inconsistent")
 
 # remove ex from c and add back in
-t <- t[!ex, on = .(y4_hhid, cropid)]
+trees_excl <- trees_excl[!ex, on = .(y4_hhid, cropid)]
 
-check <- t[is.na(excl)]
+check <- trees_excl[is.na(excl)]
 miss_var_summary(check)
 
 check %>% 
   rowwise() %>%
   filter_at(vars(sold:feed), any_vars(. > harvest*1.1)) # affects multiple pre-exclusion and 1 obs post -> ignore
 
-excl_trees <- t %>% 
+excl_trees <- trees_excl %>% 
   clear.labels() %>% 
   bind_rows(ex) %>% 
   select(y4_hhid, item = cropid, excl)
 
-write.csv(excl_trees, "2_data/processed/excl_trees.csv")
+write.csv(excl_trees, here::here("data", "processed", "01", "excl_trees.csv"))
 ```
 
 
@@ -623,7 +623,7 @@ allcrops <- rbindlist(list(ct, tc), fill = TRUE)
 
 # include quantities processed (excluded from sum variable based on assumptions)
 
-saveRDS(allcrops, file = "2_data/processed/mass_allcrops.RDS", compress = TRUE)
+saveRDS(allcrops, file = here::here("data", "processed", "01", "mass_allcrops.RDS"), compress = TRUE)
 ```
 
 Bonus:
@@ -640,7 +640,9 @@ Aim:
 -   disentangle inputs (joint and separate accounts to avoid double counting) -> not necessary anymore
 
 ```{r, eval=FALSE}
-agprod_mass_fin <- readRDS("2_data/processed/agprod_mass_fin.RDS")
+# NOTE: eval=FALSE — agprod_mass_fin not yet finalised upstream.
+# Re-enable once ag produce assembly is complete and agprod_mass_fin.RDS is stable.
+agprod_mass_fin <- readRDS(here::here("data", "processed", "01", "agprod_mass_fin.RDS"))
 agprod_mass_fin[, cropid := adlab(cropid, '')]
 
 allcrops_mass <- merge(allcrops, agprod_mass_fin, by=c("y4_hhid", "cropid"), all=TRUE)
@@ -649,6 +651,8 @@ allcrops_mass <- merge(allcrops, agprod_mass_fin, by=c("y4_hhid", "cropid"), all
 Exclusions
 
 ```{r complete crops, eval=FALSE}
+# NOTE: eval=FALSE — exclusion logic for combined crops+products not finalised.
+# Positional column indexing present (fragile) — replace with named columns before enabling.
 cropscompl <- copy(allcrops_mass)
 
 # exclude produce
@@ -663,7 +667,7 @@ excl_allcrops <- cropscompl %>%
   select(y4_hhid, item = cropid, excl)
 
 # miss_var_summary(cropscompl)
-write.csv(excl_allcrops, "2_data/processed/excl_allcrops.csv")
+write.csv(excl_allcrops, here::here("data", "processed", "01", "excl_allcrops.csv"))
 ```
 
 # Agricultural produce exclusions
@@ -673,9 +677,9 @@ Join with production information to determine exclusions.
 
 
 ```{r exclusions}
-inputs_final <- readRDS("2_data/processed/mass_agprod_new.RDS")
+inputs_final <- readRDS(here::here("data", "processed", "01", "mass_agprod_new.RDS"))
 # join with production information
-mass_allcrops <- readRDS("2_data/processed/mass_allcrops.RDS") %>% 
+mass_allcrops <- readRDS(here::here("data", "processed", "01", "mass_allcrops.RDS")) %>% 
   clear.labels()
 
 inputs_updated <- inputs_final %>%   # estimate destination of produce
@@ -702,7 +706,9 @@ inputs_updated <- inputs_final %>%   # estimate destination of produce
 #          voltofind = ifelse(required<0, required - available, 0), # processing that still needs to be allocated
 #          newprocessing = ifelse(diff>0, ) %>% # difference between harvest and sum of all disposition, still has vol available
   
-saveRDS(inputs_updated, "2_data/processed/mass_agprod_newnew.RDS", compress = T)
+saveRDS(inputs_updated, here::here("data", "processed", "01", "mass_agprod_newnew.RDS"), compress = T)
+# NOTE (backlog): filename mass_agprod_newnew is a versioning artefact.
+# Rename to mass_agprod_final once downstream dependencies are confirmed.
   
 excl_agprod <- inputs_updated %>% 
   mutate(excl = ifelse(produced>input, "Processing data inconsistent", NA),
@@ -717,6 +723,9 @@ excl_agprod <- inputs_updated %>%
     # excl = ifelse(input_sales > sold_raw + stored & input_sales >0, "Sales mismatch", excl)
   ) 
 
+# Diagnostic: checking whether processing inputs are accounted for within raw
+# consumption/sales. High counts suggest inputs generally sit inside consumption —
+# supports current exclusion logic. Retained for methodological reference.
 excl_agprod %>% filter(consumed > 0 & consumed_raw<input_cons) # 153
 excl_agprod %>% filter(consumed > 0 & consumed_raw<input_cons & input_cons <= diff)
 excl_agprod %>% filter(consumed > 0 & consumed_raw>input_cons) # 1008
@@ -730,7 +739,7 @@ table(excl_agprod$excl)
 excl_agprod <- excl_agprod %>%
    select(y4_hhid, item = cropid, excl)
 
-write.csv(excl_agprod, "2_data/processed/excl_agprod.csv")
+write.csv(excl_agprod, here::here("data", "processed", "01", "excl_agprod.csv"))
 ```
 
 
@@ -740,8 +749,10 @@ write.csv(excl_agprod, "2_data/processed/excl_agprod.csv")
 
 ```{r network hk}
 # load data
-lf_network <- read_dta("2_data/raw/lf_network.dta")
+lf_network <- read_dta(here::here("data", "raw", "lf_network.dta"))
 
+# NOTE: clean_up() not used here — lfnr_02 requires manual integer decode before
+# factor conversion. Manual tolower() applied to lfnr_03 to match clean_up() behaviour.
 lf_network <- lf_network %>% 
   # part of clean up
   setDT() %>% 
@@ -773,16 +784,16 @@ lf_network <- lf_network %>%
   # remove confidential & duplicated vars
   select(!c(lfnr_01, occ))
 
-saveRDS(lf_network, "2_data/processed/lf_network.RDS", compress = TRUE)
+saveRDS(lf_network, here::here("data", "processed", "01", "lf_network.RDS"), compress = TRUE)
 ```
 
 ## Animal buyers
 
 ```{r animal buyers}
 # slaugter information
-mass_animals <- readRDS("2_data/processed/mass_animals.RDS")
+mass_animals <- readRDS(here::here("data", "processed", "01", "mass_animals.RDS"))
 # ownership and buyer information
-animals <- readRDS("2_data/processed/animals.RDS")
+animals <- readRDS(here::here("data", "processed", "01", "animals.RDS"))
 
 animals <- animals[,.(y4_hhid, type, lvstckid, gifted, recp, sold, dest1, dest2, slaughter, ssold, b1 = dest1s, b2 = dest2s)]
 
@@ -809,7 +820,7 @@ buyer_animals <- asold[animal_sales, on = .(y4_hhid, lvstckid)]
 buyers_animals <- buyer_animals %>% 
   select(y4_hhid, type, lvstckid, sold_alive = sold, dest1_rel, dest1_loc, dest2_rel, dest2_loc, gifted, recp, slaughter, ssold, sold_weight, b1, b1_rel, b1_loc) # b2 is empty
 
-saveRDS(buyers_animals, "2_data/processed/buyers_animals.RDS", compress = T)
+saveRDS(buyers_animals, here::here("data", "processed", "01", "buyers_animals.RDS"), compress = T)
 ```
 
 Aim: → identify flows of animals given and received
@@ -830,9 +841,9 @@ Aim:
 
 ```{r milk buyers}
 # buyer information
-milk <- readRDS("2_data/processed/milk.RDS")
+milk <- readRDS(here::here("data", "processed", "01", "milk.RDS"))
 # milk quantities
-milkfin <- readRDS("2_data/processed/mass_milk.RDS")
+milkfin <- readRDS(here::here("data", "processed", "01", "mass_milk.RDS"))
 
 milk_sales <- milk[,.(y4_hhid, lvstckcat, sold, b1 = buyer1, b2 = buyer2)]
 
@@ -848,7 +859,7 @@ milk_sales <- lf_net[milk_sales, on = .(y4_hhid, b2)]
 milk.s <- milkfin[,.(y4_hhid, lvstckcat = type, sold)]
 milk_sales <- milk.s[milk_sales, on = .(y4_hhid, lvstckcat)]
 
-saveRDS(milk_sales, "2_data/processed/buyers_milk.RDS", compress = T)
+saveRDS(milk_sales, here::here("data", "processed", "01", "buyers_milk.RDS"), compress = T)
 ```
 
 
@@ -856,9 +867,9 @@ saveRDS(milk_sales, "2_data/processed/buyers_milk.RDS", compress = T)
 
 ```{r egg buyers}
 # buyers information
-produce <- readRDS("2_data/processed/produce.RDS")
+produce <- readRDS(here::here("data", "processed", "01", "produce.RDS"))
 # quantities
-mass_eggs <- readRDS("2_data/processed/mass_eggs.RDS")
+mass_eggs <- readRDS(here::here("data", "processed", "01", "mass_eggs.RDS"))
 
 egg.s <- produce[productid == "eggs" & produced>0]
 egg_sales <- egg.s[,.(y4_hhid, b1 = buyer1, b2 = buyer2)]
@@ -875,7 +886,7 @@ egg_sales <- lf_net[egg_sales, on = .(y4_hhid, b2)]
 eggp <- mass_eggs[,.(y4_hhid, sold)]
 egg_sales <- eggp[egg_sales, on = .(y4_hhid)]
 
-saveRDS(egg_sales, "2_data/processed/buyers_eggs.RDS", compress = T)
+saveRDS(egg_sales, here::here("data", "processed", "01", "buyers_eggs.RDS"), compress = T)
 ```
 
 
@@ -885,19 +896,19 @@ saveRDS(egg_sales, "2_data/processed/buyers_eggs.RDS", compress = T)
 ### Ag network
 
 ```{r ag network hk}
-ag_network <- read_dta("2_data/raw/ag_network.dta")
+ag_network <- read_dta(here::here("data", "raw", "ag_network.dta"))
 
 ag_network <- ag_network %>% 
   clean_up() %>% 
   select(!agnr_01)
 
-saveRDS(ag_network, "2_data/processed/ag_network.RDS", compress = T)
+saveRDS(ag_network, here::here("data", "processed", "01", "ag_network.RDS"), compress = T)
 ```
 
 
 ```{r crop buyers}
-ag_network <- readRDS("2_data/processed/ag_network.RDS")
-crop_disp <- readRDS("2_data/processed/crop_disp.RDS")
+ag_network <- readRDS(here::here("data", "processed", "01", "ag_network.RDS"))
+crop_disp <- readRDS(here::here("data", "processed", "01", "crop_disp.RDS"))
 
 # select vars
 crop_disp <- crop_disp[,.(y4_hhid, type, cropid, sold, value_sale, b1, soldb1, value_b1, n_int1, b2, soldb2, value_b2, n_int2)]
@@ -911,11 +922,11 @@ crop_sales <- ag_net[crop_disp, on=.(y4_hhid, b1)]
 ag_net <- ag_network[,.(y4_hhid, b2 = agnr_id, b2_rel = agnr_02, b2_loc = agnr_03)]
 crop_sales <- ag_net[crop_sales, on=.(y4_hhid, b2)]
 
-saveRDS(crop_sales, "2_data/processed/buyers_crops.RDS", compress = T)
+saveRDS(crop_sales, here::here("data", "processed", "01", "buyers_crops.RDS"), compress = T)
 ```
 
 ```{r tree buyers}
-tree_disp <- readRDS("2_data/processed/tree_disp.RDS")
+tree_disp <- readRDS(here::here("data", "processed", "01", "tree_disp.RDS"))
 
 tree_disp <- tree_disp[,.(y4_hhid, type, cropid, sold, value_sale, b1, b2)]
 tree_disp <- tree_disp[sold>0]
@@ -929,7 +940,7 @@ tree_sales <- ag_net[tree_disp, on=.(y4_hhid, b1)]
 ag_net <- ag_network[,.(y4_hhid, b2 = agnr_id, b2_rel = agnr_02, b2_loc = agnr_03)]
 tree_sales <- ag_net[tree_sales, on=.(y4_hhid, b2)]
 
-saveRDS(tree_sales, "2_data/processed/buyers_trees.RDS", compress = T)
+saveRDS(tree_sales, here::here("data", "processed", "01", "buyers_trees.RDS"), compress = T)
 ```
 
 
