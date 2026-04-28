@@ -5,16 +5,10 @@ date: "2024-01-10"
 output: html_document
 ---
 
-```{r set up}
-library(data.table)
-library(haven)
-library(readxl)
-library(knitr)
-library(Hmisc)
-library(lubridate)
-library(naniar)
-library(dplyr)
-library(tidyverse)
+```{r setup, include=FALSE}
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
 ```
 
 # Livestock survey
@@ -24,7 +18,7 @@ library(tidyverse)
 *Unnecessary as covered in the filter file.*
 
 ```{r, eval=FALSE}
-lf_sec_a <- read_dta("2_data/raw/lf_sec_a.dta")
+lf_sec_a <- read_dta(here::here("data", "raw", "lf_sec_a.dta"))
 
 lf_ids <- lf_sec_a %>% 
   clean_up() %>% 
@@ -37,6 +31,7 @@ miss_var_summary(lf_ids)
 ```
 
 ```{r lf ids naming, eval=FALSE}
+# NOTE: eval=FALSE — lf_ids naming not used downstream; identifiers covered in filter file
 lf_ids <- upData(lf_ids,
                  rename = .q(
                    lf_a22 = lvstk,
@@ -73,19 +68,14 @@ Final files:
 ## Animal ownership
 
 ```{r animals hk}
-lf_sec_02 <- read_dta("2_data/raw/lf_sec_02.dta") 
+lf_sec_02 <- read_dta(here::here("data", "raw", "lf_sec_02.dta")) 
 
 animals <- clean_up(lf_sec_02)
 
 # replace with function "labfix"
 lapply(lf_sec_02, attr, "label")
-# put labels back (not sure why they are removed)
-labs <- lapply(lf_sec_02, attr, "label")
-labs <- labs[2:43]
-labs <- unlist(labs, use.names = T) # unlists into a named vector
-
-# re-add labels: https://statisticsglobe.com/add-variable-labels-data-frame-r
-label(animals) <- as.list(labs[match(names(animals), names(animals))])
+# labels re-added via labfix() — replaces manual labs extraction with hardcoded index
+labfix(lf_sec_02, animals)
 
 lapply(animals, attr, "label")
 ```
@@ -197,7 +187,7 @@ ls_list <- data.table(lvstckid = unlist(ls_list), type = rep(names(ls_list), len
 animals <- merge(ls_list, animals, by = "lvstckid")
 
 # save for what purpose
-saveRDS(animals, "2_data/processed/animals.RDS", compress = T)
+saveRDS(animals, here::here("data", "processed", "01", "animals.RDS"), compress = T)
 ```
 
 ```{r animal stats}
@@ -213,17 +203,17 @@ Aim:
 
 ```{r slaughter}
 ### select relevant vars-----
-a <- animals[, .(y4_hhid, ownershp, type, lvstckid, sex, slaughter, weight, owned1, ind, exotic, born, bought, gift, ssold, gifted, sold, disease, theft, injury)]
+animals_sub <- animals[, .(y4_hhid, ownershp, type, lvstckid, sex, slaughter, weight, owned1, ind, exotic, born, bought, gift, ssold, gifted, sold, disease, theft, injury)]
 
 # match class
-a[,type := as.factor(type)]
+animals_sub[,type := as.factor(type)]
 
-a$max_owned <- rowSums(a[,owned1:gift],na.rm=TRUE) # not checked for implausible values
-a$all_lost <- rowSums(a[,disease:injury],na.rm=TRUE) # not checked for implausible values
-a$current <- rowSums(a[,ind:exotic], na.rm = TRUE)
+animals_sub$max_owned <- rowSums(animals_sub[,owned1:gift],na.rm=TRUE) # not checked for implausible values
+animals_sub$all_lost <- rowSums(animals_sub[,disease:injury],na.rm=TRUE) # not checked for implausible values
+animals_sub$current <- rowSums(animals_sub[,ind:exotic], na.rm = TRUE)
 
 # total weight slaughtered & sold
-a <- upData(a,
+animals_sub <- upData(animals_sub,
             n_slcons = slaughter - ssold, # number of animals slaughter and not sold (assumed consumed)
             sl_weight = slaughter * weight, # total weight of all slaughtered animals
             sold_weight = ssold * weight, # assumes entire animal is sold
@@ -245,11 +235,11 @@ a <- upData(a,
              )
 
 # list of animals and destinations (no need to save with exclusions)
-saveRDS(a, "2_data/processed/animals_fin.RDS", compress = T)
+saveRDS(animals_sub, here::here("data", "processed", "01", "animals_fin.RDS"), compress = T)
 ```
 
 ```{r animal exclusions}
-excl_animals <- copy(a)
+excl_animals <- copy(animals_sub)
 # highest weight of animals
 excl_animals[, top := top2(weight), by=lvstckid] # average weight of animal in group
 # lowest weight of animals
@@ -270,17 +260,17 @@ excl_animals <- excl_animals %>%
   select(y4_hhid, item = lvstckid, excl) %>% 
   unique()
 
-write.csv(excl_animals, "2_data/processed/excl_animals.csv")
+write.csv(excl_animals, here::here("data", "processed", "01", "excl_animals.csv"))
 ```
 
 ### Breakdown
 
 ```{r product breakdown}
-wa <- copy(a)
+wa <- copy(animals_sub)
 
 # ASSUMPTION @Hal.2020 p.151; @beefyieldguide; @lambyieldguide; @Alexander.2016
 # @Opio.2013 p.171 currently not included
-breakdown <- read_excel("2_data/reference/breakdown.xlsx", sheet = "conv")
+breakdown <- read_excel(here::here("data", "reference", "breakdown.xlsx"), sheet = "conv")
 setDT(breakdown)
 
 # define values to use
@@ -325,7 +315,7 @@ wa <- upData(wa,
                       fcr, bot, top, topown) # not needed anymore
              )
 
-saveRDS(wa, "2_data/processed/wa.RDS")
+saveRDS(wa, here::here("data", "processed", "01", "wa.RDS"))
 ```
 
 @Opio.2013
@@ -376,7 +366,7 @@ Equally provides a detailed breakdown of the animal components
 
 ```{r feed hk}
 # 1) load survey data-----
-lf_sec_04 <- read_dta("2_data/raw/lf_sec_04.dta")
+lf_sec_04 <- read_dta(here::here("data", "raw", "lf_sec_04.dta"))
 
 # 2) typical feed by livestock group-----
 feed <- clean_up(lf_sec_04) 
@@ -405,7 +395,7 @@ feed <- upData(feed,
                ))
 
 # raw feed data
-saveRDS(feed, "2_data/processed/feed.RDS", compress = T)
+saveRDS(feed, here::here("data", "processed", "01", "feed.RDS"), compress = T)
 ```
 
 
@@ -422,7 +412,7 @@ feed[, feed1 := ifelse(feed1=="tethering" & !is.na(feed2), feed2, feed1)] # unle
 f <- feed[, .(y4_hhid, type, feed1)] # ignore second major type of feeding
 f[,type := as.factor(type)]
 
-saveRDS(f, "2_data/processed/feed_short.RDS", compress = T)
+saveRDS(f, here::here("data", "processed", "01", "feed_short.RDS"), compress = T)
 
 ### FEED REQUIREMENT ASSUMPTION
 # ASSUMPTION 1) FAO
@@ -509,14 +499,14 @@ animals_mass <- af %>%
   mutate_at(c(4:15), as.numeric)  # if not numeric clear.labels rounds
 
 # save file
-backup <- animals_mass
-saveRDS(animals_mass, "2_data/processed/mass_animals.RDS", compress = T)
-saveRDS(animals_mass, "2_data/processed/animals_mass.RDS", compress = T)
+saveRDS(animals_mass, here::here("data", "processed", "01", "animals_mass.RDS"), compress = T)
 ```
 
 # Fishery
 
 ```{r fish cleaning}
+# NOTE (backlog): fish labour data (lf_sec_09) not integrated — labour variables
+# not required for MFA pipeline. Revisit if fish section is expanded.
 # lf_sec_09 <- read_dta("2_data/files/lf_sec_09.dta") %>% 
 #     setDT() %>% 
 #     as_factor() %>%
@@ -533,12 +523,7 @@ saveRDS(animals_mass, "2_data/processed/animals_mass.RDS", compress = T)
 #     trader = ifelse(wks_traded > 0, 1, 0)
 #   ) # probably not necessary
 
-lf_sec_12 <- read_dta("2_data/raw/lf_sec_12.dta") %>% 
-    setDT() %>% 
-    as_factor() %>%
-    mutate(across(where(is.factor), tolower))%>% 
-    mutate_if(is.character, ~na_if(., '')) %>% 
-    select(-occ)
+lf_sec_12 <- read_dta(here::here("data", "raw", "lf_sec_12.dta")) %>% clean_up()
 
 fishes <- lf_sec_12 %>% 
   select(y4_hhid, species = lf12_02_2, tot.quantity = lf12_05_1, tot.unit = lf12_05_2, # total quantities fished
@@ -558,11 +543,13 @@ species <- fishes %>%
   select(species) %>% 
   unique()
 
-write_csv(species, "2_data/reference/fish_species.csv")
+write_csv(species, here::here("data", "reference", "fish_species.csv"))
 ```
 
 
 ```{r fish consumption, eval=FALSE}
+# NOTE: eval=FALSE — fish consumption analysis incomplete; unit mismatch between
+# tot.quantity and tot.consumed unresolved. See filter at bottom of chunk.
 fish_consumption <- fishes %>% 
   mutate(
     consumed1 = ifelse(is.na(consumed1) & tot.quantity > 0, 0, consumed1), 
