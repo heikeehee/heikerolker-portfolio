@@ -5,16 +5,16 @@ date: "2024-01-10"
 output: html_document
 ---
 
-```{r setup}
-library(data.table)
-library(tidyverse)
-
-library(RColorBrewer)
-library(plotly)
+```{r setup, include=FALSE}
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
 ```
 
 ```{r}
-# agricultural zones: https://research.csiro.au/livegaps/findings/livestock-production/dairy-production-in-tanzania/
+# NOTE (backlog): zones lookup defined here for regional disaggregation.
+# Not used in current pipeline — required for regional yield gap analysis (01b_Yield_gap.Rmd).
+# Move to a shared reference file when regional analysis is implemented.
 zones <- list(
   "Lakes" = c("Kagera", "Mara", "Mwanza", "Geita", "Simiyu", "Shinyanga", "Kigoma"),
   "Coastal" = c("Mjini Magharibi", "Kaskazini Pemba", "Kaskazini Unguja", "Kusini Pemba", "Kusini Unguja", "Lindi", "Mtwara", "Morogoro", "Pwani", "Dar Es Salaam"),
@@ -30,23 +30,6 @@ zones <- setDT(zones)
 Overview:
 
 Final *general* files that can serve as input for any subsequent chapter building on LSMS data. 
-
-```{r functions}
-clear.labels <- function(x) {
-  if(is.list(x)) {
-    for(i in seq_along(x)) {
-      class(x[[i]]) <- setdiff(class(x[[i]]), 'labelled')
-      attr(x[[i]],"label") <- NULL
-    }
-  } else {
-    class(x) <- setdiff(class(x), "labelled")
-    attr(x, "label") <- NULL
-  }
-  return(x)
-}  
-
-
-```
 
 # 1) All production & destination (overview and mass-balance files)
 
@@ -70,26 +53,26 @@ Actions:
 
 
 ```{r}
-mass_allcrops <- readRDS("2_data/processed/mass_allcrops.RDS") %>% 
+mass_allcrops <- readRDS(here::here("data", "processed", "01", "mass_allcrops.RDS")) %>% 
   clear.labels() # no code exists
-mass_agprod <- readRDS("2_data/processed/mass_agprod_new.RDS") %>% 
+mass_agprod <- readRDS(here::here("data", "processed", "01", "mass_agprod_new.RDS")) %>% 
   clear.labels()
 # mass_residue
 # mass_yg
 
-agprod_long <- readRDS("2_data/processed/mass_agprod_long_new.RDS") %>%  # details of agricultural produce
+agprod_long <- readRDS(here::here("data", "processed", "01", "mass_agprod_long_new.RDS")) %>%  # details of agricultural produce
   clear.labels()
 
-mass_animals <- readRDS("2_data/processed/animals_mass.RDS") %>% 
+mass_animals <- readRDS(here::here("data", "processed", "01", "animals_mass.RDS")) %>% 
   clear.labels() # alternative is remove_labels{crosstable}
 
-mass_hides <- readRDS("2_data/processed/mass_hides.RDS") %>% 
+mass_hides <- readRDS(here::here("data", "processed", "01", "mass_hides.RDS")) %>% 
   clear.labels()
 
-mass_milk <- readRDS("2_data/processed/mass_milk.RDS") %>% 
+mass_milk <- readRDS(here::here("data", "processed", "01", "mass_milk.RDS")) %>% 
   clear.labels()
 
-mass_eggs <- readRDS("2_data/processed/mass_eggs_fin.RDS") %>% 
+mass_eggs <- readRDS(here::here("data", "processed", "01", "mass_eggs_fin.RDS")) %>% 
   clear.labels()
 
 ```
@@ -100,28 +83,28 @@ excl_ files
 ```{r}
 
 # save all as csv
-excl_agprod <- read_csv("2_data/processed/excl_agprod.csv")
-excl_allcrops <- read_csv("2_data/processed/excl_allcrops.csv")
-excl_animals <- read_csv("2_data/processed/excl_animals.csv")
-excl_crops <- read_csv("2_data/processed/excl_crops.csv")
-excl_trees <- read_csv("2_data/processed/excl_trees.csv")
-excl_milk <- read_csv("2_data/processed/excl_milk.csv")
-excl_eggs <- read_csv("2_data/processed/excl_eggs.csv")
-excl_long <- read_csv("2_data/processed/excl_long.csv")
+excl_agprod <- read_csv(here::here("data", "processed", "01", "excl_agprod.csv"))
+excl_allcrops <- read_csv(here::here("data", "processed", "01", "excl_allcrops.csv"))
+excl_animals <- read_csv(here::here("data", "processed", "01", "excl_animals.csv"))
+excl_crops <- read_csv(here::here("data", "processed", "01", "excl_crops.csv"))
+excl_trees <- read_csv(here::here("data", "processed", "01", "excl_trees.csv"))
+excl_milk <- read_csv(here::here("data", "processed", "01", "excl_milk.csv"))
+excl_eggs <- read_csv(here::here("data", "processed", "01", "excl_eggs.csv"))
+# NOTE: excl_long.csv is generated later in this script (produce long exclusions chunk).
+# On first run, comment out this line and run the full script once to generate it.
+# TODO (backlog): restructure so excl_long is generated before the exclusions merge.
+excl_long <- read_csv(here::here("data", "processed", "01", "excl_long.csv"))
 
 excl_list <- rbind(excl_agprod, excl_allcrops, excl_animals, excl_crops, excl_trees, excl_milk, excl_eggs, excl_long) 
 # detailed list of exclusions
-write.csv(excl_list, "2_data/final/excl_list.csv")
+write.csv(excl_list, here::here("data", "final", "excl_list.csv"))
 
 excl_final <- excl_list %>% 
   filter(!is.na(excl)) %>% 
   select(y4_hhid) %>% 
   unique()
 
-write.csv(excl_final, "2_data/final/excl_3a.csv")
-
-# other chapters
-write.csv(excl_final, "~/Library/CloudStorage/OneDrive-UniversityofBristol/03b_MFA_connect/2_data/final/excl_3a.csv")
+write.csv(excl_final, here::here("data", "final", "excl_3a.csv"))
 ```
 
 Mass balancing used for MFA
@@ -132,14 +115,11 @@ Mass balancing used for MFA
 
 ```{r}
 # applicable to all
+# NOTE (backlog): calc() and cl() defined but not used in this script.
+# Retained as utilities for interactive aggregation. Move to functions.R or delete.
 calc <- function(df) df[, lapply(.SD, sm), .SDcols=is.numeric, by=.(type)] # change function and grouping as required; for 3c this could stay item; use groupsgroups for other aggregation levels
 # col sum
 cl <- function(df) df[, lapply(.SD, sm), .SDcols=is.numeric] # change function as required
-
-sm <- function(x) sum(x, na.rm = TRUE)
-rd <- function(df) df %>% dplyr::mutate_if(is.numeric, round, 1)
-md <- function(x) median(x, na.rm=TRUE)
-mn <- function(x) mean(x, na.rm=TRUE)
 ```
 
 
@@ -155,7 +135,7 @@ crops <- mass_allcrops %>%
          missing = ifelse(uncertain<0, uncertain * -1, 0),
          unallocated = ifelse(uncertain>0, uncertain, 0)) # if uncertain an excess value then allocated to "missing quantities" 
 
-saveRDS(crops, "2_data/final/mfa_crops.RDS", compress = T)
+saveRDS(crops, here::here("data", "final", "mfa_crops.RDS"), compress = T)
 ```
 
 
@@ -176,11 +156,11 @@ animals <- mass_animals %>%
     mean = (upper + lower + total_weight)/3 # mean weight estimate
   )
 
-saveRDS(animals, "2_data/final/mfa_animals.RDS", compress = T)
+saveRDS(animals, here::here("data", "final", "mfa_animals.RDS"), compress = T)
 
 hides <- mass_hides
 
-saveRDS(hides, "2_data/final/mfa_hides.RDS", compress = T)
+saveRDS(hides, here::here("data", "final", "mfa_hides.RDS"), compress = T)
 ```
 
 
@@ -197,7 +177,7 @@ milk <- mass_milk %>%
   ) %>% 
   dplyr::rename(produced = milk) # uses mostly quantities sold as processing inputs, assumption: data checking error.
   
-saveRDS(milk, "2_data/final/mfa_milk.RDS", compress = T)
+saveRDS(milk, here::here("data", "final", "mfa_milk.RDS"), compress = T)
 ```
 
 
@@ -217,7 +197,7 @@ eggs <- mass_eggs %>%
     type = "Eggs" # consistent with groupsgroups?
   )
 
-saveRDS(eggs, "2_data/final/mfa_eggs.RDS", compress = T)
+saveRDS(eggs, here::here("data", "final", "mfa_eggs.RDS"), compress = T)
 
 ```
 
@@ -261,7 +241,9 @@ Keep animal info and hides as separate dataframes as not to lose detail (ie live
 
 ```{r animals}
 # Listing animals - x
-animals_fin <- readRDS("2_data/processed/animals_fin.RDS")
+# animals     = MFA-ready breakdown (meat, offal, hides, feed) derived from mass_animals
+# animals_fin = ownership and destination data (slaughter counts, sold/gifted) from raw file
+animals_fin <- readRDS(here::here("data", "processed", "01", "animals_fin.RDS"))
 # Total slaughter product, and weight allocated to destinations - x
 animals_long <- animals_fin %>% 
   clear.labels() %>% 
@@ -369,24 +351,20 @@ produce_long <- crops_long %>%
   dplyr::bind_rows(animals_long1, animals_long, crops_long1, hides_long, milk_long, milk_long1, eggs_long) %>% 
   # check no duplications -> just a few
   group_by(y4_hhid, category, product_type, item, type, subtype) %>% 
-  summarise(across(is.numeric, ~ sum(.x, na.rm = TRUE))) %>%  # code deprecated, should be replaced
+  summarise(across(where(is.numeric), ~ sum(.x, na.rm = TRUE))) %>% 
   ungroup() %>% 
   mutate(across(item:subtype, ~str_to_sentence(.x))) %>% 
   # adjust order
   select(y4_hhid, category, product_type, type, subtype, item, produced, sold, consumed, smd, uncertain)
 
-saveRDS(produce_long, "2_data/final/produce_long.RDS", compress = T)
+saveRDS(produce_long, here::here("data", "final", "produce_long.RDS"), compress = T)
 
 # Group file
 groupsgrps <- produce_long %>% 
   select(category, product_type, type, subtype, item) %>% 
   unique()
 
-write_csv(groupsgrps, "2_data/reference/groupsgrps.csv")
-
-# save to other chapter where needed
-saveRDS(produce_long, "~/Library/CloudStorage/OneDrive-UniversityofBristol/03b_MFA_connect/2_data/files/produce_long.RDS")
-write_csv(groupsgrps, "~/Library/CloudStorage/OneDrive-UniversityofBristol/03_LSMS/TZAwave4/files/groupsgrps.csv") # update location
+write_csv(groupsgrps, here::here("data", "reference", "groupsgrps.csv"))
 ```
 
 ```{r produce long exclusions}
@@ -399,14 +377,15 @@ excl_long <- produce_long %>% group_by(y4_hhid) %>%
   ) %>% 
   select(!sum)
 
-write.csv(excl_long, "2_data/processed/excl_long.csv")
+write.csv(excl_long, here::here("data", "processed", "01", "excl_long.csv"))
 ```
 
 ### Find all types not produced by household
 
 ```{r}
-# list all types from groupsgroups
-# merge & identify missing
+# NOTE (backlog): identify crop/product types with no household production.
+# Merge groupsgrps with produce_long on item; filter where produced == 0 for all hhs.
+# Useful for coverage reporting but not required for MFA pipeline.
 ```
 
 
@@ -414,7 +393,7 @@ write.csv(excl_long, "2_data/processed/excl_long.csv")
 
 ```{r}
 # add FCT info : here:here check if merged fully (some names might have been changed along the way...)
-LSMS_AG_FCT <- read_csv("2_data/reference/AG_FCT_final.csv") %>% 
+LSMS_AG_FCT <- read_csv(here::here("data", "reference", "AG_FCT_final.csv")) %>% 
   select(item = product, group, Edible_CF:Cholesterol_CHOLE_mg) %>% 
   unique() # contains some duplication
 
@@ -423,22 +402,25 @@ produce_long_fct <- produce_long %>%
 # give group to cashgroups
 
 
-saveRDS(produce_long_fct, "2_data/final/produce_long_fct.RDS", compress = T)
+saveRDS(produce_long_fct, here::here("data", "final", "produce_long_fct.RDS"), compress = T)
 ```
 
 
 ## 1b) All primary buyers
 
 ```{r merge all primary buyers, eval=FALSE}
+# NOTE: eval=FALSE — buyer merge requires all upstream buyers_*.RDS files to exist.
+# Run after 04_Destinations.Rmd has completed successfully.
+# Re-enable once pipeline runs end-to-end without errors.
 # read all data
-buyers_animals <- readRDS("2_data/processed/buyers_animals.RDS")
-buyers_crops <- readRDS("2_data/processed/buyers_crops.RDS")
-buyers_eggs <- readRDS("2_data/processed/buyers_eggs.RDS")
-buyers_milk <- readRDS("2_data/processed/buyers_milk.RDS")
-buyers_trees <- readRDS("2_data/processed/buyers_trees.RDS")
+buyers_animals <- readRDS(here::here("data", "processed", "01", "buyers_animals.RDS"))
+buyers_crops <- readRDS(here::here("data", "processed", "01", "buyers_crops.RDS"))
+buyers_eggs <- readRDS(here::here("data", "processed", "01", "buyers_eggs.RDS"))
+buyers_milk <- readRDS(here::here("data", "processed", "01", "buyers_milk.RDS"))
+buyers_trees <- readRDS(here::here("data", "processed", "01", "buyers_trees.RDS"))
 
 # crop buyer 
-crop_sales <- readRDS("2_data/processed/crop_sales.RDS") # contains more detail
+crop_sales <- readRDS(here::here("data", "processed", "01", "crop_sales.RDS")) # contains more detail
 
 # calculate share for buyers
 crop_sales[, `:=` (b1_perc = soldb1/sold*100,
@@ -551,14 +533,14 @@ b1_gr <- b1 %>%
     )) %>%
   mutate(across(is.character, ~str_to_sentence(.x)))
 
-saveRDS(b1_gr, "2_data/final/b1.RDS", compress = T)
+saveRDS(b1_gr, here::here("data", "final", "b1.RDS"), compress = T)
 ```
 ```{r export for python}
-# Export RDS inputs to CSV for Python translation
-library(here)
+# Export RDS inputs to CSV for Python translation.
+# Reads from data/final/ — mfa_*.RDS files are generated earlier in this script.
 saveRDS_to_csv <- function(rds_name, csv_name) {
-  readRDS(here::here("data", "processed", "01", rds_name)) |>
-    data.table::fwrite(here::here("data", "processed", "01", csv_name))
+  readRDS(here::here("data", "final", rds_name)) |>
+    data.table::fwrite(here::here("data", "final", csv_name))
 }
 
 saveRDS_to_csv("mfa_crops.RDS",   "mfa_crops.csv")
