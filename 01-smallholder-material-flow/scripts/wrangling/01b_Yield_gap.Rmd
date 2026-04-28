@@ -4,15 +4,17 @@ author: "Heike Rolker"
 date: "2024-01-19"
 output: html_document
 ---
-```{r}
-library(readxl)
+```{r setup, include=FALSE}
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
 ```
 
 
 ```{r plot details}
 # load data
-ag_sec_3a <- read_dta("2_data/raw/ag_sec_3a.dta") # --> long rainy
-ag_sec_3b <- read_dta("2_data/raw/ag_sec_3b.dta") # --> short rainy
+ag_sec_3a <- read_dta(here::here("data", "raw", "ag_sec_3a.dta")) # --> long rainy
+ag_sec_3b <- read_dta(here::here("data", "raw", "ag_sec_3b.dta")) # --> short rainy
 
 # prepare for join
 long <- ag_sec_3a %>% 
@@ -53,23 +55,26 @@ label(plots_full) <- as.list(labs[match(names(plots_full), names(labs))])
 
 contents(plots_full)
 
-saveRDS(plots_full, "2_data/processed/plot_details.RDS", compress = T)
+saveRDS(plots_full, here::here("data", "processed", "01", "plot_details.RDS"), compress = T)
 ```
 ```{r reference values}
-GygaTanzania_2 <- read_excel("2_data/reference/GygaTanzania-2.xlsx", sheet = "Country") %>% 
+# Source: GYGA (Global Yield Gap Atlas) — Tanzania country data
+# URL: https://www.yieldgap.org/tanzania
+# Downloaded: 2024-01-19 — update comment if file is re-downloaded
+GygaTanzania_2 <- read_excel(here::here("data", "reference", "GygaTanzania-2.xlsx"), sheet = "Country") %>% 
   # add key for merging
-  mutate(cropid = fcase(
-    CROP == "Irrigated rice", "paddy",
-    CROP == "Rainfed chickpea", "chickpea",
-    CROP == "Rainfed common bean", "bean",
-    CROP == "Rainfed cowpea", "cowpea",
-    CROP == "Rainfed groundnut", "groundnut",
-    CROP == "Rainfed maize", "maize",
-    CROP == "Rainfed millet", "finger millet", # as per https://www.yieldgap.org/tanzania; what about bulrush?
-    CROP == "Rainfed pigeonpea", "pigeon pea",
-    CROP == "Rainfed rice", "paddy",
-    CROP == "Rainfed sorghum", "sorghum",
-    CROP == "Rainfed wheat", "wheat"      
+  mutate(cropid = case_when(
+    CROP == "Irrigated rice"      ~ "paddy",
+    CROP == "Rainfed chickpea"    ~ "chickpea",
+    CROP == "Rainfed common bean" ~ "bean",
+    CROP == "Rainfed cowpea"      ~ "cowpea",
+    CROP == "Rainfed groundnut"   ~ "groundnut",
+    CROP == "Rainfed maize"       ~ "maize",
+    CROP == "Rainfed millet"      ~ "finger millet", # as per https://www.yieldgap.org/tanzania; what about bulrush?
+    CROP == "Rainfed pigeonpea"   ~ "pigeon pea",
+    CROP == "Rainfed rice"        ~ "paddy",
+    CROP == "Rainfed sorghum"     ~ "sorghum",
+    CROP == "Rainfed wheat"       ~ "wheat"
   ))
 
 ```
@@ -77,7 +82,8 @@ GygaTanzania_2 <- read_excel("2_data/reference/GygaTanzania-2.xlsx", sheet = "Co
 
 ```{r}
 # plot crop information
-pc <- readRDS("2_data/processed/pc.RDS") %>% 
+# labels cleared on load — clear.labels() not needed again downstream
+pc <- readRDS(here::here("data", "processed", "01", "pc.RDS")) %>% 
   clear.labels()
 ```
 
@@ -85,7 +91,7 @@ p10 third level accuracy
 
 Theoretical yield
 ```{r}
-plots_full <- readRDS("2_data/processed/plot_details.RDS")
+plots_full <- readRDS(here::here("data", "processed", "01", "plot_details.RDS"))
 ```
 
 
@@ -132,8 +138,6 @@ Rainfed sample
 ref_rain <- GygaTanzania_2 %>% 
   filter(CROP != "Irrigated rice")
 
-pc <- clear.labels(pc)
-
 rainfed <- plots_full %>% 
   filter(irrigated == "no") %>% 
   clear.labels() %>% 
@@ -157,7 +161,9 @@ yg.rainfed <- rainfed %>%
 ```
 
 
-Account for regional variation using different sheet in file and merge based on location. (Should not add significantly more work.)
+NOTE (backlog): Regional yield gap variation not yet implemented.
+Use regional sheet from GygaTanzania-2.xlsx, merge on location ID.
+Treat as sensitivity analysis, not core pipeline output.
 
 
 Compare groups with and without pre-harvest losses and their yield gaps.
@@ -166,8 +172,9 @@ Compare groups with and without pre-harvest losses and their yield gaps.
 yieldgaps <- yg.rainfed %>% 
   bind_rows(yg.irrigated) 
 
-saveRDS(yieldgaps, "2_data/processed/yieldgaps.RDS", compress = TRUE)
+saveRDS(yieldgaps, here::here("data", "processed", "01", "yieldgaps.RDS"), compress = TRUE)
 
-# apply weighting factors to yield gaps.
+# NOTE (backlog): weighting factors not yet applied to yield gaps.
+# Apply same weigh() approach as in 03-MCS_household.R when pipeline is stable.
 ```
 
