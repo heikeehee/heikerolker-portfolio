@@ -489,3 +489,129 @@ calc.diff.stats <- function(df) {
 # Chapter 5
 # (functions to be added as Chapter 5 scripts are reviewed)
 # -----------------------------------------------------------------------------
+
+
+# --- Data preparation helpers (from functions1.R) ---
+
+# NOTE (backlog): firstfun() from functions1.R not integrated — references
+# 'identifiers_ag' from calling environment rather than accepting it as an argument.
+# Refactor to accept df as parameter before use. Not currently called in pipeline.
+
+# Rename data.table columns using a named vector.
+# Usage: dt_rename(dt, c(old_name = "new_name"))
+dt_rename <- function(x, n) setnames(x, names(n), n)
+
+# Standard clean-up pipeline for LSMS Stata files loaded with read_dta():
+# convert to data.table, apply factor labels, lowercase factor levels,
+# replace empty strings with NA, and drop 'occ' if present.
+clean_up <- function(x) {
+  x %>%
+    setDT() %>%
+    as_factor() %>%
+    mutate(across(where(is.factor), tolower)) %>%
+    mutate_if(is.character, ~na_if(., "")) %>%
+    select(-any_of("occ"))
+}
+
+# Prepare a data frame for seasonal joining: calls clean_up() then adds a
+# 'season' column.
+prep <- function(x, season) {
+  x %>%
+    clean_up() %>%
+    add_column(season = season)
+}
+
+# Replace a season-letter suffix in column names (e.g. "4b" -> "4a") so that
+# short- and long-rainy data frames share identical column names before binding.
+strip_colnames <- function(x, from, to) {
+  names(x) <- gsub(from, to, names(x), fixed = TRUE)
+  x
+}
+
+# Bind two data.tables by row, allowing mismatched columns (fill = TRUE).
+bind_dt <- function(x, y) {
+  rbindlist(list(x, y), fill = TRUE)
+}
+
+# Extract variable labels from a data frame into a named character vector
+# suitable for re-applying with Hmisc::label() after cleaning.
+prep_labs <- function(x) {
+  labs <- lapply(x, attr, "label")
+  unlist(labs, use.names = TRUE)
+}
+
+# Join df with a reference lookup list on 'col' to attach standardised crop
+# type names. 'list' is a named parameter to match the calling convention used
+# in the wrangling scripts.
+clean_names <- function(df, list, col) {
+  df %>% left_join(list, by = col)
+}
+
+# Re-apply variable labels from a raw (pre-cleaning) data frame to a cleaned
+# data frame. Useful after clean_up() strips Stata labels.
+labfix <- function(df, raw) {
+  labs <- lapply(raw, attr, "label")
+  labs <- unlist(labs, use.names = TRUE)
+  label(df) <- as.list(labs[match(names(df), names(labs))])
+  df
+}
+
+# Add a label attribute to a vector (compatible with the Hmisc label workflow).
+adlab <- function(x, label) {
+  attr(x, "label") <- label
+  x
+}
+
+# Top-2%: returns the 99th-percentile value of x. Used as an upper outlier
+# threshold in yield-gap analysis.
+top2 <- function(x) quantile(x, probs = .99, na.rm = TRUE)
+
+# NOTE (backlog): crops_list should be externalised to data/reference/crops_list.csv
+# for auditability and easier maintenance outside R.
+crops_list <- data.frame(
+  cropid = c(
+    # Cereals
+    "maize", "paddy", "sorghum", "bulrush millet", "finger millet",
+    "wheat", "barley",
+    # Roots and tubers
+    "cassava", "sweet potatoes", "irish potatoes", "yams",
+    # Pulses
+    "beans", "cowpeas", "groundnuts", "pigeon peas", "soybeans",
+    "bambara nuts", "lentils",
+    # Oil crops
+    "sunflower", "sesame", "palm oil",
+    # Cash crops
+    "coffee", "tea", "tobacco", "cotton", "cashewnuts", "coconuts",
+    "sisal", "cocoa", "vanilla", "pyrethrum",
+    # Fruits and vegetables
+    "banana", "plantain", "mango", "avocado", "pineapple", "passion fruit",
+    "citrus", "tomatoes", "onions", "cabbage", "amaranths", "watermelon",
+    # Other
+    "other crops", "other vegetables", "other fruits",
+    "other permanent crops", "sugar cane"
+  ),
+  type = c(
+    # Cereals
+    "cereals", "cereals", "cereals", "cereals", "cereals",
+    "cereals", "cereals",
+    # Roots and tubers
+    "roots and tubers", "roots and tubers", "roots and tubers", "roots and tubers",
+    # Pulses
+    "pulses", "pulses", "pulses", "pulses", "pulses",
+    "pulses", "pulses",
+    # Oil crops
+    "oilcrops", "oilcrops", "oilcrops",
+    # Cash crops
+    "cashcrops", "cashcrops", "cashcrops", "cashcrops", "cashcrops", "cashcrops",
+    "cashcrops", "cashcrops", "cashcrops", "cashcrops",
+    # Fruits and vegetables
+    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
+    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
+    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
+    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
+    # Other
+    "other crops", "fruits and vegetables", "fruits and vegetables",
+    "other crops", "cashcrops"
+  ),
+  stringsAsFactors = FALSE
+)
