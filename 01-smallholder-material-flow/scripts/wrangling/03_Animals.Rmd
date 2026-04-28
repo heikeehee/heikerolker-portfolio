@@ -72,8 +72,6 @@ lf_sec_02 <- read_dta(here::here("data", "raw", "lf_sec_02.dta"))
 
 animals <- clean_up(lf_sec_02)
 
-# replace with function "labfix"
-lapply(lf_sec_02, attr, "label")
 # labels re-added via labfix() — replaces manual labs extraction with hardcoded index
 labfix(lf_sec_02, animals)
 
