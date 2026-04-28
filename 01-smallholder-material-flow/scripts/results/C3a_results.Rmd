@@ -22,7 +22,7 @@ source(here::here("scripts", "functions.R"))
 ```{r key data, include=FALSE}
 # this should possibly all be loaded from 99_C3a
 # list of all households with weights
-hhs_3a <- read_csv(here::here("data", "final", "hhs_3a.csv")) %>% setDT()
+hhs_3a <- read_csv(here::here("data", "processed", "01", "hhs_3a.csv")) %>% setDT()
 
 # basic numbers
 
@@ -189,7 +189,7 @@ prelost %>%
 
 ```{r eval=FALSE}
 # currently all in chapter file
-# yieldgaps <- readRDS("2_data/processed/yieldgaps.RDS") # comes from 99_C3a
+# yieldgaps <- readRDS(here::here("data", "processed", "01", "yieldgaps.RDS")) # comes from 99_C3a
 
 # total yield gap by type
 yg_stat <- yieldgaps %>% 
@@ -836,7 +836,7 @@ produce_long %>%
 -   Slaughter waste - x
 
 ```{r}
-mass_animals <- readRDS(here::here("data", "processed", "01", "mass_animals.RDS")) %>% 
+mass_animals <- readRDS(here::here("data", "processed", "01", "animals_mass.RDS")) %>% 
   clear.labels() %>% 
   weigh() %>% 
   select(y4_hhid, type, lvstckid, meat, offal, hides, inedible, weight_adj) %>% 
