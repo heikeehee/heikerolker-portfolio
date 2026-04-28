@@ -536,7 +536,8 @@ b1_gr <- b1 %>%
 saveRDS(b1_gr, here::here("data", "final", "b1.RDS"), compress = T)
 ```
 ```{r export for python}
-# Export RDS inputs to CSV for Python translation
+# Export RDS inputs to CSV for Python translation.
+# Reads from data/final/ — mfa_*.RDS files are generated earlier in this script.
 saveRDS_to_csv <- function(rds_name, csv_name) {
   readRDS(here::here("data", "final", rds_name)) |>
     data.table::fwrite(here::here("data", "final", csv_name))
