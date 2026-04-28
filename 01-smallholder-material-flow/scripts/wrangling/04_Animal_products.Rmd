@@ -5,6 +5,12 @@ date: "2024-01-10"
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
+```
+
 # Other products
 
 Overview:
@@ -14,9 +20,7 @@ Animal products, except honey.
 - **produce** all animal products, cleaned file but mostly raw data
 
 ```{r produce hk}
-lf_sec_08 <- read_dta("2_data/raw/lf_sec_08.dta")
-
-produce <- clean_up(lf_sec_08)
+lf_sec_08 <- read_dta(here::here("data", "raw", "lf_sec_08.dta"))
 
 lapply(lf_sec_08, attr, "label")
 ```
@@ -47,7 +51,7 @@ produce <- upData(produce,
                  value = "Total value of sales in past 12 months"
                ))
 
-saveRDS(produce, file = "2_data/processed/produce.RDS", compress = TRUE)
+saveRDS(produce, file = here::here("data", "processed", "01", "produce.RDS"), compress = TRUE)
 ```
 
 ### Hides
@@ -69,11 +73,11 @@ Aim:
 -   all into kg
 
 ```{r prep slaughter}
-produce <- readRDS("2_data/processed/produce.RDS")
+produce <- readRDS(here::here("data", "processed", "01", "produce.RDS"))
 # extract hides
 hides <- produce[productid == "skin / hides"]
 # slaughter info
-wa <- readRDS("2_data/processed/wa.RDS") # just not to alter too much code...
+wa <- readRDS(here::here("data", "processed", "01", "wa.RDS")) # just not to alter too much code...
 
 # determine hides origin, match with slaughter info
 ah <- wa[,.(y4_hhid, type, lvstckid, slaughter, hides, ssold)]
@@ -201,12 +205,13 @@ hides <- upData(hides,
 
 hides <- hides[produced>0]
 # remaining & missing conditions
+# NOTE: diagnostic checks — retained for reference, not part of pipeline output
 # hid[produced > 0 &is.na(type)]
 # hid[unitsold != "pieces" & total < sold]
 # hid[unitsold == "pieces" & pieces < sold]
 # estimate weight of hides sold or used for own consumption derived from slaughtered animals
 
-saveRDS(hides, "2_data/processed/hides.RDS", compress = TRUE)
+saveRDS(hides, here::here("data", "processed", "01", "hides.RDS"), compress = TRUE)
 ```
 
 *All weight of hides that can be allocated to slaughtered animals are allocated to them, the remainder is ignored. Method not ideal as it standardizes the quantities of hide per animal. Hides from both types not possible.*
@@ -261,6 +266,12 @@ manualfix[, `:=` (pprod_new = hides,
                   perc_sold = sold2/pprod/2)]
 
 # three households for which above is not applicable and require manual recoding
+# Manual fix: three households where hides cannot be split between large/small ruminants
+# algorithmically — values assigned by inspection of raw data.
+# 7294-001: equal split across both types (3 animals total → 1.5 each)
+# 8014-001: all 5 hides from small ruminants, 0 from large
+# 4764-001: equal split (2 animals total → 1 each)
+# Flag for review if raw data or slaughter records change.
 manualfix$pprod_new[which(manualfix$y4_hhid == "7294-001" & manualfix$type == "large ruminants")] <- 1.5
 manualfix$pprod_new[which(manualfix$y4_hhid == "7294-001" & manualfix$type == "small ruminants")] <- 1.5
 
@@ -293,6 +304,8 @@ manualfix[, missing := pprod-sold2] # hides not sold assumed for household
 
 # anti join manualfix with himeatt to avoid duplication
 new <- dplyr::anti_join(himeatt, manualfix, by = c("y4_hhid", "type"))
+# NOTE (backlog): new2 is a data.table equivalent of new — same result, not used downstream.
+# Remove once pipeline is stable and standardise to data.table anti-join throughout.
 new2 <- himeatt[!manualfix, on =.(y4_hhid, type)]
 
 # match order to overcome binding error
@@ -309,6 +322,7 @@ meat_sl <- slaughter[,.(type, y4_hhid, meat, offal, hides, inedible)]
 meat_sl <- meat_sl[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
 
 # add exclusions back in -> exclusions are seperate.
+# NOTE: diagnostic checks — retained for reference, not part of pipeline output
 # ex <- af[,.(type, y4_hhid, excl)]
 # ex <- ex %>% filter(!is.na(excl)) %>% unique()
 # ex <- ex[meat_sl, on = .(type,  y4_hhid)]
@@ -342,8 +356,8 @@ mass_hides <- mass_hides_long %>%
 
 mass_hides[, rel_prod := adlab(rel_prod, "Proportion of hides produced from total (i.e. not slaughter)")]
 
-saveRDS(mass_hides, "2_data/processed/mass_hides.RDS", compress = T)
-saveRDS(mass_hides_long, "2_data/processed/mass_hides_long.RDS", compress = T)
+saveRDS(mass_hides, here::here("data", "processed", "01", "mass_hides.RDS"), compress = T)
+saveRDS(mass_hides_long, here::here("data", "processed", "01", "mass_hides_long.RDS"), compress = T)
 ```
 
 To merge hides with meat there are two options:
@@ -362,8 +376,8 @@ Final files:
 **mass_eggs** production and destination estimates for eggs
 
 ```{r eggs animals}
-a <- readRDS("2_data/processed/animals_fin.RDS")
-f <- readRDS("2_data/processed/feed_short.RDS")
+animals_fin <- readRDS(here::here("data", "processed", "01", "animals_fin.RDS"))
+f <- readRDS(here::here("data", "processed", "01", "feed_short.RDS"))
 
 chicken <- data.table( # chicken p. 107 backyard
   feed1 = c("only feeding (no grazing/scavenging)", 
@@ -376,7 +390,7 @@ chicken <- data.table( # chicken p. 107 backyard
   grazed = c(0, 0.6, 1, 0.4, 0.5))
 
 # check plausible for poultry only
-ae <- a[,.(y4_hhid, type, lvstckid, current, max_owned)]
+ae <- animals_fin[,.(y4_hhid, type, lvstckid, current, max_owned)]
 ae <- ae[type=="poultry"]
 
 # ae[lvstckid == "other poultry" & current > 0]
@@ -388,6 +402,9 @@ ae <- ae[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
 ```
 
 ```{r feeds table, eval=FALSE}
+# NOTE: eval=FALSE — feedtbl combines milkfeed and chicken feed tables.
+# milkfeed is not defined in this script — requires milk wrangling to run first.
+# Re-enable once milk section is integrated into pipeline.
 milkfeed <- milkfeed %>% 
   mutate(
     type = ifelse(type == "small ruminants", "milk (small ruminants)", "milk (large ruminants)"))
@@ -396,18 +413,6 @@ chicken <- chicken %>%
   mutate(type = "eggs")
 
 feeds
-clear.labels <- function(x) {
-  if(is.list(x)) {
-    for(i in seq_along(x)) {
-      class(x[[i]]) <- setdiff(class(x[[i]]), 'labelled') 
-      attr(x[[i]],"label") <- NULL
-    } 
-  } else {
-    class(x) <- setdiff(class(x), "labelled")
-    attr(x, "label") <- NULL
-  }
-  return(x)
-}
 
 feeds <- clear.labels(feeds)
 
@@ -415,7 +420,7 @@ feedtbl <- bind_rows(milkfeed, chicken, feeds)
 
 
 # purpose? for appendix?
-saveRDS(feedtbl, "2_data/processed/feedtbl.RDS", compress = T)
+saveRDS(feedtbl, here::here("data", "processed", "01", "feedtbl.RDS"), compress = T)
 ```
 
 Aim:
@@ -423,7 +428,7 @@ Aim:
 -   determine total weight of eggs produced
 
 ```{r eggs}
-produce <- readRDS("2_data/processed/produce.RDS")
+produce <- readRDS(here::here("data", "processed", "01", "produce.RDS"))
 
 # adjust class
 produce[, produced := as.numeric(produced)]
@@ -460,8 +465,9 @@ e <- upData(e,
          sold_new = kg
        ))
 
-# replace NA with 0
-e[, 15:18][is.na(e[, 15:18])] <- 0
+# Replace NA with 0 in computed egg quantity columns — named to avoid positional fragility
+cols_to_zero <- c("produced_new", "sold_new", "n_eggs", "N_eggs")
+e[, (cols_to_zero) := lapply(.SD, function(x) ifelse(is.na(x), 0, x)), .SDcols = cols_to_zero]
 
 
 ```
@@ -508,7 +514,7 @@ excl_eggs <- excl_eggs %>%
 # eggs[n_est>max_owned]
 # eggs[n_est>current]
 # eggs[n_est>mean]
-write.csv(excl_eggs, "2_data/processed/excl_eggs.csv")
+write.csv(excl_eggs, here::here("data", "processed", "01", "excl_eggs.csv"))
 ```
 
 Aim:
@@ -541,7 +547,7 @@ mass_eggs <- upData(ef,
   
 )
 
-saveRDS(mass_eggs, "2_data/processed/mass_eggs.RDS", compress = TRUE)
+saveRDS(mass_eggs, here::here("data", "processed", "01", "mass_eggs.RDS"), compress = TRUE)
 ```
 
 
@@ -563,15 +569,15 @@ length <- e %>%
   mutate(length = length * 4.3) # monthly production converted into weekly
 
 # load recall data
-recalllabs <- readRDS("2_data/processed/recall.RDS")
+recalllabs <- readRDS(here::here("data", "processed", "01", "recall.RDS"))
 recall <- clear.labels(recalllabs) # for now...
 
 # ag households only
-ag_ids <- readRDS("2_data/processed/ag_ids.RDS") # save as csv
+ag_ids <- readRDS(here::here("data", "processed", "01", "ag_ids.RDS")) # save as csv
 ag_ids <- clear.labels(ag_ids)
 
 # household size
-hhsize <- read_dta("2_data/raw/consumptionNPS4.dta") %>% 
+hhsize <- read_dta(here::here("data", "raw", "consumptionNPS4.dta")) %>% 
   select(y4_hhid, hhsize) %>% 
   # use agricultural households only
   left_join(select(ag_ids, y4_hhid), by = "y4_hhid")
@@ -622,7 +628,7 @@ mass_eggs_cons <- cons_estimate %>%
   mutate(missing_fin = produced - consumed) %>% 
   select(y4_hhid, produced, missing = missing_fin, consumed)
 
-saveRDS(mass_eggs_cons, "2_data/processed/mass_eggs_cons.RDS", compress = T)
+saveRDS(mass_eggs_cons, here::here("data", "processed", "01", "mass_eggs_cons.RDS"), compress = T)
 ```
 
 Overview for computation of egg consumption
@@ -639,7 +645,7 @@ mass_eggs_fin <- mass_eggs %>%
   select(!c(missing, consumed, produced)) %>% 
   left_join(mass_eggs_cons, by = "y4_hhid")
 
-saveRDS(mass_eggs_fin, "2_data/processed/mass_eggs_fin.RDS", compress = T)
+saveRDS(mass_eggs_fin, here::here("data", "processed", "01", "mass_eggs_fin.RDS"), compress = T)
 ```
 
 
