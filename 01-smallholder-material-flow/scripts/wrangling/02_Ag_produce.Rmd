@@ -3,12 +3,10 @@ title: "02_Agricultural produce"
 output: html_notebook
 ---
 
-```{r}
-library(haven)
-library(tidyverse)
-library(Hmisc)
-library(data.table)
-library(naniar)
+```{r setup, include=FALSE}
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
 ```
 
 
@@ -20,7 +18,7 @@ Overview:
 ## Agricultural products
 
 ```{r ag produce hk}
-ag_sec_10 <- read_dta("2_data/raw/ag_sec_10.dta")
+ag_sec_10 <- read_dta(here::here("data", "raw", "ag_sec_10.dta"))
 
 ag_produce <- ag_sec_10 %>% 
   clean_up()
@@ -146,6 +144,8 @@ ap_conv <- setDT(ap_conv)
   #   cassava outer cover = NA
 
 # final list of items needing converting
+# NOTE: 'items' is a diagnostic table — lists products still needing conversion factors.
+# Not used in pipeline output. Review if conversion table (ap_conv) is updated.
 items <- items %>% left_join(select(ap_conv, cropid, product, conv), by = c("cropid", "product"))
 
 # retain code below despite "wordiness"
@@ -167,13 +167,10 @@ ap_convert[, `:=` (sold_new = ifelse(unit == "kg", sold, sold* conv),
 
 ap_convert[, `:=` (conv = NULL, unit = NULL)]
 
-# save file
-# saveRDS(ap_convert, file = "2_data/processed/ap_convert.RDS", compress = TRUE)
+# NOTE: ap_convert intermediate not saved — superseded by inputlong and inputs_final.
+# New approach reshapes directly from ap_convert in memory rather than saving intermediate.
 ```
 
-Skip, use data frames already cleaned and reshape.
-
-New approach...
 ```{r}
 input <- ap_convert %>% 
   mutate(prod = ifelse(type == "processed", 1,0), # count number of by/products
@@ -197,7 +194,7 @@ inputlong <- input %>%
   ) %>% 
   select(y4_hhid, cropid, product, item, produced = quant, sold, consumed)
 
-saveRDS(inputlong, "2_data/processed/mass_agprod_long_new.RDS", compress = TRUE)
+saveRDS(inputlong, here::here("data", "processed", "01", "mass_agprod_long_new.RDS"), compress = TRUE)
 
 input_crop <- input[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, cropid)]
 
@@ -223,6 +220,8 @@ input_stats %>% filter(is.na(new_input)) # 140 entries
 
 input_stats2 <- input_stats %>% 
   mutate(
+    # Manual fix: household 3208-001 has input double-counted — divided by 2.
+    # Verified against raw data. Flag for review if raw data changes.
     new_input = ifelse(y4_hhid == "3208-001", input/2, new_input),
     # very uncertain
     new_input =  ifelse(is.na(new_input) & prod == 1 & byprod == 1 & quant*2<input, input/2, new_input), # product is divisible by two (product and by product match) and there is some left-over
@@ -247,7 +246,7 @@ inputs_final <- input_stats %>%
   mutate(uncertain = input - produced) # waste 
   
 
-saveRDS(inputs_final, "2_data/processed/mass_agprod_new.RDS", compress = T)
+saveRDS(inputs_final, here::here("data", "processed", "01", "mass_agprod_new.RDS"), compress = T)
 ```
 
 
