@@ -7,8 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(here)
-source(here::here("scripts", "packages.R"))
-source(here::here("scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 ```
 
 Overview:
@@ -32,8 +32,8 @@ Combine plot information from long and short rainy season.
 
 ```{r plots hk}
 # load data
-ag_sec_2a <- read_dta(here::here("data", "raw", "ag_sec_2a.dta")) # --> long rainy
-ag_sec_2b <- read_dta(here::here("data", "raw", "ag_sec_2b.dta")) # --> short rainy
+ag_sec_2a <- read_dta(here::here("data", "raw", "lsms","ag_sec_2a.dta")) # --> long rainy
+ag_sec_2b <- read_dta(here::here("data", "raw", "lsms","ag_sec_2b.dta")) # --> short rainy
 
 # prepare for join
 long <- ag_sec_2a %>% 
@@ -179,8 +179,8 @@ Crop production information for long and short rainy seasons are combined.
 
 ```{r crops hk}
 # load data
-ag_sec_4a <- read_dta(here::here("data", "raw", "ag_sec_4a.dta")) # --> long rainy
-ag_sec_4b <- read_dta(here::here("data", "raw", "ag_sec_4b.dta")) # --> short rainy
+ag_sec_4a <- read_dta(here::here("data", "raw", "lsms","ag_sec_4a.dta")) # --> long rainy
+ag_sec_4b <- read_dta(here::here("data", "raw", "lsms","ag_sec_4b.dta")) # --> short rainy
 
 # prep for join
 long <- prep(ag_sec_4a, season = "long")
@@ -371,8 +371,8 @@ saveRDS(crops_prelost, here::here("data", "processed", "01", "crops_prelost.RDS"
 
 ```{r trees hk}
 # same as for crops disp
-ag_sec_6a <- read_dta(here::here("data", "raw", "ag_sec_6a.dta")) # --> fruit
-ag_sec_6b <- read_dta(here::here("data", "raw", "ag_sec_6b.dta")) # --> permanent
+ag_sec_6a <- read_dta(here::here("data", "raw", "lsms","ag_sec_6a.dta")) # --> fruit
+ag_sec_6b <- read_dta(here::here("data", "raw", "lsms","ag_sec_6b.dta")) # --> permanent
 
 # prep for join
 fruit <- prep(ag_sec_6a, season = "fruit")
