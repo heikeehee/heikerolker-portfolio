@@ -1,15 +1,17 @@
 # Adjusted weigthing
-library(haven)
-library(data.table)
-library(tidyverse)
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
 
 # read in data
 # household weights for all clusters and household types
-hh_ids <- read_csv("2_data/processed/hh_ids.csv", 
+hh_ids <- read_csv(here::here("data", "processed", "hh_ids.csv"), 
                    col_types = cols(...1 = col_skip())) %>% 
   select(y4_hhid, y4_weights, clusterid) %>% 
   setDT()
 
+# NOTE: hh_type classification now derived from allagids3.csv — ag_ids join superseded.
+# Retained for reference in case hh_type source changes upstream.
 # agricultural households
 # ag_ids <- read_csv("2_data/processed/ag_ids.csv") %>% 
 #   select(y4_hhid) %>% 
@@ -21,17 +23,16 @@ hh_ids <- read_csv("2_data/processed/hh_ids.csv",
 #   setDT()
 
 # info for all agricultural household and the exclusions
-hhs_3a <- read_csv("2_data/results/allagids3.csv") %>% setDT()
+hhs_3a <- read_csv(here::here("data", "results", "allagids3.csv")) %>% setDT()
   
 # weighting for all households and clusters
 weights <- hhs_3a[hh_ids, on = .(y4_hhid)]
 
-write_csv(weights, "2_data/results/allids3.csv") # update allids with weights
+write_csv(weights, here::here("data", "results", "allids3.csv")) # update allids with weights
 
 # basic numbers
 pop_n <- sum(weights$y4_weights) # total population
-agpop_n <- weights %>% filter(hh_type == "agricultural")
-agpop_n <- sum(agpop_n$y4_weights)  # number of agricultural households
+agpop_n <- sum(weights$y4_weights[weights$hh_type == "agricultural"], na.rm = TRUE)
 
 # total weight of ag hhs in cluster
 weights[, ag_weight := ifelse(is.na(hh_type), 0, y4_weights)]
@@ -50,7 +51,7 @@ weights[, n_clus := sum(n_incl), by=clusterid]
 weights[, new_weight := ifelse(status == "excluded" | is.na(status), NA, ag_cluswt/n_clus)]
 
 # population represented
-sum(weights$new_weight, na.rm = T) # 7117789
+message("Population represented by included households: ", round(sum(weights$new_weight, na.rm = TRUE)))
 
 # any cluster with no hh?
 ex_clus <- weights[n_clus == 0 & hh_type == "agricultural"] # 5 clusters; all of which with 1/8 ag hh
@@ -59,7 +60,10 @@ ex_clus <- weights[n_clus == 0 & hh_type == "agricultural"] # 5 clusters; all of
 clusmis <- sum(ex_clus$y4_weights) # 10696.66 households are not represented
 
 # proportion of agricultural households not represented
-sum(ex_clus$y4_weights)*100/agpop_n # 0.1500552% of ag households are not represented
+message("Total population (weighted): ", round(pop_n))
+message("Agricultural population: ", round(agpop_n))
+message("Unrepresented (excluded clusters): ", round(clusmis))
+message("% ag households unrepresented: ", round(clusmis * 100 / agpop_n, 3), "%")
 
 # adjust for missing clusters
 agpop <- weights[status == "included"]
@@ -68,18 +72,19 @@ agpop[, n_mis := new_weight/sum(new_weight)*clusmis]
 agpop[, weight_adj := new_weight + n_mis]
 
 # check if all ag hhs represented
-sum(agpop$weight_adj, na.rm = T) == agpop_n
+stopifnot("Adjusted weights do not sum to agricultural population total" =
+  isTRUE(all.equal(sum(agpop$weight_adj, na.rm = TRUE), agpop_n)))
 
 weighting <- agpop[,.(y4_hhid, weight_adj, clusterid)]
-saveRDS(weighting, "2_data/final/weighting.RDS", compress = T)
+saveRDS(weighting, here::here("data", "final", "weighting.RDS"), compress = T)
 
 # overview for all (agricultural) households
-hh_ids <- read_csv("2_data/processed/hh_ids.csv", 
-                   col_types = cols(...1 = col_skip()))
+hh_ids_full <- read_csv(here::here("data", "processed", "hh_ids.csv"), 
+                        col_types = cols(...1 = col_skip()))
 
 # Overview of all households
 hhs_3a <- hhs_3a %>% 
   left_join(select(agpop, y4_hhid, weight_adj), by = "y4_hhid") %>% 
-  full_join(select(hh_ids, y4_hhid, y4_weights), by = "y4_hhid") # add any additional information required for chapter write-up(s)
+  full_join(select(hh_ids_full, y4_hhid, y4_weights), by = "y4_hhid") # add any additional information required for chapter write-up(s)
 
-write_csv(hhs_3a, "2_data/results/hhs_3a.csv")
+write_csv(hhs_3a, here::here("data", "results", "hhs_3a.csv"))
