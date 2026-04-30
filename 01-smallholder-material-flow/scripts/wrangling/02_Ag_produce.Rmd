@@ -5,8 +5,8 @@ output: html_notebook
 
 ```{r setup, include=FALSE}
 library(here)
-source(here::here("scripts", "packages.R"))
-source(here::here("scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 ```
 
 
@@ -18,7 +18,7 @@ Overview:
 ## Agricultural products
 
 ```{r ag produce hk}
-ag_sec_10 <- read_dta(here::here("data", "raw", "ag_sec_10.dta"))
+ag_sec_10 <- read_dta(here::here("data", "raw", "lsms","ag_sec_10.dta"))
 
 ag_produce <- ag_sec_10 %>% 
   clean_up()

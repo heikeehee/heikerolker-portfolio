@@ -6,15 +6,15 @@ output: html_document
 ---
 ```{r setup, include=FALSE}
 library(here)
-source(here::here("scripts", "packages.R"))
-source(here::here("scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 ```
 
 
 ```{r plot details}
 # load data
-ag_sec_3a <- read_dta(here::here("data", "raw", "ag_sec_3a.dta")) # --> long rainy
-ag_sec_3b <- read_dta(here::here("data", "raw", "ag_sec_3b.dta")) # --> short rainy
+ag_sec_3a <- read_dta(here::here("data", "raw", "lsms","ag_sec_3a.dta")) # --> long rainy
+ag_sec_3b <- read_dta(here::here("data", "raw", "lsms","ag_sec_3b.dta")) # --> short rainy
 
 # prepare for join
 long <- ag_sec_3a %>% 

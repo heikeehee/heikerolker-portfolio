@@ -7,8 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(here)
-source(here::here("scripts", "packages.R"))
-source(here::here("scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 ```
 
 # Livestock survey
@@ -18,7 +18,7 @@ source(here::here("scripts", "functions.R"))
 *Unnecessary as covered in the filter file.*
 
 ```{r, eval=FALSE}
-lf_sec_a <- read_dta(here::here("data", "raw", "lf_sec_a.dta"))
+lf_sec_a <- read_dta(here::here("data", "raw", "lsms","lf_sec_a.dta"))
 
 lf_ids <- lf_sec_a %>% 
   clean_up() %>% 
@@ -68,7 +68,7 @@ Final files:
 ## Animal ownership
 
 ```{r animals hk}
-lf_sec_02 <- read_dta(here::here("data", "raw", "lf_sec_02.dta")) 
+lf_sec_02 <- read_dta(here::here("data", "raw", "lsms","lf_sec_02.dta")) 
 
 animals <- clean_up(lf_sec_02)
 
@@ -364,7 +364,7 @@ Equally provides a detailed breakdown of the animal components
 
 ```{r feed hk}
 # 1) load survey data-----
-lf_sec_04 <- read_dta(here::here("data", "raw", "lf_sec_04.dta"))
+lf_sec_04 <- read_dta(here::here("data", "raw", "lsms","lf_sec_04.dta"))
 
 # 2) typical feed by livestock group-----
 feed <- clean_up(lf_sec_04) 
@@ -521,7 +521,7 @@ saveRDS(animals_mass, here::here("data", "processed", "01", "animals_mass.RDS"),
 #     trader = ifelse(wks_traded > 0, 1, 0)
 #   ) # probably not necessary
 
-lf_sec_12 <- read_dta(here::here("data", "raw", "lf_sec_12.dta")) %>% clean_up()
+lf_sec_12 <- read_dta(here::here("data", "raw", "lsms","lf_sec_12.dta")) %>% clean_up()
 
 fishes <- lf_sec_12 %>% 
   select(y4_hhid, species = lf12_02_2, tot.quantity = lf12_05_1, tot.unit = lf12_05_2, # total quantities fished

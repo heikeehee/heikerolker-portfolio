@@ -7,8 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(here)
-source(here::here("scripts", "packages.R"))
-source(here::here("scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 ```
 
 Overview:
@@ -35,8 +35,8 @@ Final:
 
 ```{r disp crops hk}
 # load data
-ag_sec_5a <- read_dta(here::here("data", "raw", "ag_sec_5a.dta")) # --> long
-ag_sec_5b <- read_dta(here::here("data", "raw", "ag_sec_5b.dta")) # --> short
+ag_sec_5a <- read_dta(here::here("data", "raw", "lsms","ag_sec_5a.dta")) # --> long
+ag_sec_5b <- read_dta(here::here("data", "raw", "lsms","ag_sec_5b.dta")) # --> short
 
 # prep for join
 long <- prep(ag_sec_5a, season = "long")
@@ -160,8 +160,8 @@ Final:
 
 ```{r tree disp hk}
 # same as for crops disp
-ag_sec_7a <- read_dta(here::here("data", "raw", "ag_sec_7a.dta")) # --> fruit
-ag_sec_7b <- read_dta(here::here("data", "raw", "ag_sec_7b.dta")) # --> permanent
+ag_sec_7a <- read_dta(here::here("data", "raw", "lsms","ag_sec_7a.dta")) # --> fruit
+ag_sec_7b <- read_dta(here::here("data", "raw", "lsms","ag_sec_7b.dta")) # --> permanent
 
 # prep for join
 fruit <- prep(ag_sec_7a, season = "fruit")
@@ -749,7 +749,7 @@ write.csv(excl_agprod, here::here("data", "processed", "01", "excl_agprod.csv"))
 
 ```{r network hk}
 # load data
-lf_network <- read_dta(here::here("data", "raw", "lf_network.dta"))
+lf_network <- read_dta(here::here("data", "raw", "lsms","lf_network.dta"))
 
 # NOTE: clean_up() not used here — lfnr_02 requires manual integer decode before
 # factor conversion. Manual tolower() applied to lfnr_03 to match clean_up() behaviour.
@@ -896,7 +896,7 @@ saveRDS(egg_sales, here::here("data", "processed", "01", "buyers_eggs.RDS"), com
 ### Ag network
 
 ```{r ag network hk}
-ag_network <- read_dta(here::here("data", "raw", "ag_network.dta"))
+ag_network <- read_dta(here::here("data", "raw", "lsms","ag_network.dta"))
 
 ag_network <- ag_network %>% 
   clean_up() %>% 

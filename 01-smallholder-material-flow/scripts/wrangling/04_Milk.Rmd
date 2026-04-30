@@ -7,8 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(here)
-source(here::here("scripts", "packages.R"))
-source(here::here("scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 ```
 
 Livestock survey - milk & all animal products
@@ -25,7 +25,7 @@ Final files:
 # Milk
 
 ```{r milk hk}
-lf_sec_06 <- read_dta(here::here("data", "raw", "lf_sec_06.dta"))
+lf_sec_06 <- read_dta(here::here("data", "raw", "lsms","lf_sec_06.dta"))
 
 milk <- clean_up(lf_sec_06)
 

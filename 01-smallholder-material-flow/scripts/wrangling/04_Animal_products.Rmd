@@ -7,8 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(here)
-source(here::here("scripts", "packages.R"))
-source(here::here("scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 ```
 
 # Other products
@@ -20,7 +20,7 @@ Animal products, except honey.
 - **produce** all animal products, cleaned file but mostly raw data
 
 ```{r produce hk}
-lf_sec_08 <- read_dta(here::here("data", "raw", "lf_sec_08.dta"))
+lf_sec_08 <- read_dta(here::here("data", "raw", "lsms","lf_sec_08.dta"))
 
 lapply(lf_sec_08, attr, "label")
 ```
@@ -577,7 +577,7 @@ ag_ids <- readRDS(here::here("data", "processed", "01", "ag_ids.RDS")) # save as
 ag_ids <- clear.labels(ag_ids)
 
 # household size
-hhsize <- read_dta(here::here("data", "raw", "consumptionNPS4.dta")) %>% 
+hhsize <- read_dta(here::here("data", "raw", "lsms","consumptionNPS4.dta")) %>% 
   select(y4_hhid, hhsize) %>% 
   # use agricultural households only
   left_join(select(ag_ids, y4_hhid), by = "y4_hhid")
