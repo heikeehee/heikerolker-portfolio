@@ -492,12 +492,12 @@ af <- upData(af,
              ))
 
 # select only necessary variables -> can be shortened more
-animals_mass <- af %>% 
+mass_animals <- af %>% 
   select(y4_hhid, type, lvstckid, need, feed, grazed, slaughter, total_weight = sl_weight, cons_weight, sold_weight, ew, meat, offal, hides, inedible) %>% 
   mutate_at(c(4:15), as.numeric)  # if not numeric clear.labels rounds
 
 # save file
-saveRDS(animals_mass, here::here("data", "processed", "01", "animals_mass.RDS"), compress = T)
+saveRDS(mass_animals, here::here("data", "processed", "01", "mass_animals.RDS"), compress = T)
 ```
 
 # Fishery

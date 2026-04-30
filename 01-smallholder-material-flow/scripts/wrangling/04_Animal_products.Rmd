@@ -568,11 +568,11 @@ length <- e %>%
   clear.labels() %>% 
   mutate(length = length * 4.3) # monthly production converted into weekly
 
-# load recall data
-recalllabs <- readRDS(here::here("data", "processed", "01", "recall.RDS"))
+# load recall data from next chapter!
+recalllabs <- readRDS(here::here("data", "processed", "02", "recall.RDS"))
 recall <- clear.labels(recalllabs) # for now...
 
-# ag households only
+# ag households only, ATTENTION: no source code!
 ag_ids <- readRDS(here::here("data", "processed", "01", "ag_ids.RDS")) # save as csv
 ag_ids <- clear.labels(ag_ids)
 
@@ -584,26 +584,25 @@ hhsize <- read_dta(here::here("data", "raw", "lsms","consumptionNPS4.dta")) %>%
 
 # determine weekly egg consumption for each household (independent of source)
 recall_eggs <- recall %>% 
-  filter(itemcode == "eggs") %>% # only eggs
+  filter(shortnames == "eggs") %>% # only eggs
   left_join(hhsize, by = "y4_hhid") %>% # household size (just size)
   left_join(length, by = "y4_hhid") %>% # number of months eggs have been produced
   mutate(length = ifelse(is.na(length),0, length)) %>% 
-  select(y4_hhid, N_cons = quantity, hhsize, length) %>%  # origin not relevant, unit == "pieces"
+  select(y4_hhid, quant, hhsize, length) %>%  # origin not relevant, unit == "pieces"
   # determine average per household member (simple count!) weekly egg consumption
-  mutate(N_pwk_cons = N_cons/hhsize, # per person weekly egg consumption in pieces
-         kg_pwk_cons = N_pwk_cons*0.04126, # per person weekly egg consumption in kg
-         kg_pwk_ag = kg_pwk_cons*length, # per person total egg consumption based on production length in kg
+  mutate(N_pwk_cons = quant/hhsize, # per person weekly egg consumption kg
+         kg_pwk_ag = N_pwk_cons*length, # per person total egg consumption based on production length in kg
          N_pwk_ag = N_pwk_cons*length, # per person total egg consumption based on production length in pieces
-         kg_hh_lth = N_cons * 0.04126 * length) # total household consumption (from hh survey) based on production length (ag survey) in kg
+         kg_hh_lth = N_pwk_cons * length * hhsize) # total household consumption (from hh survey) based on production length (ag survey) in kg
 
 # calculate egg statistics
 egg_stats <- recall_eggs %>% 
-  filter(length>0 & N_cons>0) %>% # based on egg producing and consuming households only -> because we assume that all with missing are consumers thus they should be equal to other consumer/producers and not non-consumers
+  filter(length>0 & N_pwk_cons>0) %>% # based on egg producing and consuming households only -> because we assume that all with missing are consumers thus they should be equal to other consumer/producers and not non-consumers
   summarise(
     # weekly
     N_pwk_cons_mn = mean(N_pwk_cons, na.rm = T), # several hhsize missing - ignore, will sort itself
     # N_pwk_cons_md = median(N_pwk_cons[kg_pwk_cons>0], na.rm = T), # consider excluding households with 0
-    kg_pwk_cons_mn = mean(kg_pwk_cons, na.rm = T))
+    kg_pwk_cons_mn = mean(N_pwk_cons, na.rm = T))
 
 # merge household specific weekly consumption, average per member (national), other national reference value, count of household members
 econs <- mass_eggs[,.(y4_hhid, produced, missing)]
