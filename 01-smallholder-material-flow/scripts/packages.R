@@ -15,7 +15,7 @@ packages_cran <- c(
   # Reporting
   "bookdown", "tinytex",
   # Utilities
-  "Hmisc", "stringi", "stringr", "pander", "devtools", "lubridate", "naniar"
+  "Hmisc", "stringi", "stringr", "pander", "devtools", "lubridate", "naniar", "janitor"
 )
 
 for (pkg in packages_cran) {
