@@ -522,7 +522,7 @@ Aim:
 -   determine feed requirements
 
 ```{r eggs feed}
-ef <- eggs[,.(y4_hhid, type, productid, produced, sold, N_eggs)]
+ef <- eggs[,.(y4_hhid, type, productid, produced, sold, N_eggs, length)]
 
 # merge with feed
 ef <- f[ef, on = c("type", "y4_hhid")]
@@ -601,10 +601,9 @@ national_mean_ppwk <- recall_eggs %>%
 eggs_alloc <- prod %>%           # y4_hhid, produced, sold, missing (i.e. unallocated)
   left_join(recall_eggs, by = "y4_hhid") %>%
   mutate(
-    hhsize = haven::as_factor(hhsize),     # if it’s a labelled vector
     hhsize = as.numeric(as.character(hhsize)),
-    weeks_produced = (produced + sold + missing) / 7, # Approximate number of weeks with egg flows; adjust as needed
-    annualized_recall_kg = recall_weekly_kg * 52,     # Extrapolate recall (if present) to full year
+    weeks_produced = length * 4.3, # Approximate number of weeks with egg flows; adjust as needed
+    annualized_recall_kg = recall_weekly_kg * weeks_produced,     # Extrapolate recall (if present) to full year
     annualized_impute_kg = national_mean_ppwk * hhsize * 52 # fallback: national mean * hhsize * weeks/year
   )
 
@@ -624,21 +623,18 @@ allocate_consumed <- function(annualized_recall_kg, missing, annualized_impute_k
 
 tmp <- purrr::pmap_dfr(
   eggs_alloc[,c("annualized_recall_kg","missing","annualized_impute_kg")],
-  allocate_consumed
-) %>% dplyr::rename(
-  consumed_alloc = consumed,
-  allocation_method = method
-)
+  allocate_consumed) 
 
 eggs_alloc_final <- eggs_alloc %>%
+  select(!consumed) %>% # shouldnt even be there
   bind_cols(tmp) %>%
   mutate(
-    unallocated = missing - consumed_alloc,
+    unallocated = missing - consumed,
     unallocated = ifelse(unallocated < 0, 0, unallocated)
   ) %>%
   select(
     y4_hhid, produced, sold, missing,
-    consumed = consumed_alloc, allocation_method, unallocated, recall_weekly_kg, hhsize
+    consumed, method, unallocated, recall_weekly_kg, hhsize
   )
 
 # ---- 6. QA Checks ----
@@ -666,5 +662,12 @@ Overview for computation of egg consumption
 3) the household did consume in the recall week, but missing is smaller than what we would assume to have been consumed, thus we allocate all missing to consumption (resulting in no missing for these households, around n = 144) -> this is a rather weak assumption as there MUST be missing/loss
 
 
+```{r final egg}
+mass_eggs_fin <- eggs_alloc_final %>% 
+  select(y4_hhid, produced, sold, missing, consumed, unallocated) %>% 
+  left_join(select(mass_eggs, y4_hhid, type, grazed, feed, productid), by = "y4_hhid")
+
+saveRDS(mass_eggs_fin, here::here("data", "processed", "01", "mass_eggs_fin.RDS"), compress = T)
+```
 
 
