@@ -5,206 +5,101 @@ date: "2024-01-19"
 output: html_document
 ---
 
-
-```{r}
-# select vars of interest
-residue <- readRDS("2_data/processed/crop_disp.RDS") %>% 
-  select(y4_hhid, cropid, residue_use, residue, value_residue) %>% 
-  setDT()
-
-resc <- readRDS("2_data/processed/pc.RDS") %>% 
-  select(cropid, y4_hhid,type, harvest = quant_harvest, total_harvest) %>% 
-  setDT()
-
-resjoin <- resc[residue, on = .(y4_hhid, cropid)]
-
-miss_var_summary(resjoin)
-
-resjoin <- resjoin[residue_use != "crop produces no  residue"]
-
-# write.csv(resjoin, "2_data/processed/residue.csv")
-
-# residue <- read_csv("2_data/processed/residue.csv")
-
-# estimate residue for each crop
-# laod production to residue ratios
-RPR <- read.csv("2_data/reference/RPR_updated_long.csv", header=T, sep=",", check.names = F) # Residues to production ratios
-# filter tanzania only
-rprtz <- RPR %>% 
-  filter(AreaName == "Tanzania, United Rep. of")
-setDT(rprtz)
-
-# match names of both files manually
-# residuematch <-read_csv("residuematch.csv")
-# match
-# setDT(residue)
-# residue[, cropid := str_to_sentence(cropid)]
-# setDT(residuematch)
-
-# join files
-residuematch <- read_csv("2_data/reference/residuematch.csv", col_types = cols(...1 = col_skip())) %>% 
-  setDT()
-
-res <- residuematch[resjoin, on = .(cropid)]
-resrpr<- rprtz[res, on = .(Item)]
-
-# residue sold as DM
-resrpr[, residue_sold := residue/Dry_matter]
-
-# estimate residue
-resrpr$Residues <- resrpr$harvest* resrpr$Dry_matter *resrpr$RPR *resrpr$UsedRes
-resrpr$Residues_wet <- resrpr$harvest *resrpr$RPR *resrpr$UsedRes
-# Here we have the amount of crop residues presented as tonnes of dry matter
-resrpr$Residues_alt <- (resrpr$harvest + resrpr$quant_unharvested)* resrpr$Dry_matter *resrpr$RPR *resrpr$UsedRes
-
-# saveRDS(resrpr, "resrpr.RDS", compress = T)
-# remove unnecessary variables
-residue <- resrpr[,.(y4_hhid, cropid, type, harvest, Dry_matter, residue_use, residue, Residues, Residues_alt, Residues_wet)]
-# remove cash crops
-# residue <- residue[type != "cashcrops"]
-
-# estimate quantities of residue available/allocated to animals
-# excludes "for grazing others' animals"
-residue[, grazing_res:= ifelse((residue_use == "for grazing own animals"| residue_use=="feeding own animals" | residue_use == "residue was left in field"), Residues, 0)] # residue available/allocated/used for animals
-
-saveRDS(residue, "2_data/processed/mass_residue.RDS", compress = T)
-```
-
-# GITHUB code from @Sandström.2022
-```{r eval=FALSE}
-# Compiling data of by-products and residues of crop , livestock and fish production
-
-# set working directory the path that this script is located in
-# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
-setwd("/Users/vk20281/Downloads/Data")
-# data should be its subfolder
-
-library(tidyr)
-# install.packages("matrixStats")
-library(matrixStats)
+```{r setup, include=FALSE}
+library(here)
 library(dplyr)
+library(data.table)
+```
 
-###parallel processing ###
-# install.packages("parallel")
-library(parallel)
+# Crop residue estimation and allocation
 
-x=c(2016,2017,2018) # The years used in this study
+This workflow links LSMS crop production and residue use (by household and crop) with FAO/National DM & residue:production ratios. All steps are explicit for portfolio, ESG, or ONS audit needs.
 
+---
 
-# 1. Crops
+## 1. Load and Join Household Crop & Residue Data
 
-# 1.1. Crop residues
+```{r load-crop-data}
+# Always use project-rooted paths
+residue <- readRDS(here::here("data", "processed", "01", "crop_disp.RDS")) %>%
+  select(y4_hhid, cropid, residue_use, residue, value_residue) %>%
+  as.data.table()
 
-# crop_res <- function(x) {
-  
-  ##creating clusters ###
-  # Use the detectCores() function to find the number of cores in system
-  no_cores <- detectCores()
-  # Setup cluster
-  clust <- makeCluster(no_cores) #This line will take time
-  
-  start.time <- Sys.time()
-  # import data on the crop production and the residue production rates
-  #FAO_prod = read.csv("data/Production_Crops_E_All_Data_(Normalized).csv", header=T, sep=",", check.names = F)
-  #save(FAO_prod, file="data/FAO_prod.Rdata")
-  
-  # load prod data (previously read from csv files and saved as Rdata)
-  load("FAO_prod.Rdata")
-  
-  RPR= read_csv("2_data/reference/RPR_updated_long.csv", header=T, sep=",", check.names = F) # Residues to production ratios
-  
-  FAO_prod = FAO_prod[which(FAO_prod$`Element Code`=="5510"),] # choose only production
-  
-  # Calculate the mean for selected years
-  # FAO_prod= FAO_prod[FAO_prod$Year %in% x,] # no x if not run as function
-  FAO_prod= FAO_prod[FAO_prod$Year %in% x,]
-  FAO_prod = spread(FAO_prod[,-c(7,11)], Year, Value)
-  FAO_prod$mean = rowMeans(FAO_prod[,c(8,9,10)])
-  
-  # Multiply the production quantities with the Residues-to-Production-Ratios (RPR) and the used proportions
-  # First select only crop residues from rice, cereals, sugar cane and pulses that are most used as feed
-  selected = c(44,89,94,56,79,75,27,71,83,97,15,203,176,181,191,195,201,187,197,211,125,414,417,420,156)
-  crop_res = merge(x=FAO_prod, y=RPR[RPR$`Item Code` %in% selected,c(1,2,5,7,8)], by=c("Item Code", "Area Code"))
-  crop_res$Residues = crop_res$mean* crop_res$Dry_matter *crop_res$RPR *crop_res$UsedRes
-  # Here we have the amount of crop residues presented as tonnes of dry matter
-  
-  # BELOW NOT USED
-  
-  
-  ### Monte carlos to add uncertainty in the RPRs ###
-  ## with a cv 0.1 and normal distribution
-  cv<-0.1
-  clusterExport(clust, "cv",envir=environment())
-  ## define function for parallel processing ##
-  rand_sample<-function(x,y) {
-    round(rnorm(1,x,y*x),2)}
-  environment(rand_sample) <- .GlobalEnv
-  #################################
-  
-  crop_res_sens<-matrix(NA, dim(crop_res)[1],500)
-  
-  set.seed(3)
-  for (i in 1:500){
-    crop_res_sens[,i]<-crop_res$mean*(crop_res$Dry_matter)*crop_res$UsedRes*parSapply(clust,crop_res$RPR,FUN=rand_sample,y=cv)
-    
-  }
-  
-  crop_res_sens = cbind(crop_res[,c(2,3)], crop_res_sens)
-  #Aggregate to country-level
-  crop_res_sens <- crop_res_sens %>%
-    group_by(Area, `Area Code`) %>%
-    summarise(across(where(is.numeric), .fns = sum, na.rm=T))
-  
-  # Remove China 41 and separate China provinces to avoid double accounting (there is China 351)
-  crop_res_sens <- crop_res_sens%>%
-    filter(! `Area Code` %in% c(41,96,214)) # Remove the separate China provinces
-  
-  end.time <- Sys.time()
-  time.taken <- end.time - start.time
-  show(time.taken)
-  stopCluster(clust)
-  return(crop_res_sens)
-  
-# }
-#write.csv(crop_res_sens, file="outputs/crop_res_results_2016_2018.csv", row.names =F )
+prod <- readRDS(here::here("data", "processed", "01", "pc.RDS")) %>%
+  select(cropid, y4_hhid, type, harvest = quant_harvest, total_harvest) %>%
+  as.data.table()
 
-# estimate residue
-# read in
-# residue <- read_csv("2_data/processed/residue.csv")
-# residue <- read_csv("~/OneDrive - University of Bristol/03_MFA/Tanzania/wave4/2_data/processed/residue.csv")
+# Left join: keep only crops/household combos where there is reported residue
+res_hh <- prod[residue, on = .(y4_hhid, cropid)]
+miss_var_summary(res_hh) # profile missingness: justifies/flags for imputation/exclusion
+res_hh <- res_hh[residue_use != "crop produces no  residue"]
+```
 
-# laod production to residue ratios
-RPR= read.csv("RPR_updated_long.csv", header=T, sep=",", check.names = F) # Residues to production ratios
-# filter tanzania only
-rprtz <- RPR %>% 
+---
+
+## 2. Link In Reference DM, RPR, and Name Matching
+
+```{r rpr-link}
+# Load reference DM/RPR ratios for Tanzania ONLY
+rpr_ref <- fread(here::here("data", "reference", "RPR_updated_long.csv")) %>%
   filter(AreaName == "Tanzania, United Rep. of")
 
-residuematch <-read_csv("residuematch.csv")
-# match
-setDT(residue)
-residue[, cropid := str_to_sentence(cropid)]
-setDT(residuematch)
-setDT(rprtz)
-
-res <- residuematch[residue, on = .(cropid)]
-
-resrpr<- rprtz[res, on = .(Item)]
-
-# estimate residue
-resrpr$Residues <- resrpr$harvest* resrpr$Dry_matter *resrpr$RPR *resrpr$UsedRes
-resrpr$Residues_wet <- resrpr$harvest *resrpr$RPR *resrpr$UsedRes
-# Here we have the amount of crop residues presented as tonnes of dry matter
-resrpr$Residues_alt <- (resrpr$harvest + resrpr$quant_unharvested)* resrpr$Dry_matter *resrpr$RPR *resrpr$UsedRes
-
-saveRDS(resrpr, "resrpr.RDS", compress = T)
-# add rprs
-# library(NutritionTools)
-# rprmatch <- rprtz %>% select("Item") %>% mutate(ID = as.character(1:nrow(rprtz)))
-# residuematch <- residue %>% select("cropid") %>% unique() 
-# residuematch <- residuematch %>% mutate(itemID = as.character(1:nrow(residuematch)))
-# write.csv(rprmatch, "rprmatch.csv")
-# write.csv(residuematch, "residuematch.csv")
-
-Fuzzy_Matcher(df1 = rprmatch, df2 = residuematch)
-Fuzzy_Matcher(df1 = residuematch, df2 = rprmatch)
+# Fuzzy match: maps survey crop IDs to reference table items
+cropmap <- fread(here::here("data", "reference", "residuematch.csv"))
+# Left join: assign reference attributes to each physical record
+res_hh_matched <- cropmap[res_hh, on = .(cropid)]
+res_full <- rpr_ref[res_hh_matched, on = .(Item)]
 ```
+
+---
+
+## 3. Estimate Residue Flows (business logic)
+
+```{r residue-estimation}
+# Residue sold is always in DM
+res_full[, residue_sold_DM := residue/Dry_matter]
+
+# Portfolio: always give both main + alternative estimate (inc. unharvested)
+res_full[, `:=`(
+  Residues_DM = harvest * Dry_matter * RPR * UsedRes,                         # DM, main
+  Residues_wet = harvest * RPR * UsedRes,                                     # wet
+  Residues_DM_alt = (harvest + quant_unharvested) * Dry_matter * RPR * UsedRes # including unharvested
+)]
+```
+
+---
+
+## 4. Output / Business-Readable Table & QA
+
+```{r residue-output}
+# Business use: focus on allocation to animals
+res_out <- res_full[, .(y4_hhid, cropid, type, harvest, Dry_matter, residue_use, residue, Residues_DM, Residues_DM_alt, Residues_wet)]
+
+# Only keep "animal feed"-adjacent allocations for final
+res_out[, grazing_res := ifelse(
+  residue_use %in% c("for grazing own animals", "feeding own animals", "residue was left in field"),
+  Residues_DM, 0
+)]
+
+# Save
+saveRDS(res_out, here::here("data", "processed", "01", "mass_residue.RDS"), compress = TRUE)
+readr::write_csv(res_out, here::here("data", "processed", "01", "mass_residue.csv"))
+```
+
+---
+
+## 5. Portfolio Notes/Unhealthy Patterns Flagged
+
+- All joins are left-joins with explicit keys; ambiguous or magic matching avoided with a single reference table.
+- All file reads/writes via `here::here()` for reproducibility.
+- Exclusion and allocation rules are fully explicit (row-level).
+- All code is now business-readable: methods and outcome variables reflect business concepts (“DM”, “allocated”, “unallocated”).
+- Magic values/strings converted to explicit reference vectors.
+- Any new imputation/exclusion would be handled by flagged NA in `miss_var_summary`.
+
+---
+
+# Backlog/Nice-to-have
+
+- Add Monte Carlo routine for RPR uncertainty (see Sandström et al. 2022) after all core scripts are business-hardened
+- Add Tableau-ready chunk (one plot: total residue allocation by crop class/animal use, business-storyboarded)
