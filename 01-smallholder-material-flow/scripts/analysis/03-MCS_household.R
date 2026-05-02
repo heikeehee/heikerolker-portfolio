@@ -224,8 +224,8 @@ validate_aggregated_data <- function(aggregated_results, output_file = "validati
 # Simularion script----
 
 ## Crops----
-crops <- readRDS("data/c3/mfa_crops.RDS") 
-excl_3a <- read_csv("data/c3/excl_3a.csv")
+crops <- readRDS(here::here("data", "processed", "01", "mfa_crops.RDS")) 
+excl_3a <- read_csv(here::here("data", "processed", "01", "excl_3a.csv"))
 
 ### Checks and changes to data----
 dt <- crops %>% 
@@ -259,7 +259,7 @@ colnames(dt)[4:13] <- paste0("dest_", colnames(dt)[4:13]) # add destination for 
 
 # assume processing in sold/consumed when it fits, when it doesn't its assumed separate
 # processing and destinations later to be allocated proportionately from the reconciled processing value
-fwrite(dt, "data/c3/mfa_crops_cleaned.csv")
+fwrite(dt, here::here("data", "processed", "01", "mfa_crops_cleaned.csv"))
 
 ### Simulation----
 # Convert to data.table for faster processing
@@ -287,7 +287,7 @@ simulation_results <- rbindlist(parLapply(cl, 1:nrow(household_data), function(i
 stopCluster(cl)
 
 # Save simulation results to disk (to avoid re-running on large datasets)
-fwrite(simulation_results, "data/c3/simulation_results_crops_negative.csv")
+fwrite(simulation_results, here::here("data", "processed", "01", "simulation_results_crops_negative.csv"))
 
 ### Adjust negative----
 # NOTE (backlog): adjustment distributes the negative balance equally across
@@ -324,8 +324,8 @@ fwrite(aggregated_results, "data/c3/aggregated_results_crops.csv")
 val_crops <- validate_aggregated_data(aggregated_results)
 
 ## Animal products----
-eggs <- readRDS("data/c3/mfa_eggs.RDS") 
-milk <- readRDS("data/c3/mfa_milk.RDS") 
+eggs <- readRDS(here::here("data", "processed", "01", "mfa_eggs.RDS")) 
+milk <- readRDS(here::here("data", "processed", "01", "mfa_milk.RDS")) 
 
 ### Checks and changes to data----
 eggs <- eggs %>% 
@@ -415,7 +415,7 @@ val_ap <- validate_aggregated_data(aggregated_results)
 
 ## Slaughter product----
 # Slaughter products
-meat <- readRDS("data/c3/mfa_animals.RDS")
+meat <- readRDS(here::here("data", "processed", "01", "mfa_animals.RDS"))
 # Replace NA with 0 in all numeric columns only
 num_cols <- names(meat)[sapply(meat, is.numeric)]
 meat[, (num_cols) := lapply(.SD, function(x) fifelse(is.na(x), 0, x)), .SDcols = num_cols]

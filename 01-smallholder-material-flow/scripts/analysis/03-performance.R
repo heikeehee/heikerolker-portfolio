@@ -27,7 +27,7 @@ if (!file.exists("data/c3/mfa_crops_cleaned.csv") || !file.exists("data/c3/mfa_a
   stop("Error: One or more input files for observed data are missing.")
 }
 
-mfa_crops_cleaned <- fread("data/c3/mfa_crops_cleaned.csv") %>%
+mfa_crops_cleaned <- fread(here::here("data", "processed", "01", "mfa_crops_cleaned.csv")) %>%
   dplyr::select(y4_hhid, type, produced, starts_with("dest")) %>%
   melt(
     id.vars = c("y4_hhid", "type"),
@@ -35,7 +35,7 @@ mfa_crops_cleaned <- fread("data/c3/mfa_crops_cleaned.csv") %>%
     value.name = "observed_value"
   )
 
-mfa_ap_cleaned <- fread("data/c3/mfa_ap_cleaned.csv") %>%
+mfa_ap_cleaned <- fread(here::here("data", "processed", "01","mfa_ap_cleaned.csv")) %>%
   dplyr::select(y4_hhid, type, produced, starts_with("dest")) %>%
   melt(
     id.vars = c("y4_hhid", "type"),

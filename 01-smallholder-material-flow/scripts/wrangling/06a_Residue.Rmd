@@ -26,7 +26,7 @@ residue <- readRDS(here::here("data", "processed", "01", "crop_disp.RDS")) %>%
   as.data.table()
 
 prod <- readRDS(here::here("data", "processed", "01", "pc.RDS")) %>%
-  select(cropid, y4_hhid, type, harvest = quant_harvest, total_harvest) %>%
+  select(cropid, y4_hhid, type, harvest = quant_harvest, total_harvest, quant_unharvested) %>%
   as.data.table()
 
 # Left join: keep only crops/household combos where there is reported residue
@@ -45,7 +45,7 @@ rpr_ref <- fread(here::here("data", "reference", "RPR_updated_long.csv")) %>%
   filter(AreaName == "Tanzania, United Rep. of")
 
 # Fuzzy match: maps survey crop IDs to reference table items
-cropmap <- fread(here::here("data", "reference", "residuematch.csv"))
+cropmap <- fread(here::here("data", "reference", "residuematch.csv"), header = TRUE)
 # Left join: assign reference attributes to each physical record
 res_hh_matched <- cropmap[res_hh, on = .(cropid)]
 res_full <- rpr_ref[res_hh_matched, on = .(Item)]

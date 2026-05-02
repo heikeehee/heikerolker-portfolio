@@ -1,7 +1,7 @@
 # Uncertainty
 
 # 1. Load all data
-household_mcs <- read_csv("data/c3/household_mcs.csv") %>% setDT()
+household_mcs <- read_csv(here::here("data", "processed", "01", "household_mcs.csv"))
 
 # Group by type
 group_uncertainty <- household_mcs[, .(
