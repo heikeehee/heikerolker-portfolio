@@ -55,7 +55,7 @@ Actions:
 ```{r}
 mass_allcrops <- readRDS(here::here("data", "processed", "01", "mass_allcrops.RDS")) %>% 
   clear.labels() # no code exists
-mass_agprod <- readRDS(here::here("data", "processed", "01", "mass_agprod_new.RDS")) %>% 
+mass_agprod <- readRDS(here::here("data", "processed", "01", "mass_agprod_newnew.RDS")) %>% 
   clear.labels()
 # mass_residue
 # mass_yg
@@ -138,16 +138,16 @@ cl <- function(df) df[, lapply(.SD, sm), .SDcols=is.numeric] # change function a
 ### Crops
 ```{r}
 # Crops for MFA - 
-crops <- mass_allcrops %>% 
-  dplyr::rename(produced = harvest, item = cropid) %>% 
-  left_join(select(mass_agprod, y4_hhid, item = cropid, processing = input, prodproduced = produced, inprodsold = input_sales, prodsold = sold, inprodcons = input_cons, prodconsumed = consumed, waste = uncertain), by = c("item", "y4_hhid")) %>% 
-  mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>%
-  mutate(uncertain = produced - smd, # ignores the issue resulting from processing being unclear
-         uncertain2 = uncertain - processing, # includes processing; many negative values..
-         missing = ifelse(uncertain<0, uncertain * -1, 0),
-         unallocated = ifelse(uncertain>0, uncertain, 0)) # if uncertain an excess value then allocated to "missing quantities" 
-
-saveRDS(crops, here::here("data", "processed", "01", "mfa_crops.RDS"), compress = T)
+# crops <- mass_allcrops %>% 
+#   dplyr::rename(produced = harvest, item = cropid) %>% 
+#   left_join(select(mass_agprod, y4_hhid, item = cropid, processing = input, prodproduced = produced, inprodsold = input_sales, prodsold = sold, inprodcons = input_cons, prodconsumed = consumed, waste = uncertain), by = c("item", "y4_hhid")) %>% 
+#   mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>%
+#   mutate(uncertain = produced - smd, # ignores the issue resulting from processing being unclear
+#          uncertain2 = uncertain - processing, # includes processing; many negative values..
+#          missing = ifelse(uncertain<0, uncertain * -1, 0),
+#          unallocated = ifelse(uncertain>0, uncertain, 0)) # if uncertain an excess value then allocated to "missing quantities" 
+# 
+# saveRDS(crops, here::here("data", "processed", "01", "mfa_crops.RDS"), compress = T)
 ```
 
 

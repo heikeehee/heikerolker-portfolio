@@ -640,12 +640,12 @@ Aim:
 -   disentangle inputs (joint and separate accounts to avoid double counting) -> not necessary anymore
 
 ```{r, eval=FALSE}
-# NOTE: eval=FALSE — agprod_mass_fin not yet finalised upstream.
-# Re-enable once ag produce assembly is complete and agprod_mass_fin.RDS is stable.
-agprod_mass_fin <- readRDS(here::here("data", "processed", "01", "agprod_mass_fin.RDS"))
-agprod_mass_fin[, cropid := adlab(cropid, '')]
-
-allcrops_mass <- merge(allcrops, agprod_mass_fin, by=c("y4_hhid", "cropid"), all=TRUE)
+# # NOTE: eval=FALSE — agprod_mass_fin not yet finalised upstream.
+# # Re-enable once ag produce assembly is complete and agprod_mass_fin.RDS is stable.
+# agprod_mass_fin <- readRDS(here::here("data", "processed", "01", "agprod_mass_fin.RDS"))
+# agprod_mass_fin[, cropid := adlab(cropid, '')]
+# 
+# allcrops_mass <- merge(allcrops, agprod_mass_fin, by=c("y4_hhid", "cropid"), all=TRUE)
 ```
 
 Exclusions
