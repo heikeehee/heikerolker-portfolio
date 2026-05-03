@@ -9,6 +9,7 @@ outputs/tables/*
 .DS_Store
 *.Rhistory
 *.RData
+*.nb.html
 __pycache__/
 *.pyc
 
