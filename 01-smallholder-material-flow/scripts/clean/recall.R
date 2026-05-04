@@ -26,9 +26,7 @@ KG_PER_GRAM <- 0.001
 # Sources: product-specific densities from literature (see inline comments)
 # =============================================================================
 
-# 🚩 FLAG ASSUMPTION: All conversion factors below are assumed from literature or
-# standard density references, NOT from the LSMS codebook directly. Review each
-# factor against the codebook or a verified reference before stage 3.
+# ASSUMPTION REMOVED — see impute/recall.R (A01)
 food_conv <- tibble::tribble(
   ~unit,         ~itemcode,                                                     ~conv,
   "litre",       "fresh milk",                                                  1.08,

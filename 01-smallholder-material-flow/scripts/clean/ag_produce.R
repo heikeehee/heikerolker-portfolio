@@ -74,10 +74,7 @@ items <- ag_produce %>%
 
 items <- clear.labels(items)
 
-# 🚩 FLAG ASSUMPTION: All conversion factors below are density estimates from
-# external literature, NOT codebook-specified. Several are NA (no reliable
-# source found). Rows with NA conversion will propagate NA to produced_kg.
-# Decision required before stage 3: accept NA or source additional factors.
+# ASSUMPTION REMOVED — see impute/ag_produce.R (A06)
 ap_conv <- data.frame(
   cropid = c("maize", "sunflower", "cassava", "pineapple", "palm oil",
              "maize", "paddy", "paddy", "paddy", "sorghum",
@@ -167,9 +164,7 @@ input_stats <- input_crop %>%
     frac     = quant / input,
 
     # Input allocation rules — certainty decreasing down the list:
-    # 🚩 FLAG ASSUMPTION: Input allocation rules use product counts and ratios.
-    # Logic is heuristic: "if input / quantity == 2, split equally".
-    # These rules are not codebook-derived. Document and review before stage 3.
+    # ASSUMPTION REMOVED — see impute/ag_produce.R (A07)
     new_input = ifelse(prod == 1 & byprod == 0, input, NA),                            # single product
     new_input = ifelse(prod == 0 & byprod == 1, input, new_input),                     # single by-product
     new_input = ifelse(prod == 1 & byprod == 1 & input / quant == 2, input / 2, new_input),  # product + by-product equal split
@@ -181,9 +176,7 @@ input_stats <- input_crop %>%
 
 input_stats2 <- input_stats %>%
   mutate(
-    # 🚩 FLAG ASSUMPTION: Household 3208-001 input divided by 2 — appears to be
-    # double-counted in raw data. Manual fix verified against raw data.
-    # Flag for re-review if raw data changes.
+    # ASSUMPTION REMOVED — see impute/ag_produce.R (A08)
     new_input = ifelse(y4_hhid == "3208-001", input / 2, new_input),
 
     # Remaining uncertain cases: progressively more uncertain allocation rules
@@ -199,8 +192,7 @@ input_stats2 <- input_stats %>%
 
 input_stats <- input_stats2 %>%
   mutate(
-    # 🚩 FLAG ASSUMPTION: Remaining 1 unresolved input — assigned full input as fallback.
-    # Profile this row in 05_exclusions_audit.R before stage 3.
+    # ASSUMPTION REMOVED — see impute/ag_produce.R (A09)
     new_input = ifelse(is.na(new_input), input, new_input)
   )
 

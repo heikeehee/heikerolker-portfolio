@@ -63,9 +63,9 @@ animals <- upData(animals,
   ),
 
   # Replace NA with structural 0 where survey question was answered "no"
-  # 🚩 FLAG EXCLUSION: Sentinel 0 applied when gateway question == "no".
-  # If a household selected "no" in error (e.g. recall fatigue), these zeros
-  # are incorrect. Profile distribution of zeros vs NAs in 05_exclusions_audit.R.
+  # EXCLUSION E04: sentinel 0 applied when gateway question == "no"
+  # Type: structural zero | missing data — FLAG
+  # Profiled in: 05_exclusions_audit.R
   bought   = ifelse(lf02_06 == "no", 0, bought),
   gift     = ifelse(lf02_09 == "no", 0, gift),
   gifted   = ifelse(lf02_12 == "no", 0, gifted),
@@ -210,16 +210,17 @@ write.csv(excl_animals,
 # =============================================================================
 # SECTION 2: CARCASS BREAKDOWN (reference data from breakdown.xlsx)
 # Applies component fractions (meat, offal, hides, waste) to slaughter weights
-# 🚩 FLAG CROSS-SECTION: breakdown.xlsx loaded via raw$ref$breakdown in 01_load_raw.R
+# ⚠️ CROSS-SECTION DEPENDENCY
+# This script uses breakdown.xlsx (raw$ref$breakdown) loaded in 01_load_raw.R.
+# breakdown.xlsx is a reference dataset, not a survey section — loading is
+# handled centrally in 01_load_raw.R and does not require restructuring.
+# Retained here as the breakdown coefficients are applied to this section's data.
+# 🚩 FLAG [CROSS-SECTION]: breakdown.xlsx from raw$ref — confirm source in 01_load_raw.R
 # =============================================================================
 
 wa <- copy(animals_sub)
 
-# 🚩 FLAG ASSUMPTION: Carcass breakdown coefficients from:
-# @Hal.2020 p.151; @beefyieldguide; @lambyieldguide; @Alexander.2016; @Opio.2013 p.171
-# These are literature-derived, not survey-measured. Review if local/regional
-# breakdown data becomes available. Especially uncertain: whether Alexander.2016
-# edible weight (ew) includes offal — see note in archived 03_Animals.Rmd.
+# ASSUMPTION REMOVED — see impute/animals.R (A10)
 breakdown <- raw$ref$breakdown
 setDT(breakdown)
 
@@ -291,9 +292,7 @@ feed <- upData(feed,
 saveRDS(feed, here::here("data", "processed", "clean", "feed.rds"), compress = TRUE)
 
 # Simplify: use feed2 where tethering (ambiguous) and feed2 is more informative
-# 🚩 FLAG ASSUMPTION: "tethering" replaced with feed2 if available.
-# Definition of tethering for feed intake not confirmed in codebook.
-# Retained as-is from original script — review before stage 3.
+# ASSUMPTION REMOVED — see impute/animals.R (A11)
 feed[, feed1 := ifelse(feed1 == "tethering" & !is.na(feed2), feed2, feed1)]
 f <- feed[, .(y4_hhid, type, feed1)]
 f[, type := as.factor(type)]

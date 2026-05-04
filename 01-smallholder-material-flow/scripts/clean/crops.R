@@ -73,8 +73,7 @@ plots <- upData(plots,
   gps_area_new = gps_area * 0.40468564224,
 
   # Based on LSMS team guidance: GPS readings of 0 are unreliable, treat as NA
-  # 🚩 FLAG ASSUMPTION: gps_area == 0 recoded to NA per LSMS team recommendation.
-  # If codebook is updated with alternative guidance, revisit this rule.
+  # ASSUMPTION REMOVED — see impute/crops.R (A02)
   gps_area_new = ifelse(gps_area == 0, NA, gps_area_new),
 
   labels = .q(
@@ -99,8 +98,7 @@ saveRDS(plots, here::here("data", "processed", "clean", "plots.rds"), compress =
 # --------------------------------------------------------------------------
 p <- plots[, .(y4_hhid, plotnum, area_new, gps_area_new)]
 
-# 🚩 FLAG ASSUMPTION: GPS measure preferred over farmer estimate where available.
-# Where GPS is 0 or NA, farmer estimate used as fallback.
+# ASSUMPTION REMOVED — see impute/crops.R (A03)
 p[, plotsize := ifelse(gps_area_new != 0, gps_area_new, area_new)]
 p[, plotsize := ifelse(is.na(gps_area_new), area_new, plotsize)]
 p[, plotsize := adlab(plotsize, "Reconciled plotsize (ha)")]
@@ -173,9 +171,9 @@ crops <- upData(crops,
   ),
 
   # Replace NA with structural 0 where no harvest occurred
-  # 🚩 FLAG EXCLUSION: harvest_remain, area_harvested, quant_harvest set to 0 when
-  # harvested == "no". Verify this is structural (crop failed) not missing data
-  # — profile in 05_exclusions_audit.R
+  # EXCLUSION E01: harvest values set to 0 when harvested == "no"
+  # Type: structural zero | missing data — FLAG
+  # Profiled in: 05_exclusions_audit.R
   harvest_remain    = ifelse(finished == "yes", 0, harvest_remain),
   area_harvested    = ifelse(harvested == "no", 0, area_harvested),
   harvest_remain    = ifelse(harvested == "no", 0, harvest_remain),
@@ -219,9 +217,7 @@ pc <- p[crops_sub, on = c("y4_hhid", "plotnum")]
 pc[, area_planted_new := area_planted * plotsize]
 
 # Alternative area harvested: farmers estimate scaled by GPS/farmer ratio
-# 🚩 FLAG ASSUMPTION: area_harvested_alt uses farmer's reported area harvested
-# as a proportion of their plot estimate, then scales to GPS-derived plotsize.
-# This propagates farmer estimation error if plot estimates are inaccurate.
+# ASSUMPTION REMOVED — see impute/crops.R (A04)
 pc[, area_harvested_alt := area_harvested_new / area_new * plotsize]
 
 # Where harvest == all planted and no crops remain, area_harvested = area_planted
@@ -230,9 +226,9 @@ pc[, area_harvested_final := ifelse(lessharvest == "no" & is.na(harvest_remain),
 pc[, area_harvested_com   := ifelse(lessharvest == "no" & is.na(harvest_remain),
                                     area_planted_new, area_harvested_alt)]
 
-# 🚩 FLAG EXCLUSION: 2 records where area_planted is NA — replaced with area_harvested_new.
-# These are the only cases where area_planted_new cannot be derived. Profile in
-# 05_exclusions_audit.R if result is sensitive to these rows.
+# EXCLUSION E02: 2 records where area_planted is NA — replaced with area_harvested_new
+# Type: missing data
+# Profiled in: 05_exclusions_audit.R
 pc[, area_planted_new := ifelse(is.na(area_planted), area_harvested_new, area_planted_new)]
 
 # Percentage of harvest still outstanding
@@ -242,9 +238,7 @@ pc[, quant_unharvested := ifelse(
   harvest_remain * 100 / quant_harvest
 )]
 
-# 🚩 FLAG ASSUMPTION: total_harvest = harvest_remain + quant_harvest.
-# Assumes remaining harvest will be fully collected — may overestimate if crop
-# is later abandoned. Decision required before stage 3.
+# ASSUMPTION REMOVED — see impute/crops.R (A05)
 pc[, total_harvest := harvest_remain + quant_harvest]
 
 pc[, area_remain := area_planted_new - area_harvested_new]
@@ -369,9 +363,9 @@ long <- ag_sec_3a %>%
 short <- ag_sec_3b %>%
   setDT() %>%
   add_column(season = "short") %>%
-  # 🚩 FLAG EXCLUSION: ag3b_01b == 2 filters short-season plots; confirm codebook
-  # meaning (likely "plot was cultivated in short season"). Profile count in
-  # 05_exclusions_audit.R — decision required before stage 3.
+  # EXCLUSION E03: ag3b_01b == 2 filters short-season plots
+  # Type: unclear — FLAG (confirm codebook meaning before stage 3)
+  # Profiled in: 05_exclusions_audit.R
   filter(ag3b_01b == 2) %>%
   select(!ag3b_01b) %>%
   select(occ, y4_hhid, plotnum,
