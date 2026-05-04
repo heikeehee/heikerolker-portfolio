@@ -1,0 +1,180 @@
+category,product_type,type,subtype,item,mfa_group,mfa_group_label,classified
+Animal,Animal product,Large ruminants,Processed milk,Processed milk - large ruminants,1,Large ruminants,TRUE
+Animal,Animal product,Small ruminants,Processed milk,Processed milk - small ruminants,2,Small ruminants,TRUE
+Animal,Animal product,Large ruminants,Bulls,Bulls meat,1,Large ruminants,TRUE
+Animal,Animal product,Large ruminants,Bulls,Bulls offal,1,Large ruminants,TRUE
+Animal,Animal product,Large ruminants,Calves,Calves meat,1,Large ruminants,TRUE
+Animal,Animal product,Large ruminants,Calves,Calves offal,1,Large ruminants,TRUE
+Animal,Animal product,Poultry,Chickens,Chickens meat,3,Poultry,TRUE
+Animal,Animal product,Poultry,Chickens,Chickens offal,3,Poultry,TRUE
+Animal,Animal product,Large ruminants,Cows,Cows meat,1,Large ruminants,TRUE
+Animal,Animal product,Large ruminants,Cows,Cows offal,1,Large ruminants,TRUE
+Animal,Animal product,Other animals,Dogs,Dogs meat,5,Other animals,TRUE
+Animal,Animal product,Other animals,Dogs,Dogs offal,5,Other animals,TRUE
+Animal,Animal product,Other animals,Donkeys,Donkeys meat,5,Other animals,TRUE
+Animal,Animal product,Other animals,Donkeys,Donkeys offal,5,Other animals,TRUE
+Animal,Animal product,Poultry,Ducks,Ducks meat,3,Poultry,TRUE
+Animal,Animal product,Poultry,Ducks,Ducks offal,3,Poultry,TRUE
+Animal,Animal product,Eggs,Eggs,Eggs,6,Eggs,TRUE
+Animal,Animal product,Small ruminants,Goats,Goats meat,2,Small ruminants,TRUE
+Animal,Animal product,Small ruminants,Goats,Goats offal,2,Small ruminants,TRUE
+Animal,Animal product,Other animals,Hare,Hare meat,5,Other animals,TRUE
+Animal,Animal product,Other animals,Hare,Hare offal,5,Other animals,TRUE
+Animal,Animal product,Large ruminants,Heifers,Heifers meat,1,Large ruminants,TRUE
+Animal,Animal product,Large ruminants,Heifers,Heifers offal,1,Large ruminants,TRUE
+Animal,Animal product,Large ruminants,Milk,Milk - large ruminants,1,Large ruminants,TRUE
+Animal,Animal product,Small ruminants,Milk,Milk - small ruminants,2,Small ruminants,TRUE
+Animal,Animal product,Other animals,Other,Other meat,5,Other animals,TRUE
+Animal,Animal product,Other animals,Other,Other offal,5,Other animals,TRUE
+Animal,Animal product,Poultry,Other poultry,Other poultry meat,3,Poultry,TRUE
+Animal,Animal product,Poultry,Other poultry,Other poultry offal,3,Poultry,TRUE
+Animal,Animal product,Pigs,Pigs,Pigs meat,4,Pigs,TRUE
+Animal,Animal product,Pigs,Pigs,Pigs offal,4,Pigs,TRUE
+Animal,Animal product,Small ruminants,Sheep,Sheep meat,2,Small ruminants,TRUE
+Animal,Animal product,Small ruminants,Sheep,Sheep offal,2,Small ruminants,TRUE
+Animal,Animal product,Large ruminants,Steers,Steers meat,1,Large ruminants,TRUE
+Animal,Animal product,Large ruminants,Steers,Steers offal,1,Large ruminants,TRUE
+Animal,Slaughter product,Poultry,Other,Chickens,3,Poultry,TRUE
+Plant,Food crops,Pulses,Pulses,Beans,8,Pulses,TRUE
+Plant,Food crops,Cereals,Cereals,Maize,7,Cereals,TRUE
+Plant,Food crops,Oilcrops,Oilcrops,Sunflower,9,Oilcrops,TRUE
+Plant,Processed crop,Cereals,Flour,Maize flour,7,Cereals,TRUE
+Plant,Processed crop,Cereals,Seed,Maize seed,7,Cereals,TRUE
+Plant,,,,Fiwi,,Unclassified,FALSE
+Plant,,,,Pigeon pea,,Unclassified,FALSE
+Plant,,,,,,Unclassified,FALSE
+Plant,Food crops,Cereals,Cereals,Finger millet,7,Cereals,TRUE
+Plant,Processed crop,Cereals,Flour,Finger millet flour,7,Cereals,TRUE
+Plant,,,,Plum,,Unclassified,FALSE
+Plant,,,,Timber,,Unclassified,FALSE
+Plant,Processed crop,Cereals,Bran,Maize bran,7,Cereals,TRUE
+Plant,Processed crop,Oilcrops,Oil,Sunflower oil,9,Oilcrops,TRUE
+Plant,Processed crop,Oilcrops,Wet husk,Sunflower wet husk,9,Oilcrops,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Avocado,11,Fruits and vegetables,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Banana,11,Fruits and vegetables,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Mango,11,Fruits and vegetables,TRUE
+Plant,,,,Orange,,Unclassified,FALSE
+Plant,,,,Papaw,,Unclassified,FALSE
+Plant,Other crops,Cashcrops,Cashcrops,Sugar cane,12,Cashcrops,TRUE
+Plant,,,,Guava,,Unclassified,FALSE
+Plant,,,,Mandarin,,Unclassified,FALSE
+Plant,,,,Pomegranate,,Unclassified,FALSE
+Plant,,,,Custard apple,,Unclassified,FALSE
+Plant,Food crops,Cereals,Cereals,Sorghum,7,Cereals,TRUE
+Plant,,,,Green gram,,Unclassified,FALSE
+Animal,Slaughter product,Small ruminants,Other,Goats,2,Small ruminants,TRUE
+Animal,Slaughter product,Small ruminants,Other,Sheep,2,Small ruminants,TRUE
+Animal,Other,Small ruminants,Other,Hides-small ruminants,2,Small ruminants,TRUE
+Plant,Food crops,Pulses,Pulses,Cowpeas,8,Pulses,TRUE
+Plant,Food crops,Oilcrops,Oilcrops,Sesame,9,Oilcrops,TRUE
+Plant,Food crops,Roots and tubers,Roots and tubers,Sweet potatoes,10,Roots and tubers,TRUE
+Plant,,,,Firewood/fodder,,Unclassified,FALSE
+Plant,,,,Groundnut,,Unclassified,FALSE
+Plant,Processed crop,Cereals,Flour,Sorghum flour,7,Cereals,TRUE
+Plant,,,,Carrot,,Unclassified,FALSE
+Plant,,,,Peaches,,Unclassified,FALSE
+Animal,Slaughter product,Poultry,Other,Ducks,3,Poultry,TRUE
+Plant,,,,Coconut,,Unclassified,FALSE
+Plant,,,,Date,,Unclassified,FALSE
+Plant,,,,Jack fruit,,Unclassified,FALSE
+Plant,,,,Malay apple,,Unclassified,FALSE
+Plant,,,,Other (specify),,Unclassified,FALSE
+Plant,,,,Cashew nut,,Unclassified,FALSE
+Plant,Food crops,Cereals,Cereals,Paddy,7,Cereals,TRUE
+Plant,Processed crop,Cereals,Cover,Paddy cover,7,Cereals,TRUE
+Plant,Processed crop,Cereals,Seed,Paddy seed,7,Cereals,TRUE
+Plant,,,,Pumpkins,,Unclassified,FALSE
+Plant,,,,Medicinal plant,,Unclassified,FALSE
+Plant,Food crops,Roots and tubers,Roots and tubers,Cassava,10,Roots and tubers,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Passion fruit,11,Fruits and vegetables,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Amaranths,11,Fruits and vegetables,TRUE
+Plant,Food crops,Oilcrops,Oilcrops,Palm oil,9,Oilcrops,TRUE
+Plant,Processed crop,Roots and tubers,Flour,Cassava flour,10,Roots and tubers,TRUE
+Plant,,,,Lemon,,Unclassified,FALSE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Pineapple,11,Fruits and vegetables,TRUE
+Plant,,,,Egg plant,,Unclassified,FALSE
+Plant,,,,Fence tree,,Unclassified,FALSE
+Plant,,,,Okra,,Unclassified,FALSE
+Plant,,,,Lime,,Unclassified,FALSE
+Plant,Other crops,Cashcrops,Cashcrops,Coffee,12,Cashcrops,TRUE
+Plant,Processed crop,Oilcrops,Oil,Palm oil oil,9,Oilcrops,TRUE
+Plant,Processed crop,Oilcrops,Wet husk,Palm oil wet husk,9,Oilcrops,TRUE
+Plant,,,,Spinach,,Unclassified,FALSE
+Animal,Slaughter product,Large ruminants,Other,Cows,1,Large ruminants,TRUE
+Plant,Food crops,Pulses,Pulses,Bambara nuts,8,Pulses,TRUE
+Plant,Processed crop,Cereals,Other,Sorghum other,7,Cereals,TRUE
+Animal,Slaughter product,Pigs,Other,Pigs,4,Pigs,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Onions,11,Fruits and vegetables,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Tomatoes,11,Fruits and vegetables,TRUE
+Animal,Slaughter product,Poultry,Other,Other poultry,3,Poultry,TRUE
+Plant,Processed crop,Cereals,Flour,Paddy flour,7,Cereals,TRUE
+Plant,,,,Water mellon,,Unclassified,FALSE
+Plant,,,,Cucumber,,Unclassified,FALSE
+Plant,Processed crop,Oilcrops,Other,Sunflower other,9,Oilcrops,TRUE
+Plant,Food crops,Roots and tubers,Roots and tubers,Irish potatoes,10,Roots and tubers,TRUE
+Plant,,,,Bamboo,,Unclassified,FALSE
+Plant,,,,Cocoyams,,Unclassified,FALSE
+Plant,Food crops,Roots and tubers,Roots and tubers,Yams,10,Roots and tubers,TRUE
+Plant,,,,Ginger,,Unclassified,FALSE
+Animal,Slaughter product,Large ruminants,Other,Bulls,1,Large ruminants,TRUE
+Animal,Other,Large ruminants,Other,Hides-large ruminants,1,Large ruminants,TRUE
+Plant,,,,Field peas,,Unclassified,FALSE
+Plant,,,,Soyabeans,,Unclassified,FALSE
+Plant,,,,Clove,,Unclassified,FALSE
+Animal,Slaughter product,Large ruminants,Other,Calves,1,Large ruminants,TRUE
+Plant,,,,Bread fruit,,Unclassified,FALSE
+Plant,,,,Bilimbi,,Unclassified,FALSE
+Plant,Processed crop,Cereals,Seed,Sorghum seed,7,Cereals,TRUE
+Plant,Other crops,Cashcrops,Cashcrops,Tobacco,12,Cashcrops,TRUE
+Plant,Other crops,Cashcrops,Cashcrops,Sisal,12,Cashcrops,TRUE
+Plant,,,,Cinnamon,,Unclassified,FALSE
+Plant,,,,Plums,,Unclassified,FALSE
+Plant,,,,Pears,,Unclassified,FALSE
+Plant,,,,Rambutan,,Unclassified,FALSE
+Plant,Processed crop,Cereals,Other,Maize other,7,Cereals,TRUE
+Plant,Food crops,Cereals,Cereals,Bulrush millet,7,Cereals,TRUE
+Plant,Processed crop,Cereals,Flour,Bulrush millet flour,7,Cereals,TRUE
+Plant,Other crops,Cashcrops,Cashcrops,Cotton,12,Cashcrops,TRUE
+Plant,,,,Rubber,,Unclassified,FALSE
+Plant,,,,Chick peas,,Unclassified,FALSE
+Plant,Processed crop,,Flour,Groundnut flour,,Unclassified,TRUE
+Plant,Other crops,Cashcrops,Cashcrops,Cocoa,12,Cashcrops,TRUE
+Plant,,,,Cardamom,,Unclassified,FALSE
+Plant,Other crops,Cashcrops,Cashcrops,Vanilla,12,Cashcrops,TRUE
+Plant,,,,Kapok,,Unclassified,FALSE
+Plant,,,,Tamarind,,Unclassified,FALSE
+Plant,Processed crop,Roots and tubers,Other,Sweet potatoes other,10,Roots and tubers,TRUE
+Plant,Processed crop,Roots and tubers,Other,Cassava other,10,Roots and tubers,TRUE
+Plant,Processed crop,Roots and tubers,Cover,Sweet potatoes cover,10,Roots and tubers,TRUE
+Plant,Processed crop,Roots and tubers,Flour,Sweet potatoes flour,10,Roots and tubers,TRUE
+Plant,,,,Grapes,,Unclassified,FALSE
+Plant,,,,Apples,,Unclassified,FALSE
+Plant,Food crops,Cereals,Cereals,Wheat,7,Cereals,TRUE
+Plant,Processed crop,,Seed,Cashew nut seed,,Unclassified,TRUE
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Cabbage,11,Fruits and vegetables,TRUE
+Plant,,,,Monkeybread,,Unclassified,FALSE
+Plant,,,,Chilies,,Unclassified,FALSE
+Plant,Processed crop,,Seed,Groundnut seed,,Unclassified,TRUE
+Animal,Slaughter product,Large ruminants,Other,Heifers,1,Large ruminants,TRUE
+Plant,Other crops,Cashcrops,Cashcrops,Tea,12,Cashcrops,TRUE
+Plant,Processed crop,Cereals,Juice,Paddy juice,7,Cereals,TRUE
+Plant,Processed crop,Cereals,Bran,Paddy bran,7,Cereals,TRUE
+Plant,Processed crop,Cereals,Cover,Maize cover,7,Cereals,TRUE
+Animal,Slaughter product,Other animals,Other,Hare,5,Other animals,TRUE
+Plant,Processed crop,Cashcrops,Cover,Coffee cover,12,Cashcrops,TRUE
+Plant,Processed crop,Cashcrops,Flour,Coffee flour,12,Cashcrops,TRUE
+Plant,Processed crop,Oilcrops,Flour,Sunflower flour,9,Oilcrops,TRUE
+Plant,,,,Black pepper,,Unclassified,FALSE
+Plant,,,,Tungamaa,,Unclassified,FALSE
+Plant,Processed crop,Oilcrops,Seed,Palm oil seed,9,Oilcrops,TRUE
+Plant,,,,Seaweed,,Unclassified,FALSE
+Plant,,,,Star fruit,,Unclassified,FALSE
+Plant,Processed crop,Oilcrops,Other,Palm oil other,9,Oilcrops,TRUE
+Plant,,,,Grapefruit,,Unclassified,FALSE
+Plant,Processed crop,Oilcrops,Oil,Sesame oil,9,Oilcrops,TRUE
+Plant,Processed crop,Oilcrops,Thread,Palm oil thread,9,Oilcrops,TRUE
+Plant,Processed crop,Roots and tubers,Seed,Cassava seed,10,Roots and tubers,TRUE
+Plant,,,,God fruit,,Unclassified,FALSE
+Animal,Slaughter product,Large ruminants,Other,Steers,1,Large ruminants,TRUE
+Plant,Processed crop,Oilcrops,Bran,Sunflower bran,9,Oilcrops,TRUE
+Plant,Processed crop,Cereals,Oil,Paddy oil,7,Cereals,TRUE

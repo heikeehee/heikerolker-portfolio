@@ -28,3 +28,22 @@ Density of 1.03 kg/litre assumed — confirm against LSMS-ISA codebook or FAO co
 **Priority:** Medium
 Two weighting scripts archived (06.1_Survey_weighting.R, 0x_Weighting.R).
 One canonical script needed. Review and consolidate before publishing final results.
+
+## B05 — Processed crops extraction rate sensitivity
+**Priority:** Medium
+**Affects:** Project 01 mass balance, MFA input variables
+Extraction rates (e.g. 72% flour yield from maize) are literature-derived and unverifiable
+from LSMS-ISA survey data. Run mass balance and MFA with ±10% rate variation.
+See impute/processed_crops.R for full rate table.
+
+## B06 — Unclassified items in item_groups.csv
+**Priority:** Low
+**Affects:** Project 01 MFA, Project 03 clustering
+~59 items have no MFA group assignment. Confirm which appear in households.rds.
+Assign groups or document exclusion rationale for each.
+See FLAGS_REVIEW.md for the full list of unclassified items.
+
+## B07 — item_groups.csv master file structure
+**Priority:** Low (post-portfolio)
+Single master reference file across all projects with project-specific inclusion flags.
+See data/reference/item_groups_README.md for proposed structure.

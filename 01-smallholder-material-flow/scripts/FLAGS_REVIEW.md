@@ -142,6 +142,122 @@ Generated after clean/ extraction pass. All items below require a decision befor
 
 ------------------------------------------------------------------------
 
+## [ASSUMPTION] flags from impute/processed_crops.R
+
+| ID | Script | Description | Value/Rule | Action needed |
+|------------|------------|------------|------------|------------|
+| PC01 | impute/processed_crops.R | Maize → Flour extraction rate | 0.72 (FAO 1992 / Golob et al.) | Confirm against local milling data; see backlog B05 |
+| PC02 | impute/processed_crops.R | Paddy → Rice extraction rate | 0.65 (FAO 2003) | Confirm against local milling data; see backlog B05 |
+| PC03 | impute/processed_crops.R | Sorghum → Flour extraction rate | 0.75 (assumed — flag) | No verified source; run sensitivity ±10%; see backlog B05 |
+| PC04 | impute/processed_crops.R | Bulrush millet → Flour extraction rate | 0.75 (assumed — flag) | No verified source; run sensitivity ±10%; see backlog B05 |
+| PC05 | impute/processed_crops.R | Finger millet → Flour extraction rate | 0.75 (assumed — flag) | No verified source; run sensitivity ±10%; see backlog B05 |
+| PC06 | impute/processed_crops.R | Sunflower → Oil extraction rate | 0.35 (FAO 2003) | Confirm against local pressing data; see backlog B05 |
+| PC07 | impute/processed_crops.R | Palm oil → Oil extraction rate | 0.20 (FAO 2003) | Confirm against local pressing data; see backlog B05 |
+| PC08 | impute/processed_crops.R | Sesame → Oil extraction rate | 0.45 (assumed — flag) | No verified source; run sensitivity ±10%; see backlog B05 |
+| PC09 | impute/processed_crops.R | Cassava → Flour extraction rate | 0.25 (FAO — fresh weight basis) | Confirm whether survey input is fresh or dry weight |
+| PC10 | impute/processed_crops.R | Sweet potatoes → Flour extraction rate | 0.25 (assumed — flag) | No verified source; run sensitivity ±10%; see backlog B05 |
+| PC11 | impute/processed_crops.R | Crops not in extraction table treated as 100% product | product_kg = sent_to_processing_kg, byproduct_kg = 0 | Coffee, Cashew nut affected — add rates if processing data available |
+| PC12 | impute/processed_crops.R | input field (ag10_05) used as sent_to_processing_kg | ag10_05 = "Input quantity before processing" — may differ from volume sent if transit losses occur | No survey variable captures transit losses |
+
+------------------------------------------------------------------------
+
+## [EXCLUSION] flags from 06_mfa_input.R
+
+| ID | Script | Reason | Type | Action needed |
+|-------------|---------------|-------------|-------------|------------------|
+| EX01 | 06_mfa_input.R | Households with mass balance gap > 10% | assumption threshold | Profile by crop; report counts in methods appendix; sensitivity: ±5% threshold |
+| EX02 | 06_mfa_input.R | Unclassified items (classified = FALSE in item_groups.csv) excluded from MFA input matrix | structural exclusion | Profile which items appear in households.rds; assign groups or document exclusion rationale |
+
+------------------------------------------------------------------------
+
+## [UNIT] flags — impute/processed_crops.R and 06_mfa_input.R
+
+| ID | Script | Description | Action needed |
+|-----|--------|-------------|---------------|
+| U03 | impute/processed_crops.R | sent_to_processing_kg from ag10_05 — confirm field is already in kg (not litres) | Check ag_produce section codebook: ag10_05 unit — if litres, conversion needed before applying extraction rates |
+| U04 | 06_mfa_input.R | Milk quantities: all _kg columns used (factor 1.03 from clean/milk.R) | Verify no litre columns accidentally used; double-check col names in mass_milk_final.rds |
+
+------------------------------------------------------------------------
+
+## [REFERENCE] flags — data/reference/item_groups.csv
+
+| ID | Source | Description | Action needed |
+|-----|--------|-------------|---------------|
+| R01 | data/reference/item_groups.csv | ~59 items classified=FALSE — no mfa_group assigned | Confirm which appear in households.rds; assign groups or document exclusion per backlog B06 |
+| R02 | data/reference/item_groups.csv | 3 items have product_type but type=NA (Groundnut flour, Cashew nut seed, Groundnut seed) | classified=TRUE but mfa_group=NA; assign type before MFA run |
+| R03 | data/reference/item_groups.csv | No "Flour (processed)" or "Other processed" type exists in data | Groups 13/14 from problem spec not needed; mfa_group 12 is highest in data |
+
+------------------------------------------------------------------------
+
+## Unclassified items in item_groups.csv (classified = FALSE)
+
+All 59 items below appear in the raw reference data with no product_type or MFA group assignment.
+Confirm whether each appears in households.rds before running MFA.
+
+| item | category | Note |
+|------|----------|------|
+| Fiwi | Plant | Unclassified — review for assignment |
+| Pigeon pea | Plant | Unclassified — likely Pulse, confirm |
+| (blank) | Plant | Unclassified — review for assignment |
+| Plum | Plant | Unclassified — review for assignment |
+| Timber | Plant | Unclassified — review for assignment |
+| Orange | Plant | Unclassified — review for assignment |
+| Papaw | Plant | Unclassified — review for assignment |
+| Guava | Plant | Unclassified — review for assignment |
+| Mandarin | Plant | Unclassified — review for assignment |
+| Pomegranate | Plant | Unclassified — review for assignment |
+| Custard apple | Plant | Unclassified — review for assignment |
+| Green gram | Plant | Unclassified — likely Oilcrop or Pulse, confirm |
+| Firewood/fodder | Plant | Unclassified — review for assignment |
+| Groundnut | Plant | Unclassified — likely Oilcrop or Pulse, confirm |
+| Carrot | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Peaches | Plant | Unclassified — review for assignment |
+| Coconut | Plant | Unclassified — likely Cashcrop or spice, confirm |
+| Date | Plant | Unclassified — review for assignment |
+| Jack fruit | Plant | Unclassified — review for assignment |
+| Malay apple | Plant | Unclassified — review for assignment |
+| Other (specify) | Plant | Unclassified — review for assignment |
+| Cashew nut | Plant | Unclassified — likely Cashcrop, confirm |
+| Pumpkins | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Medicinal plant | Plant | Unclassified — review for assignment |
+| Lemon | Plant | Unclassified — review for assignment |
+| Egg plant | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Fence tree | Plant | Unclassified — review for assignment |
+| Okra | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Lime | Plant | Unclassified — review for assignment |
+| Spinach | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Water mellon | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Cucumber | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Bamboo | Plant | Unclassified — review for assignment |
+| Cocoyams | Plant | Unclassified — review for assignment |
+| Ginger | Plant | Unclassified — likely Cashcrop or spice, confirm |
+| Field peas | Plant | Unclassified — likely Pulse, confirm |
+| Soyabeans | Plant | Unclassified — likely Oilcrop or Pulse, confirm |
+| Clove | Plant | Unclassified — likely Cashcrop or spice, confirm |
+| Bread fruit | Plant | Unclassified — review for assignment |
+| Bilimbi | Plant | Unclassified — review for assignment |
+| Cinnamon | Plant | Unclassified — likely Cashcrop or spice, confirm |
+| Plums | Plant | Unclassified — review for assignment |
+| Pears | Plant | Unclassified — review for assignment |
+| Rambutan | Plant | Unclassified — review for assignment |
+| Rubber | Plant | Unclassified — review for assignment |
+| Chick peas | Plant | Unclassified — likely Oilcrop or Pulse, confirm |
+| Cardamom | Plant | Unclassified — likely Cashcrop or spice, confirm |
+| Kapok | Plant | Unclassified — review for assignment |
+| Tamarind | Plant | Unclassified — likely Cashcrop or spice, confirm |
+| Grapes | Plant | Unclassified — review for assignment |
+| Apples | Plant | Unclassified — review for assignment |
+| Monkeybread | Plant | Unclassified — review for assignment |
+| Chilies | Plant | Unclassified — likely Fruits and vegetables, confirm |
+| Black pepper | Plant | Unclassified — likely Cashcrop or spice, confirm |
+| Tungamaa | Plant | Unclassified — review for assignment |
+| Seaweed | Plant | Unclassified — review for assignment |
+| Star fruit | Plant | Unclassified — review for assignment |
+| Grapefruit | Plant | Unclassified — review for assignment |
+| God fruit | Plant | Unclassified — review for assignment |
+
+------------------------------------------------------------------------
+
 ## Priority decisions before Stage 4 (05_exclusions_audit.R)
 
 | Priority | Item | Who |
