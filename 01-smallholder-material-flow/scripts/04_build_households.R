@@ -27,23 +27,26 @@ dir.create(here::here("data", "processed"), showWarnings = FALSE, recursive = TR
 # =============================================================================
 # SECTION 1: Load all processed section files
 # =============================================================================
+zap_all <- function(df) {
+  haven::zap_labels(haven::zap_label(as.data.frame(df)))
+}
 
 # Clean section outputs
-pc              <- readRDS(here::here("data", "processed", "clean", "pc.rds"))
-pt              <- readRDS(here::here("data", "processed", "clean", "pt.rds"))
-plots_stats     <- readRDS(here::here("data", "processed", "clean", "plots_stats.rds"))
-mass_agprod     <- readRDS(here::here("data", "processed", "clean", "mass_agprod.rds"))
-animals_fin     <- readRDS(here::here("data", "processed", "clean", "animals_fin.rds"))
-mass_eggs       <- readRDS(here::here("data", "processed", "clean", "mass_eggs.rds"))
-mass_milk_final <- readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds"))
-recall          <- readRDS(here::here("data", "processed", "clean", "recall.rds"))
-crop_disp       <- readRDS(here::here("data", "processed", "clean", "crop_disp.rds"))
-mass_residue    <- readRDS(here::here("data", "processed", "clean", "mass_residue.rds"))
-mass_hides      <- readRDS(here::here("data", "processed", "clean", "mass_hides.rds"))
+pc              <- zap_all(readRDS(here::here("data", "processed", "clean", "pc.rds")))
+pt              <- zap_all(readRDS(here::here("data", "processed", "clean", "pt.rds")))
+plots_stats     <- zap_all(readRDS(here::here("data", "processed", "clean", "plots_stats.rds")))
+mass_agprod     <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_agprod.rds")))
+animals_fin     <- zap_all(readRDS(here::here("data", "processed", "clean", "animals_fin.rds")))
+mass_eggs       <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_eggs.rds")))
+mass_milk_final <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds")))
+recall          <- zap_all(readRDS(here::here("data", "processed", "clean", "recall.rds")))
+crop_disp       <- zap_all(readRDS(here::here("data", "processed", "clean", "crop_disp.rds")))
+mass_residue    <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_residue.rds")))
+mass_hides      <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_hides.rds")))
 
 # Imputed outputs
-yieldgaps    <- readRDS(here::here("data", "processed", "impute", "yieldgaps.rds"))
-mass_animals <- readRDS(here::here("data", "processed", "impute", "mass_animals.rds"))
+yieldgaps    <- zap_all(readRDS(here::here("data", "processed", "impute", "yieldgaps.rds")))
+mass_animals <- zap_all(readRDS(here::here("data", "processed", "impute", "mass_animals.rds")))
 
 # =============================================================================
 # SECTION 2: Build household spine
@@ -53,17 +56,20 @@ mass_animals <- readRDS(here::here("data", "processed", "impute", "mass_animals.
 # A master household roster is not available separately in the NPS4 pipeline;
 # the union approach is the next-best alternative and is conservative.
 # =============================================================================
+spine_id <- function(df) {
+  dplyr::distinct(df, y4_hhid)
+}
 
 spine <- purrr::reduce(
   list(
-    dplyr::distinct(as.data.frame(pc),              y4_hhid),
-    dplyr::distinct(as.data.frame(pt),              y4_hhid),
-    dplyr::distinct(as.data.frame(animals_fin),     y4_hhid),
-    dplyr::distinct(as.data.frame(mass_eggs),       y4_hhid),
-    dplyr::distinct(as.data.frame(mass_milk_final), y4_hhid),
-    dplyr::distinct(as.data.frame(recall),          y4_hhid),
-    dplyr::distinct(as.data.frame(crop_disp),       y4_hhid),
-    dplyr::distinct(as.data.frame(mass_agprod),     y4_hhid)
+    spine_id(pc),
+    spine_id(pt),
+    spine_id(animals_fin),
+    spine_id(mass_eggs),
+    spine_id(mass_milk_final),
+    spine_id(recall),
+    spine_id(crop_disp),
+    spine_id(mass_agprod)
   ),
   function(a, b) dplyr::full_join(a, b, by = "y4_hhid")
 )
