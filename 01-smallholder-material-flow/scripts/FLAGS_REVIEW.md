@@ -193,6 +193,8 @@ Generated after clean/ extraction pass. All items below require a decision befor
 
 All 59 items below appear in the raw reference data with no product_type or MFA group assignment.
 Confirm whether each appears in households.rds before running MFA.
+**Note:** This is a static snapshot as of the creation of item_groups.csv — if the reference
+file is updated, regenerate this table from item_groups.csv rather than editing manually.
 
 | item | category | Note |
 |------|----------|------|

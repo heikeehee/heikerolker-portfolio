@@ -95,7 +95,9 @@ message("06_mfa_input.R: processed_crops loaded — ", nrow(processed_crops), " 
 
 # Item classification reference — MFA grouping
 item_groups <- read_csv(here::here("data", "reference", "item_groups.csv"),
-                        na = c("", "NA"),   # handle "NA" strings correctly
+                        # treat empty strings and literal "NA" text as missing values —
+                        # important for mfa_group column where some items have "NA" as text
+                        na = c("", "NA"),
                         show_col_types = FALSE)
 message("06_mfa_input.R: item_groups loaded — ", nrow(item_groups), " rows, ",
         sum(!is.na(item_groups$mfa_group)), " with mfa_group assigned")
@@ -159,8 +161,11 @@ if ("processing" %in% names(mass_crops)) {
   # 🚩 FLAG [ASSUMPTION]: 10% tolerance threshold assumed — justify or adjust.
   # Profile these records in 05_exclusions_audit.R (EX01 in FLAGS_REVIEW.md).
 } else {
-  message("06_mfa_input.R: 'processing' column not found in mass_crops — ",
-          "skipping crop mass balance gap check. Confirm column name in destinations.R output.")
+  message("06_mfa_input.R: WARNING — 'processing' column not found in mass_crops. ",
+          "Crop mass balance gap check skipped. ",
+          "This is a non-fatal skip but means sent_to_processing cannot be verified. ",
+          "Confirm the column name produced by clean/destinations.R. ",
+          "If the column was renamed, update the intersect() call in Section 3 above.")
 }
 
 # =============================================================================
@@ -450,8 +455,12 @@ unclassified_items <- item_groups |>
 message("06_mfa_input.R: Items in item_groups with no MFA group: ",
         nrow(unclassified_items))
 if (nrow(unclassified_items) > 0) {
-  message("  Unclassified items: ",
-          paste(unique(unclassified_items$item), collapse = ", "))
+  items_preview <- unique(na.omit(unclassified_items$item))
+  n_total <- length(items_preview)
+  preview  <- head(items_preview, 15)
+  suffix   <- if (n_total > 15) paste0("... and ", n_total - 15, " more") else ""
+  message("  Unclassified items (first 15 of ", n_total, "): ",
+          paste(preview, collapse = ", "), suffix)
 }
 # 🚩 FLAG [EXCLUSION]: unclassified items excluded from MFA — profile in 05_exclusions_audit.R
 # See also FLAGS_REVIEW.md EX02.
@@ -501,7 +510,7 @@ message("  (groups= vector for MFA() must be set manually in 07_mfa_analysis.R",
 saveRDS(mfa_input_mfa,
         here::here("data", "processed", "mfa_input.rds"))             # with y4_hhid
 saveRDS(mfa_input_mfa |> select(-y4_hhid),
-        here::here("data", "processed", "mfa_input_matrix.rds"))      # matrix only, for MFA()
+        here::here("data", "processed", "mfa_input_matrix.rds"))      # data frame without y4_hhid; MFA() accepts data frames
 
 message("06_mfa_input.R: MFA input: ",
         nrow(mfa_input_mfa), " households × ", ncol(mfa_input_mfa) - 1, " variables")

@@ -90,6 +90,20 @@ processed <- ag_produce_proc |>
     byproduct_kg = if_else(is.na(extraction_rate), 0, byproduct_kg)
   )
 
+# Diagnostic: crops that failed to match after str_to_title() normalisation
+# A silent join miss here means 100% product assumption applies without warning
+matched_crops   <- unique(processed$crop[!is.na(processed$extraction_rate)])
+unmatched_crops <- unique(processed$crop[is.na(processed$extraction_rate) &
+                                           !is.na(processed$sent_to_processing_kg)])
+if (length(unmatched_crops) > 0) {
+  message("impute/processed_crops.R: crops not matched to extraction_rates table ",
+          "(treated as 100% product): ", paste(sort(unmatched_crops), collapse = ", "))
+}
+if (length(matched_crops) > 0) {
+  message("impute/processed_crops.R: crops matched to extraction_rates table: ",
+          paste(sort(matched_crops), collapse = ", "))
+}
+
 # =============================================================================
 # STEP 5: DIAGNOSTICS
 # =============================================================================
@@ -110,7 +124,7 @@ if (length(crops_no_rate) > 0) {
 # Cross-check: total mass balance (product + byproduct should equal sent_to_processing)
 processed <- processed |>
   mutate(
-    mass_check = round(product_kg + byproduct_kg - sent_to_processing_kg, 6)
+    mass_check = round(product_kg + byproduct_kg - sent_to_processing_kg, 4)
   )
 n_imbalance <- sum(abs(processed$mass_check) > 1e-4, na.rm = TRUE)
 if (n_imbalance > 0) {
