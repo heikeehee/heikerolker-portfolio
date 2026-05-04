@@ -259,7 +259,7 @@ mf       <- milkfeed[mf, on = c("type", "feed1")]
 
 # 🚩 FLAG ASSUMPTION: Feed conversion ratio 0.7 kg DM / kg milk from @Alexander.2016.
 # Applied uniformly to small and large ruminants — no differentiation.
-mf <- upData(mf,
+mass_milk_final <- upData(mf,
   need   = milk * 0.7,
   feed   = need * feed,
   grazed = need * grazed,
@@ -277,10 +277,7 @@ mf <- upData(mf,
   drop = .q(feed1)
 )
 
-# 🚩 FLAG UNIT: milk quantities converted litre → kg using factor 1.08. Delete here, also across includes char variables and causes error
-# Density of fresh whole milk; codebook records litres.
-mass_milk_final <- mf %>%
-  mutate(across(milk_lo:psold, ~.x * 1.08))  # litre → kg for milk columns
+# 🚩 FLAG UNIT: milk quantities still need conversion from litres, use factor 1.08. 
 
 saveRDS(mass_milk_final, here::here("data", "processed", "clean", "mass_milk_final.rds"),
         compress = TRUE)

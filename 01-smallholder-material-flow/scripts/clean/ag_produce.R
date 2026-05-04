@@ -164,9 +164,6 @@ input_stats <- input_crop %>%
     # 🚩 FLAG ASSUMPTION: Input allocation rules use product counts and ratios.
     # Logic is heuristic: "if input / quantity == 2, split equally".
     # These rules are not codebook-derived. LSMS team cannot provide guidance.
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
     new_input = ifelse(prod == 1 & byprod == 0, input, NA),                            # single product
     new_input = ifelse(prod == 0 & byprod == 1, input, new_input),                     # single by-product
     new_input = ifelse(prod == 1 & byprod == 1 & input / quant == 2, input / 2, new_input),  # product + by-product equal split
