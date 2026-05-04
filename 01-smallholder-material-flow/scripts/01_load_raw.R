@@ -5,12 +5,6 @@
 # OUTPUT:  named list `raw` — one entry per survey section
 # =============================================================================
 
-library(here)
-library(tidyverse)
-library(haven)
-library(readxl)
-library(data.table)
-
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
