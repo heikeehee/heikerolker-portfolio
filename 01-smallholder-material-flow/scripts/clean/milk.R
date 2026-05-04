@@ -26,10 +26,10 @@ dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recur
 lf_sec_06 <- raw$milk$lf_sec_06
 milk       <- clean_up(lf_sec_06)
 
-# Manual fixes for three households with missing average milk production
-# 🚩 FLAG ASSUMPTION: Three households with missing average (lf06_03) filled
+# Manual fixes for three households with missing average milk production 
+# 🚩 FLAG EXCLUSION: Three households with missing average (lf06_03) filled
 # by inspection of raw data — hardcoded by design.
-# Review if raw data changes; see archived 04_Milk.Rmd for rationale.
+# Replace code below with flag when average is missing for exclusion/imputation
 milk <- milk %>%
   mutate(
     # 1001-001: only lowest value reported — use lo as average
@@ -263,7 +263,6 @@ mf       <- milkfeed[mf, on = c("type", "feed1")]
 
 # 🚩 FLAG ASSUMPTION: Feed conversion ratio 0.7 kg DM / kg milk from @Alexander.2016.
 # Applied uniformly to small and large ruminants — no differentiation.
-# Review with domain expert; consider separate FCRs for large vs small ruminants.
 mf <- upData(mf,
   need   = milk * 0.7,
   feed   = need * feed,
@@ -282,9 +281,8 @@ mf <- upData(mf,
   drop = .q(feed1)
 )
 
-# 🚩 FLAG UNIT: milk quantities converted litre → kg using factor 1.08.
-# Density of fresh whole milk; codebook likely records litres.
-# Conversion factor not codebook-specified — verify against LSMS documentation.
+# 🚩 FLAG UNIT: milk quantities converted litre → kg using factor 1.08. Delete here, also across includes char variables and causes error
+# Density of fresh whole milk; codebook records litres.
 mass_milk_final <- mf %>%
   mutate(across(milk_lo:psold, ~.x * 1.08))  # litre → kg for milk columns
 
