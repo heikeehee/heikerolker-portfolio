@@ -150,7 +150,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | 🔴 High | A10: Confirm whether Alexander.2016 EW includes offal (double-count risk in MFA) | cannot be confirmed, sensitivity analysis |
 | 🔴 High | E03: Confirm codebook meaning of ag3b_01b == 2 | Codebook |
 | 🔴 High | E10: Confirm "crop produces no residue" is a genuine survey category (check double space) | Codebook |
-| 🔴 High | B04: Confirm milk unit (kg vs litres) in mass_milk_final — **RESOLVED** in clean/milk.R (U01) | ✅ Closed |
+| 🔴 High | B04: Confirm milk unit (kg vs litres) in mass_milk_final — **RESOLVED** in clean/milk.R (U01) | ✅ Closed — conversion factor 1.03 (FAO/Codex) applied; prior stub value 1.08 replaced |
 | 🔴 High | E_crops_no_dest / E_dest_no_crops: Profile misalignment counts and add to methods appendix | 05_exclusions_audit.R |
 | 🟡 Medium | A01/A06: Resolve NA conversion factors in recall.R and ag_produce.R | Literature |
 | 🟡 Medium | A11: Confirm tethering definition in LSMS codebook | Codebook |

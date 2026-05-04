@@ -125,6 +125,8 @@ trees_hh <- trees_mb[,
 # 🚩 FLAG [ASSUMPTION]: processed milk sold (psold_kg) is treated as a separate account
 # from raw milk sold (sold_kg). If the LSMS survey double-counts these, smd_milk is inflated.
 # Check codebook: lf06_08 (quantity sold raw) vs lf06_10 (processed sold) — are they additive?
+# NOTE: smd_milk uses processed_new_kg (corrected processed value) not psold_kg.
+# psold_kg is tracked separately in the household summary for reference only.
 milk_mb <- mass_milk[, `:=`(
   smd_milk   = consumed_kg + sold_kg + processed_new_kg,
   uncertain_milk = milk_kg - (consumed_kg + sold_kg + processed_new_kg),
@@ -283,7 +285,7 @@ mfa_input <- mfa_input |>
 
 # 🚩 FLAG [ASSUMPTION]: Variables excluded from MFA input matrix:
 #   - smd_crops, smd_trees, smd_milk, smd_eggs: collinear with sum of disposition cols
-#   - uncertain_*, missing_*, unalloc_*: diagnostic residuals, not independent variables
+#   - missing_*, unalloc_*: diagnostic mass-balance residuals, not independent variables
 #   - residue_wet_total: collinear with residue_DM_total (DM = wet × Dry_matter ratio)
 #   - inedible: near-structural zero; low variance across households
 #   - harvest (absolute): log_harvest preferred for skewed distribution

@@ -181,7 +181,12 @@ households <- readRDS(here::here("data", "processed", "households.rds"))
 
 crops_unc <- mfa_input |>
   mutate(
-    upper_harvest = harvest + (harvest * 0.3),  # +30% tolerance (E09 in FLAGS_REVIEW.md)
+    # ±30% tolerance matches the E09 exclusion threshold in clean/destinations.R
+    # (smd > harvest × 1.3 or < harvest × 0.7 → excluded as data inconsistent).
+    # Using the same tolerance here is internally consistent: households retained
+    # in the analysis passed this threshold, so ±30% represents the maximum
+    # expected data discrepancy in the included sample.
+    upper_harvest = harvest + (harvest * 0.3),
     lower_harvest = harvest - (harvest * 0.3),
     mean_harvest  = (upper_harvest + lower_harvest + harvest) / 3
   ) |>

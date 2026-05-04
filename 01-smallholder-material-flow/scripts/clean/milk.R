@@ -285,6 +285,7 @@ mass_milk_final <- upData(mf,
 mass_milk_final <- mass_milk_final |>
   mutate(across(c(milk, milkwa, SD, consumed, sold, psold, processed, processed_new, smd1, missing),
                 ~ . * 1.03, .names = "{.col}_kg"))
+# milkwa = "unadjusted" milk estimate (av × period); milk = adjusted estimate (new_av × period)
 # NOTE: drop original litre columns after confirming conversion is correct
 
 saveRDS(mass_milk_final, here::here("data", "processed", "clean", "mass_milk_final.rds"),

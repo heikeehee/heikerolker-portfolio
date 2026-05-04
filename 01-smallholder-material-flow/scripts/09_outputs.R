@@ -66,20 +66,19 @@ message("TABLE 1 saved: table1_sample_summary.csv")
 # =============================================================================
 
 # Crop flow allocation summary
-# 🚩 FLAG [ASSUMPTION]: harvest_total = crops + trees combined.
-# Flow destinations for trees (sold_trees, consumed_trees) listed separately
-# as tree disposition variables differ slightly from annual crop disposition.
+# NOTE: mfa_input contains log-transformed harvest and share-based destination variables.
+# For an interpretable flow allocation table, use share_sold/consumed/stored directly.
+# Absolute kg by destination is available from mass_crops.rds if needed for publication.
 tab2_crops <- mfa_input |>
   summarise(
-    total_harvest_crops  = sm(log_harvest),           # log scale — see note
-    total_sold           = sm(share_sold),             # share of harvest sold (crops)
-    total_consumed       = sm(share_consumed),
-    total_stored         = sm(share_stored),
-    total_sold_milk_kg   = sm(sold_milk),
-    total_consumed_milk  = sm(consumed_milk),
-    total_sold_eggs_kg   = sm(sold_eggs),
-    total_consumed_eggs  = sm(consumed_eggs),
-    total_sold_animals   = sm(sold_animals)
+    share_sold_mean     = mean(share_sold,     na.rm = TRUE),
+    share_consumed_mean = mean(share_consumed, na.rm = TRUE),
+    share_stored_mean   = mean(share_stored,   na.rm = TRUE),
+    total_sold_milk_kg  = sm(sold_milk),
+    total_cons_milk_kg  = sm(consumed_milk),
+    total_sold_eggs_kg  = sm(sold_eggs),
+    total_cons_eggs_kg  = sm(consumed_eggs),
+    total_sold_animals  = sm(sold_animals)
   ) |>
   pivot_longer(everything(), names_to = "variable", values_to = "value")
 
@@ -125,16 +124,16 @@ message("TABLE 4 saved: table4_uncertainty_summary.csv")
 # If thesis-level disaggregation needed, rebuild with type column groupings.
 crop_sankey <- mfa_input |>
   summarise(
-    sold       = sm(share_sold),
-    consumed   = sm(share_consumed),
-    stored     = sm(share_stored)
+    sold     = mean(share_sold,     na.rm = TRUE),
+    consumed = mean(share_consumed, na.rm = TRUE),
+    stored   = mean(share_stored,   na.rm = TRUE)
   ) |>
   pivot_longer(everything(), names_to = "target", values_to = "value") |>
   mutate(
-    source = "Harvest (share)",
-    # 🚩 FLAG [ASSUMPTION]: crop Sankey uses share of harvest (not absolute kg)
-    # because harvest column in mfa_input is log-transformed.
+    source = "Harvest (share, mean across HH)"
+    # 🚩 FLAG [ASSUMPTION]: Sankey uses mean share-of-harvest per destination (crops).
     # Rebuild with absolute kg from mass_crops.rds for publication-quality Sankey.
+    # Log-transformed harvest is not summed here as it has no additive interpretation.
   ) |>
   select(source, target, value)
 
@@ -183,7 +182,6 @@ message("FIGURE 1 saved: figure1_flow_sankey.png")
 # =============================================================================
 
 fig2_data <- mfa_variance |>
-  rownames_to_column("component") |>
   head(10) |>
   mutate(component = factor(component, levels = component))
 
@@ -224,13 +222,13 @@ fig3 <- ggplot(fig3_data, aes(x = Dim1, y = Dim2)) +
   labs(
     title    = "MFA factor map — household scores",
     subtitle = paste0(
-      "Dim1: ", round(mfa_variance$`percentage of variance`[1], 1), "% | ",
-      "Dim2: ", round(mfa_variance$`percentage of variance`[2], 1), "%"
+      "Dim1: ", round(mfa_variance[1, "percentage of variance"], 1), "% | ",
+      "Dim2: ", round(mfa_variance[2, "percentage of variance"], 1), "%"
     ),
     x = paste0("Dimension 1 (",
-                round(mfa_variance$`percentage of variance`[1], 1), "%)"),
+                round(mfa_variance[1, "percentage of variance"], 1), "%)"),
     y = paste0("Dimension 2 (",
-                round(mfa_variance$`percentage of variance`[2], 1), "%)")
+                round(mfa_variance[2, "percentage of variance"], 1), "%)")
   ) +
   theme_minimal()
 

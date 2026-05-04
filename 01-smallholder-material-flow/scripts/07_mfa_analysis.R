@@ -99,13 +99,15 @@ mfa_res <- MFA(
 # =============================================================================
 
 # Factor scores (one row per household)
-mfa_scores <- as.data.frame(mfa_res$ind$coord) |>
-  mutate(y4_hhid = mfa_input$y4_hhid[
-    !if_all(mfa_input |> select(-y4_hhid), ~ is.na(.))
-  ]) |>
-  select(y4_hhid, everything())
+# Align y4_hhid by filtering mfa_input to the same rows as mfa_data
+# Note: both filter the same condition (all-NA rows) — keep filter logic identical
+mfa_input_filtered <- mfa_input |>
+  filter(!if_all(where(is.numeric) & !matches("^y4_hhid$"), ~ is.na(.)))
 
-colnames(mfa_scores)[-1] <- paste0("Dim", seq_len(n_dim))
+mfa_scores <- as.data.frame(mfa_res$ind$coord)
+colnames(mfa_scores) <- paste0("Dim", seq_len(n_dim))
+mfa_scores$y4_hhid   <- mfa_input_filtered$y4_hhid
+mfa_scores <- mfa_scores |> select(y4_hhid, everything())
 
 # Variable loadings (contributions of each variable to each dimension)
 mfa_loadings <- as.data.frame(mfa_res$quanti.var$coord)
@@ -114,11 +116,9 @@ mfa_loadings$variable <- rownames(mfa_loadings)
 mfa_loadings <- mfa_loadings |> select(variable, everything())
 
 # Variance explained (eigenvalues)
-mfa_variance <- as.data.frame(mfa_res$eig) |>
-  rownames_to_column("component") |>
-  rename(eigenvalue = `eigenvalue`,
-         pct_variance = `percentage of variance`,
-         cumulative_pct = `cumulative percentage of variance`)
+mfa_variance <- as.data.frame(mfa_res$eig)
+mfa_variance$component <- rownames(mfa_variance)
+mfa_variance <- mfa_variance |> select(component, everything())
 
 # =============================================================================
 # SECTION 6: SAVE
@@ -134,4 +134,4 @@ saveRDS(list(
 message("07_mfa_analysis.R: MFA complete. ",
         nrow(mfa_scores), " households × ", n_dim, " dimensions retained.")
 message("  Variance explained (Dim 1-", n_dim, "): ",
-        paste(round(mfa_variance$pct_variance[seq_len(n_dim)], 1), collapse = "%, "), "%")
+        paste(round(mfa_variance[seq_len(n_dim), "percentage of variance"], 1), collapse = "%, "), "%")
