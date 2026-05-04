@@ -16,10 +16,6 @@
 # SECTION: ag_sec_5a/5b (crop disposition), ag_sec_7a/7b (tree disposition)
 # =============================================================================
 
-library(here)
-library(tidyverse)
-library(data.table)
-
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
@@ -197,6 +193,7 @@ saveRDS(tree_disp,
 # =============================================================================
 # SECTION 3: MERGE PRODUCTION WITH DISPOSITION
 # 🚩 FLAG CROSS-SECTION: pc and pt from clean/crops.R required here.
+# Lots of data manipulation and imputation here
 # Run clean/crops.R before this section.
 # =============================================================================
 
@@ -378,7 +375,7 @@ saveRDS(allcrops, here::here("data", "processed", "clean", "mass_allcrops.rds"),
 # =============================================================================
 
 # Load inputs (from clean/ and reference data loaded in 01_load_raw.R)
-residue  <- readRDS(here::here("data", "processed", "clean", "mass_crops.rds")) %>%
+residue  <- readRDS(here::here("data", "processed", "clean", "crop_disp.rds")) %>%
   select(y4_hhid, cropid, residue_use, residue, value_residue) %>%
   as.data.table()
 
@@ -390,7 +387,7 @@ prod <- readRDS(here::here("data", "processed", "clean", "pc.rds")) %>%
 res_hh <- prod[residue, on = .(y4_hhid, cropid)]
 
 # 🚩 FLAG EXCLUSION: Crops reporting "crop produces no residue" dropped.
-# Confirm this is correct: is no-residue a survey category or a data-entry placeholder?
+# No-residue a survey category but can be erroneous or implausible
 # Profile count in 05_exclusions_audit.R.
 res_hh <- res_hh[residue_use != "crop produces no  residue"]
 
