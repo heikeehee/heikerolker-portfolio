@@ -43,14 +43,22 @@ source(here::here("01-smallholder-material-flow", "scripts", "impute", "milk.R")
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinations.R"))
 
 # =============================================================================
-# NOTE: stages 3-9 (build, exclusions audit, MFA, uncertainty, outputs)
-# are pending restructuring.
+# STAGE 3: Build household-level dataset
+# Joins all section outputs into one row per household.
+# Resolves cross-section dependencies (C02–C06).
+# Applies structural zero guards.
+# =============================================================================
+
+source(here::here("01-smallholder-material-flow", "scripts", "04_build_households.R"))
+
+# =============================================================================
+# NOTE: stages 4-9 (exclusions audit, MFA, uncertainty, outputs)
+# are pending implementation.
 #
 # Planned stages (to be implemented):
-#   03_build_households.R   — merge cleaned sections → one row per household
 #   05_exclusions_audit.R   — profile all exclusions with counts and reasons
-#                             EXISTS but runs after stage 3 (04_build_households.R)
-#                             Do NOT source here until 04_build_households.R is written
+#                             EXISTS as placeholder; run after 04_build_households.R
+#                             produces households.rds
 #   06_mfa_input.R          — final dataset ready for MFA
 #   07_mfa_analysis.R       — MFA + Monte Carlo
 #   08_uncertainty.R        — uncertainty quantification (bootstrap + MC)
@@ -58,8 +66,8 @@ source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinat
 #   09_outputs.R            — tables, charts, export
 #
 # Survey weighting: two candidate scripts archived (06.1_Survey_weighting.R and
-# 0x_Weighting.R). One canonical weighting script must be selected before stage 3.
+# 0x_Weighting.R). One canonical weighting script must be selected before stage 4.
 # See scripts/archive/README_archive.md for details.
 # =============================================================================
 
-message("00_run_pipeline.R: Stages 1-2b complete.")
+message("00_run_pipeline.R: Stages 1-3 complete.")
