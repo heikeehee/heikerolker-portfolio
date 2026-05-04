@@ -257,10 +257,156 @@ This is framed for your records, hiring conversations (“tell us about your pip
 > - Include diagnostics and explanatory comments as standard
 > - Track exclusion/imputation events with annotated output
 
-**Next:**  
-Python and SQL translations of core analyses, single best Tableau view per project, concise business-readable READMEs.
+## The Rules — Pipeline Stage Boundaries
+
+The core principle is simple:
+
+> **Each stage answers one question. When the question changes, you're in a new script.**
+
+Here are the questions, in order:
 
 ---
 
-**Keep this as a core "retro"—it shows what you’ve achieved and how you now think like a business/data engineer.**  
-Ready for the next module (Python/SQL), or circle back for final README/visualization polish as needed!
+### Stage 0 — Load
+**Question: What are the raw files and where are they?**
+
+- Reads every raw file, nothing else
+- No renaming, no filtering, no joins
+- Outputs: named list of raw data frames, exactly as they came from the World Bank
+- **Ends when:** every raw file is in memory. The moment you touch a value, you're in cleaning.
+
+---
+
+### Stage 1 — Clean (one script per survey section)
+**Question: What does this section actually contain, and is it internally consistent?**
+
+Cleaning is *mechanical*. It applies rules that follow directly from the data documentation (the LSMS-ISA codebook). No judgement required — if the codebook says code 99 means "don't know", you recode it to `NA`. That's not a decision, it's a transcription.
+
+Cleaning includes:
+- Rename variables to human-readable names
+- Recode sentinel values (99, 999, -9) to `NA`
+- Convert units that are unambiguous (e.g. grams → kg where the codebook specifies)
+- Drop structural zeros with a comment (a plot with no area *cannot* be in the analysis — this is not a judgement call)
+- One output `.rds` per section
+
+**Ends when:** the data reflects what respondents actually reported, faithfully. You haven't yet decided what to *do* about missing values or implausible ones.
+
+🚩 **Boundary violation signal:** If you find yourself writing `if is.na, assume X` — stop. You're in imputation territory.
+
+🚩 **Boundary violation signal:** If you're joining two sections together — stop. You're in build-households territory.
+
+---
+
+### Stage 2 — Impute (one script per domain with assumptions)
+**Question: Where data is missing or implausible, what is the most defensible value to substitute — and what are the assumptions behind that choice?**
+
+Imputation is *judgemental*. It requires domain knowledge (yield distributions, regional norms, biological constraints). Every line in an imputation script that assigns a value to a previously missing cell is an assumption that needs to be visible and changeable.
+
+Imputation includes:
+- Yield gap filling (median by crop × region, or model-based)
+- Animal productivity assumptions (litres/day, offtake rates)
+- Explicit sensitivity bounds (low/mid/high assumption sets)
+
+**Ends when:** every variable that will enter the household-level dataset has a value — either observed or explicitly imputed with a documented reason.
+
+🚩 **Boundary violation signal:** If you're renaming columns or recoding sentinel values here — that's cleaning, move it back.
+
+🚩 **Boundary violation signal:** If the imputed values are used directly in a calculation without first being saved to a processed file — the assumption is invisible. Always save imputed datasets as a distinct output.
+
+---
+
+### Stage 3 — Build Households
+**Question: What is the one-row-per-household dataset that the analysis needs?**
+
+This is pure joining and aggregation. No new assumptions. No filtering that hasn't already been documented in clean/ or impute/.
+
+- Joins all section outputs (from clean/) and imputed outputs (from impute/)
+- Aggregates from plot/crop/animal level to household level
+- Derives composite variables (e.g. total harvest kg = sum across plots and crops)
+- Produces one flat file: `households.rds`
+
+**Ends when:** you have one row per household, all variables present, ready for analysis.
+
+🚩 **Boundary violation signal:** If you're imputing inside this script ("oh the join produced NAs, let me just replace with 0") — stop. Go back to impute/.
+
+🚩 **Boundary violation signal:** If you're making a *new* analytical decision (e.g. "I'll cap outliers at the 99th percentile") — that belongs in MFA input prep, not here.
+
+---
+
+### Stage 4 — Exclusions Audit
+**Question: Who is not in the final dataset, and is that defensible?**
+
+This is a *reporting* script, not a transformation script. It reads `households.rds` and the pre-join section files, profiles the excluded households, and outputs a table.
+
+- Anti-joins to identify excluded households at each stage
+- Compares excluded vs included on key variables (region, wealth, land size)
+- Flags systematic patterns
+- Produces one summary table → goes directly into your methods appendix
+
+**This script changes nothing.** It only reports.
+
+---
+
+### Stage 5 — MFA Input Prep
+**Question: What transformations does the analysis method require that are not about data quality?**
+
+This is where *analytical* decisions live — decisions driven by the requirements of MFA, not by data problems:
+
+- Destinations / flow allocation (proportioning harvest across sales, storage, consumption)
+- Residue calculations
+- Scaling, normalisation, or log transformation if required by MFA
+- Handling of rare categories (collapse small crop groups)
+
+**Ends when:** the input matrix for MFA is ready.
+
+The distinction from cleaning: if you had perfect data with no missing values, you would still need this script. Cleaning exists because of data problems. MFA input prep exists because of method requirements.
+
+---
+
+### The Full Decision Tree
+
+When you're writing code and you don't know where it belongs, ask:
+
+```
+Is this reading a raw file?
+  → 01_load_raw.R
+
+Is this making the data reflect what respondents reported faithfully?
+  → clean/[section].R
+
+Is this filling in a missing or implausible value using an assumption?
+  → impute/[domain].R
+
+Is this joining sections together or aggregating to household level?
+  → 04_build_households.R
+
+Is this reporting who got excluded and why?
+  → 05_exclusions_audit.R
+
+Is this transforming variables to meet the requirements of the analytical method?
+  → 06_mfa_input.R
+
+Is this running the analysis?
+  → 07_mfa_analysis.R / 08_uncertainty.R
+
+Is this producing a table or chart from results?
+  → 09_outputs.R
+```
+
+---
+
+### Applied to Your Specific Complexity
+
+The LSMS-ISA is unusually messy, which means you'll hit edge cases. Here's how the rules handle the ones you've already named:
+
+| Your specific problem | Rule |
+|---|---|
+| Milk is a different section from animal products | Correct — separate clean/ scripts. The section boundary *is* the script boundary. |
+| `01b_Yield_gap` mixes cleaning and imputation | Split it. The cleaning part (rename, recode) → `clean/crops.R`. The imputation part → `impute/yield_gap.R`. |
+| Destinations is its own section | Correct — `clean/destinations.R` handles section cleaning, `06_mfa_input.R` handles the flow allocation logic. |
+| Cross-section dependency in cleaning (need region from HH roster to filter storage) | Allowed *only* in `04_build_households.R`. If the filter must happen earlier, document it explicitly as a cross-section dependency with a comment, and load only the one needed variable — don't re-import the full section. |
+| `99_final.R` doing everything | Everything in it gets classified by the decision tree above and moved. Nothing stays in a `99_` script. |
+
+---
+
+The rules are simple. The discipline is in applying them consistently when the data is pushing back. When in doubt: **if it contains an assumption, it belongs in `impute/`. If it changes nothing, it belongs in `05_exclusions_audit.R`. Everything else follows the decision tree.**
