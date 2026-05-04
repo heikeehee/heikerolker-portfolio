@@ -17,9 +17,6 @@
 #          individual household behaviour.
 # =============================================================================
 
-library(here)
-library(tidyverse)
-library(data.table)
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
@@ -63,7 +60,7 @@ animals <- upData(animals,
   ),
 
   # Replace NA with structural 0 where survey question was answered "no"
-  # 🚩 FLAG EXCLUSION: Sentinel 0 applied when gateway question == "no".
+  # 🚩 FLAG ASSUMPTION: Sentinel 0 applied when gateway question == "no".
   # If a household selected "no" in error (e.g. recall fatigue), these zeros
   # are incorrect. Profile distribution of zeros vs NAs in 05_exclusions_audit.R.
   bought   = ifelse(lf02_06 == "no", 0, bought),
@@ -293,7 +290,6 @@ saveRDS(feed, here::here("data", "processed", "clean", "feed.rds"), compress = T
 # Simplify: use feed2 where tethering (ambiguous) and feed2 is more informative
 # 🚩 FLAG ASSUMPTION: "tethering" replaced with feed2 if available.
 # Definition of tethering for feed intake not confirmed in codebook.
-# Retained as-is from original script — review before stage 3.
 feed[, feed1 := ifelse(feed1 == "tethering" & !is.na(feed2), feed2, feed1)]
 f <- feed[, .(y4_hhid, type, feed1)]
 f[, type := as.factor(type)]
