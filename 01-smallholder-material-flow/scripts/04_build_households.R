@@ -217,21 +217,21 @@ eggs_hh <- mass_eggs |>
 # One row per hh × livestock type (large/small ruminants) — aggregate to hh level.
 # C04 dependency note: mass_milk_final.rds was produced in clean/milk.R using
 # feed_short.rds from clean/animals.R. Cross-section dependency resolved here.
-# 🚩 FLAG [ASSUMPTION]: Confirm `milk` column is in kg throughout mass_milk_final.
-#   The across(milk_lo:psold, ~.x * 1.08) in clean/milk.R Section 4 may not
-#   include `milk` depending on column ordering. Check before using for mass balance.
+# Unit conversion applied in clean/milk.R (factor 1.03 kg/litre):
+# milk → milk_kg; sold → sold_kg; consumed → consumed_kg (all now in kg)
+# milk_feed_kgDM uses feed column which is already in kg DM (not converted).
 
 milk_hh <- mass_milk_final |>
   as.data.frame() |>
   dplyr::group_by(y4_hhid) |>
   dplyr::summarise(
-    milk_total_kg    = sum(milk,     na.rm = TRUE),
+    milk_total_kg    = sum(milk_kg,      na.rm = TRUE),
     # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE in sum() treats NA as 0 — confirm these are structural zeros not missing data
-    milk_sold_kg     = sum(sold,     na.rm = TRUE),
+    milk_sold_kg     = sum(sold_kg,      na.rm = TRUE),
     # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE in sum() treats NA as 0 — confirm these are structural zeros not missing data
-    milk_consumed_kg = sum(consumed, na.rm = TRUE),
+    milk_consumed_kg = sum(consumed_kg,  na.rm = TRUE),
     # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE in sum() treats NA as 0 — confirm these are structural zeros not missing data
-    milk_feed_kgDM   = sum(feed,     na.rm = TRUE),
+    milk_feed_kgDM   = sum(feed,         na.rm = TRUE),
     # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE in sum() treats NA as 0 — confirm these are structural zeros not missing data
     .groups = "drop"
   )

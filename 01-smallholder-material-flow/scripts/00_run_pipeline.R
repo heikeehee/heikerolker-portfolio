@@ -52,22 +52,45 @@ source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinat
 source(here::here("01-smallholder-material-flow", "scripts", "04_build_households.R"))
 
 # =============================================================================
-# NOTE: stages 4-9 (exclusions audit, MFA, uncertainty, outputs)
-# are pending implementation.
-#
-# Planned stages (to be implemented):
-#   05_exclusions_audit.R   — profile all exclusions with counts and reasons
-#                             EXISTS as placeholder; run after 04_build_households.R
-#                             produces households.rds
-#   06_mfa_input.R          — final dataset ready for MFA
-#   07_mfa_analysis.R       — MFA + Monte Carlo
-#   08_uncertainty.R        — uncertainty quantification (bootstrap + MC)
-#                             All impute/ assumptions flagged for 08_uncertainty.R
-#   09_outputs.R            — tables, charts, export
-#
-# Survey weighting: two candidate scripts archived (06.1_Survey_weighting.R and
-# 0x_Weighting.R). One canonical weighting script must be selected before stage 4.
-# See scripts/archive/README_archive.md for details.
+# STAGE 4: Exclusions audit
+# Profile all exclusions from clean/ and 04_build_households.R with counts and reasons.
 # =============================================================================
 
-message("00_run_pipeline.R: Stages 1-3 complete.")
+source(here::here("01-smallholder-material-flow", "scripts", "05_exclusions_audit.R"))
+
+# =============================================================================
+# STAGE 5: MFA input preparation
+# Prepare household-level input matrix (flow allocation, residue, mass balance).
+# =============================================================================
+
+source(here::here("01-smallholder-material-flow", "scripts", "06_mfa_input.R"))
+
+# =============================================================================
+# STAGE 6: MFA analysis
+# Run Multiple Factor Analysis; extract factor scores, loadings, variance.
+# =============================================================================
+
+source(here::here("01-smallholder-material-flow", "scripts", "07_mfa_analysis.R"))
+
+# =============================================================================
+# STAGE 7: Uncertainty quantification
+# Monte Carlo simulation over key parameter assumptions.
+# =============================================================================
+
+source(here::here("01-smallholder-material-flow", "scripts", "08_uncertainty.R"))
+
+# =============================================================================
+# STAGE 8: Outputs
+# Generate all tables, charts, and export files.
+# =============================================================================
+
+source(here::here("01-smallholder-material-flow", "scripts", "09_outputs.R"))
+
+# =============================================================================
+# NOTE: Survey weighting — two candidate scripts archived (06.1_Survey_weighting.R
+# and 0x_Weighting.R). One canonical weighting script must be selected and integrated
+# before publishing final results. See scripts/archive/README_archive.md for details.
+# See backlog.md B04.
+# =============================================================================
+
+message("00_run_pipeline.R: All stages complete.")
