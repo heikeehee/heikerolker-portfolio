@@ -15,10 +15,6 @@
 #          and left for stage 3; an explicit placeholder is included.
 # =============================================================================
 
-library(here)
-library(tidyverse)
-library(data.table)
-
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
@@ -112,7 +108,6 @@ hides[, `:=` (pieces = as.double(pieces), total = as.double(total))]
 # 🚩 FLAG ASSUMPTION: Allocation logic assigns hides to animal type based on
 # matching reported piece count to slaughter numbers. Multiple fcase() branches
 # handle partial matching. Logic is heuristic — not codebook-derived.
-# Review each branch with a domain expert before stage 3.
 hides[, `:=` (
   weight = fcase(
     pieces <= lgrm,                               hlgrm,
@@ -169,7 +164,7 @@ hides <- upData(hides,
 )
 
 # EXCLUSION: keep only hides with positive production
-# 🚩 FLAG EXCLUSION: hides[produced == 0] dropped. Confirm these are structural
+# 🚩 FLAG EXCLUSION: hides[produced == 0] dropped. Not confirmed these are structural
 # zeros (no slaughter → no hides) not missing data — profile in 05_exclusions_audit.R
 hides <- hides[produced > 0]
 
@@ -280,8 +275,8 @@ produce[, sold     := as.numeric(sold)]
 e <- produce[productid == "eggs"]
 
 # Unit conversion: pieces/litres → kg
-# 🚩 FLAG UNIT: Egg weight 41.26g from @MacLeod.2013 p.105 — SSA average.
-# Not Tanzania-specific; may differ by breed/management. Flag for review.
+# 🚩 FLAG ASSUMPTION: Egg weight 41.26g from @MacLeod.2013 p.105 — SSA average.
+# Not Tanzania-specific; may differ by breed/management.
 e <- upData(e,
   produced_new = fcase(
     unit == "kgs",    produced * length,
