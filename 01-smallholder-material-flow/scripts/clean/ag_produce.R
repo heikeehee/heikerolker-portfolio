@@ -8,9 +8,6 @@
 # SECTION: ag_sec_10 — processed agricultural products and by-products
 # =============================================================================
 
-library(here)
-library(tidyverse)
-library(data.table)
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
@@ -164,7 +161,13 @@ input_stats <- input_crop %>%
     frac     = quant / input,
 
     # Input allocation rules — certainty decreasing down the list:
+<<<<<<< Updated upstream
     # ASSUMPTION REMOVED — see impute/ag_produce.R (A07)
+=======
+    # 🚩 FLAG ASSUMPTION: Input allocation rules use product counts and ratios.
+    # Logic is heuristic: "if input / quantity == 2, split equally".
+    # These rules are not codebook-derived. LSMS team cannot provide guidance.
+>>>>>>> Stashed changes
     new_input = ifelse(prod == 1 & byprod == 0, input, NA),                            # single product
     new_input = ifelse(prod == 0 & byprod == 1, input, new_input),                     # single by-product
     new_input = ifelse(prod == 1 & byprod == 1 & input / quant == 2, input / 2, new_input),  # product + by-product equal split
