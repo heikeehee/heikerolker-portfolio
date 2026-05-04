@@ -24,7 +24,7 @@ KG_PER_GRAM <- 0.001
 # =============================================================================
 
 # ASSUMPTION: All conversion factors below are assumed from literature or
-# standard density references, NOT from the LSMS codebook directly. 
+# standard density references, NOT from the LSMS codebook directly.
 # Most conversion factors are derived from a US conversion website
 food_conv <- tibble::tribble(
   ~unit,         ~itemcode,                                                     ~conv,

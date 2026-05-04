@@ -74,9 +74,9 @@ crop_disp <- upData(disp,
   losses = ag5a_31 / 10,
 
   # Replace NA with structural 0 where gateway question was "no"
-  # 🚩 FLAG EXCLUSION: Zeros applied where sale/storage/loss gateway == "no".
-  # If a household answered "no" in error, these will under-count disposition.
-  # Profile zero distributions in 05_exclusions_audit.R.
+  # EXCLUSION E08: zeros applied where sale/storage/loss gateway == "no"
+  # Type: structural zero | missing data — FLAG
+  # Profiled in: 05_exclusions_audit.R
   sold    = ifelse(sale    == "no", 0, sold),
   soldb1  = ifelse(sale    == "no", 0, soldb1),
   soldb2  = ifelse(sale    == "no", 0, soldb2),
@@ -111,9 +111,7 @@ crop_disp <- upData(disp,
   )
 )
 
-# 🚩 FLAG ASSUMPTION: Household 8659-001, maize consumed := 480.
-# Clear data entry error — value was implausibly large. Verified against raw data.
-# Hardcoded by design. Flag for re-review if raw data changes.
+# ASSUMPTION REMOVED — see impute/destinations.R (A24)
 crop_disp[y4_hhid == "8659-001" & cropid == "maize", consumed := 480]
 
 saveRDS(crop_disp,
@@ -192,9 +190,11 @@ saveRDS(tree_disp,
 
 # =============================================================================
 # SECTION 3: MERGE PRODUCTION WITH DISPOSITION
-# 🚩 FLAG CROSS-SECTION: pc and pt from clean/crops.R required here.
-# Lots of data manipulation and imputation here
-# Run clean/crops.R before this section.
+# ⚠️ CROSS-SECTION DEPENDENCY
+# This script uses pc and pt from clean/crops.R.
+# This should move to 04_build_households.R when that script is written.
+# Retained here temporarily to keep pipeline runnable.
+# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
 pc <- readRDS(here::here("data", "processed", "clean", "pc.rds"))
@@ -268,9 +268,9 @@ crops_excl[, diffp := diff * 100 / harvest]
 crops_excl <- crops_excl[, excl := fcase(
   is.na(sold),         "Data missing",
   is.na(yield),        "Data missing",
-  # 🚩 FLAG EXCLUSION: ±30% tolerance on disposition vs harvest.
-  # Threshold not codebook-derived — chosen as pragmatic balance.
-  # Profile sensitivity to threshold in 05_exclusions_audit.R.
+  # EXCLUSION E09: ±30% tolerance on disposition vs harvest
+  # Type: unclear — FLAG (threshold not codebook-derived)
+  # Profiled in: 05_exclusions_audit.R
   smd > harvest * 1.3, "Harvest insufficient",
   smd < harvest * 0.7, "Harvest unaccounted"
 )]
@@ -371,7 +371,11 @@ saveRDS(allcrops, here::here("data", "processed", "clean", "mass_allcrops.rds"),
 # =============================================================================
 # SECTION 4: CROP RESIDUE ESTIMATION (from 06a_Residue.Rmd)
 # Uses RPR ratios from FAOSTAT and crop name mapping
-# 🚩 FLAG CROSS-SECTION: Depends on mass_crops.rds → run after Section 3 above.
+# ⚠️ CROSS-SECTION DEPENDENCY
+# This script uses mass_crops.rds produced earlier in Section 3 of this script.
+# This should move to 04_build_households.R when that script is written.
+# Retained here temporarily to keep pipeline runnable.
+# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
 # Load inputs (from clean/ and reference data loaded in 01_load_raw.R)
@@ -403,9 +407,7 @@ res_full       <- rpr_ref[res_hh_matched, on = .(Item)]
 res_full[, residue_sold_DM := residue / Dry_matter]
 
 # Estimate residue flows
-# 🚩 FLAG ASSUMPTION: Residue:Production Ratio (RPR) and Dry Matter fraction
-# from FAOSTAT are Tanzania-specific but country-level averages.
-# Not plot- or crop-variety-specific. Flag for sensitivity analysis.
+# ASSUMPTION REMOVED — see impute/destinations.R (A25)
 res_full[, `:=` (
   Residues_DM     = harvest * Dry_matter * RPR * UsedRes,                           # main estimate (DM)
   Residues_wet    = harvest * RPR * UsedRes,                                        # wet weight

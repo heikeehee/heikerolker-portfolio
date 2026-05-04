@@ -207,16 +207,17 @@ write.csv(excl_animals,
 # =============================================================================
 # SECTION 2: CARCASS BREAKDOWN (reference data from breakdown.xlsx)
 # Applies component fractions (meat, offal, hides, waste) to slaughter weights
-# 🚩 FLAG CROSS-SECTION: breakdown.xlsx loaded via raw$ref$breakdown in 01_load_raw.R
+# ⚠️ CROSS-SECTION DEPENDENCY
+# This script uses breakdown.xlsx (raw$ref$breakdown) loaded in 01_load_raw.R.
+# breakdown.xlsx is a reference dataset, not a survey section — loading is
+# handled centrally in 01_load_raw.R and does not require restructuring.
+# Retained here as the breakdown coefficients are applied to this section's data.
+# 🚩 FLAG [CROSS-SECTION]: breakdown.xlsx from raw$ref — confirm source in 01_load_raw.R
 # =============================================================================
 
 wa <- copy(animals_sub)
 
-# 🚩 FLAG ASSUMPTION: Carcass breakdown coefficients from:
-# @Hal.2020 p.151; @beefyieldguide; @lambyieldguide; @Alexander.2016; @Opio.2013 p.171
-# These are literature-derived, not survey-measured. Review if local/regional
-# breakdown data becomes available. Especially uncertain: whether Alexander.2016
-# edible weight (ew) includes offal — see note in archived 03_Animals.Rmd.
+# ASSUMPTION REMOVED — see impute/animals.R (A10)
 breakdown <- raw$ref$breakdown
 setDT(breakdown)
 

@@ -57,8 +57,12 @@ saveRDS(produce, here::here("data", "processed", "clean", "produce.rds"), compre
 # =============================================================================
 # SECTION 2: HIDES
 # Match hides production to slaughtered animal types
-# 🚩 FLAG CROSS-SECTION: wa (carcass breakdown) and animals_fin (slaughter counts)
-# loaded from clean/animals.R outputs. Run clean/animals.R first.
+# ⚠️ CROSS-SECTION DEPENDENCY
+# This script uses wa (carcass breakdown) and animals_fin (slaughter counts)
+# from clean/animals.R outputs.
+# This should move to 04_build_households.R when that script is written.
+# Retained here temporarily to keep pipeline runnable.
+# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
 wa          <- readRDS(here::here("data", "processed", "clean", "wa.rds"))
@@ -163,9 +167,9 @@ hides <- upData(hides,
   drop   = .q(pieces, total, perc_sold)
 )
 
-# EXCLUSION: keep only hides with positive production
-# 🚩 FLAG EXCLUSION: hides[produced == 0] dropped. Not confirmed these are structural
-# zeros (no slaughter → no hides) not missing data — profile in 05_exclusions_audit.R
+# EXCLUSION E05: hides[produced == 0] dropped
+# Type: structural zero | missing data — FLAG
+# Profiled in: 05_exclusions_audit.R
 hides <- hides[produced > 0]
 
 saveRDS(hides, here::here("data", "processed", "clean", "hides.rds"), compress = TRUE)
@@ -190,9 +194,7 @@ sums      <- manualfix[, lapply(.SD, sm), .SDcols = is.numeric, by = .(y4_hhid)]
 
 manualfix[, `:=` (pprod_new = hides, perc_sold = sold2 / pprod / 2)]
 
-# 🚩 FLAG ASSUMPTION: Three households where hides cannot be algorithmically
-# split between large/small ruminants — assigned by manual inspection of raw data.
-# Flag for review if raw data or slaughter records change.
+# ASSUMPTION REMOVED — see impute/animal_products.R (A13)
 manualfix$pprod_new[which(manualfix$y4_hhid == "7294-001" & manualfix$type == "large ruminants")] <- 1.5
 manualfix$pprod_new[which(manualfix$y4_hhid == "7294-001" & manualfix$type == "small ruminants")] <- 1.5
 manualfix$pprod_new[which(manualfix$y4_hhid == "8014-001" & manualfix$type == "large ruminants")] <- 0
@@ -244,16 +246,18 @@ saveRDS(mass_hides_long, here::here("data", "processed", "clean", "mass_hides_lo
 
 # =============================================================================
 # SECTION 3: EGGS
-# 🚩 FLAG CROSS-SECTION: animals_fin and feed_short from clean/animals.R required.
-# Run clean/animals.R before this section.
+# ⚠️ CROSS-SECTION DEPENDENCY
+# This script uses animals_fin and feed_short from clean/animals.R.
+# This should move to 04_build_households.R when that script is written.
+# Retained here temporarily to keep pipeline runnable.
+# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
 animals_fin <- readRDS(here::here("data", "processed", "clean", "animals_fin.rds"))
 f           <- readRDS(here::here("data", "processed", "clean", "feed_short.rds"))
 
 # Feed coefficients for poultry (backyard, @MacLeod.2013 p.107)
-# 🚩 FLAG ASSUMPTION: Feed fractions from @MacLeod.2013 p.107 — not survey-derived.
-# Same values used in impute/animals.R for consistency.
+# ASSUMPTION REMOVED — see impute/animal_products.R (A14)
 chicken <- data.table(
   feed1  = c("only feeding (no grazing/scavenging)",
              "mainly grazing/scavenging w/ some feeding",
@@ -315,8 +319,7 @@ eggs$mean  <- rowMeans(eggs[, c("current", "max_owned")], na.rm = TRUE)
 eggs[, n_ea  := n_eggs / mean]
 eggs[, n_ea  := adlab(n_ea, "Eggs per month per estimated n of poultry owned")]
 
-# 🚩 FLAG ASSUMPTION: 45 eggs/hen/year from @MacLeod.2013 p.105.
-# Tanzania-specific laying rates may differ. Flag for sensitivity analysis.
+# ASSUMPTION REMOVED — see impute/animal_products.R (A15)
 eggs[, n_est := n_eggs / 45]
 eggs[, n_est := adlab(n_est, "Est number of poultry required")]
 
@@ -335,8 +338,7 @@ ef <- f[ef,      on = c("type", "y4_hhid")]
 ef <- chicken[ef, on = c("feed1", "type")]
 
 mass_eggs <- upData(ef,
-  # 🚩 FLAG ASSUMPTION: Feed conversion ratio 2.3 kg DM / kg eggs from @Alexander.2016.
-  # Not survey-derived. Review with domain expert before stage 3.
+  # ASSUMPTION REMOVED — see impute/animal_products.R (A16)
   need    = produced * 2.3,
   feed    = need * feed,
   grazed  = need * grazed,
@@ -350,10 +352,8 @@ mass_eggs <- upData(ef,
   drop = .q(feed1, need, N_eggs)
 )
 
-# 🚩 FLAG ASSUMPTION: Egg consumption (missing - sold) allocated via recall data.
-# This requires clean/recall.rds (cross-section dependency) and household size data
-# (consumptionNPS4.dta — not yet in 01_load_raw.R — add before running this section).
-# Full egg consumption allocation logic is in archive/04_Animal_products.Rmd lines 565–671.
+# ASSUMPTION REMOVED — see impute/animal_products.R (A17)
+# Egg consumption allocation logic is in archive/04_Animal_products.Rmd lines 565–671.
 # Decision required before stage 3: move allocation here or to a dedicated impute/ script.
 
 saveRDS(mass_eggs, here::here("data", "processed", "clean", "mass_eggs.rds"), compress = TRUE)
