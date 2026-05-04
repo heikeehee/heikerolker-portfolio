@@ -53,16 +53,37 @@ Generated after clean/ extraction pass. All items below require a decision befor
 
 ------------------------------------------------------------------------
 
-## [CROSS-SECTION] dependencies — retained in clean/ temporarily
+## [CROSS-SECTION] dependencies — resolved in 04_build_households.R
 
-| ID | Script | Dependency | Variable | Move to |
+| ID | Script | Dependency | Variable | Resolution |
 |--------------|--------------|----------------|--------------|--------------|
-| C01 | clean/animals.R | breakdown.xlsx reference data | raw$ref$breakdown (loaded in 01_load_raw.R) | Reference data — no restructuring needed; confirm source in 01_load_raw.R |
-| C02 | clean/animal_products.R | carcass breakdown + slaughter counts | wa.rds, animals_fin.rds from clean/animals.R | 04_build_households.R |
-| C03 | clean/animal_products.R | poultry ownership + feed practices | animals_fin.rds, feed_short.rds from clean/animals.R | 04_build_households.R |
-| C04 | clean/milk.R | feed practices from livestock section | feed_short.rds from clean/animals.R | 04_build_households.R |
-| C05 | clean/destinations.R | crop production with area and yield | pc.rds, pt.rds from clean/crops.R | 04_build_households.R |
-| C06 | clean/destinations.R | residue section depends on crop_disp.rds | crop_disp.rds | 04_build_households.R (run Section 4 after Section 3) |
+| C01 | clean/animals.R | breakdown.xlsx reference data | raw$ref$breakdown (loaded in 01_load_raw.R) | ✅ Resolved — reference data; confirmed loaded centrally in 01_load_raw.R; no restructuring needed |
+| C02 | clean/animal_products.R | carcass breakdown + slaughter counts | wa.rds, animals_fin.rds from clean/animals.R | ✅ Resolved — mass_hides.rds incorporates wa.rds + animals_fin; hides_hh joined in 04_build_households.R Section 5 |
+| C03 | clean/animal_products.R | poultry ownership + feed practices | animals_fin.rds, feed_short.rds from clean/animals.R | ✅ Resolved — mass_eggs.rds incorporates animals_fin + feed_short; eggs_hh joined in 04_build_households.R Section 5; ownership flags from animals_hh used for structural zero guard |
+| C04 | clean/milk.R | feed practices from livestock section | feed_short.rds from clean/animals.R | ✅ Resolved — mass_milk_final.rds incorporates feed_short; milk_hh joined in 04_build_households.R Section 5; ownership flags from animals_hh used for structural zero guard |
+| C05 | clean/destinations.R | crop production with area and yield | pc.rds, pt.rds from clean/crops.R | ✅ Resolved — misalignment profiled via anti-join in 04_build_households.R Section 4; counts sent to message() and flagged for 05_exclusions_audit.R |
+| C06 | clean/destinations.R | residue section depends on crop_disp.rds | crop_disp.rds | ✅ Resolved — residue_hh joined after destinations_hh in 04_build_households.R Section 5 (correct ordering enforced) |
+
+------------------------------------------------------------------------
+
+## [ASSUMPTION] flags from 04_build_households.R (stage 3)
+
+| ID | Script | Description | Value/Rule | Action needed |
+|------------|------------|------------|------------|------------|
+| B01 | 04_build_households.R | na.rm = TRUE in all sum() calls | NA treated as 0 across all aggregations | Profile NA prevalence per variable in 05_exclusions_audit.R; confirm structural vs missing |
+| B02 | 04_build_households.R | Spine built as union of y4_hhid across sections | No master household roster available — conservative approach | Verify against NPS4 design documentation; if roster available, use it as canonical spine |
+| B03 | 04_build_households.R | yg_mean_t_ha averages across crops and plots | Loses crop-level variation within household | Consider crop-type-specific yield gaps for MFA input |
+| B04 | 04_build_households.R | milk_total_kg unit not confirmed as kg | across(milk_lo:psold) in clean/milk.R may not include `milk` column | Inspect column order in mass_milk_final; re-run with explicit unit check |
+
+## [EXCLUSION] flags from 04_build_households.R (stage 3)
+
+| ID | Script | Description | Type | Action needed |
+|------------|------------|------------|------------|------------|
+| E_crops_no_dest | 04_build_households.R | Crops in pc.rds with no matching crop_disp.rds record | Misalignment — known finding | Profile by crop type and harvest quantity in 05_exclusions_audit.R |
+| E_dest_no_crops | 04_build_households.R | Destination records in crop_disp.rds with no matching pc.rds record | Misalignment — known finding | Profile by crop type and disposition channel in 05_exclusions_audit.R |
+| E_sz_milk | 04_build_households.R | Structural zero guard: households with cattle but NA milk yield → NA_real_ | Missing data | Impute in impute/ or exclude with documentation |
+| E_sz_eggs | 04_build_households.R | Structural zero guard: households with poultry but NA egg production → NA_real_ | Missing data | Impute in impute/ or exclude with documentation |
+| E_sz_harvest | 04_build_households.R | Structural zero guard: households not in crops roster → harvest = 0 | Structural zero assumed | Confirm non-participation; profile on region and wealth |
 
 ------------------------------------------------------------------------
 
@@ -73,10 +94,11 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | All clean/ scripts | `# 🚩 FLAG [ASSUMPTION]: ...` comment blocks | Replaced with `# ASSUMPTION REMOVED — see impute/[script].R (A##)`; assumption documented in impute/ |
 | All clean/ scripts | `# 🚩 FLAG [EXCLUSION]: ...` comment blocks | Replaced with standardised `# EXCLUSION E##:` block; placeholder added to 05_exclusions_audit.R |
 | All clean/ scripts | `# 🚩 FLAG [CROSS-SECTION]: ...` single-line comments | Replaced with full `# ⚠️ CROSS-SECTION DEPENDENCY` block |
+| FLAGS_REVIEW.md C01–C06 | `Move to: 04_build_households.R` | ✅ Moved — all six cross-section dependencies resolved in 04_build_households.R |
 
 ------------------------------------------------------------------------
 
-## Priority decisions before Stage 3
+## Priority decisions before Stage 4 (05_exclusions_audit.R)
 
 | Priority | Item | Who |
 |----------------------------------|---------------------|------------------|
@@ -84,8 +106,13 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | 🔴 High | A10: Confirm whether Alexander.2016 EW includes offal (double-count risk in MFA) | cannot be confirmed, sensitivity analysis |
 | 🔴 High | E03: Confirm codebook meaning of ag3b_01b == 2 | Codebook |
 | 🔴 High | E10: Confirm "crop produces no residue" is a genuine survey category (check double space) | Codebook |
+| 🔴 High | B04: Confirm milk unit (kg vs litres) in mass_milk_final — check across() column range in clean/milk.R | Code |
+| 🔴 High | E_crops_no_dest / E_dest_no_crops: Profile misalignment counts and add to methods appendix | 05_exclusions_audit.R |
 | 🟡 Medium | A01/A06: Resolve NA conversion factors in recall.R and ag_produce.R | Literature |
 | 🟡 Medium | A11: Confirm tethering definition in LSMS codebook | Codebook |
 | 🟡 Medium | A22: Consolidate duplicate feed fraction tables into shared reference | Code |
+| 🟡 Medium | B01: Profile na.rm = TRUE impact in all sum() calls (04_build_households.R) | 05_exclusions_audit.R |
+| 🟡 Medium | B02: Verify spine completeness against NPS4 sample frame if roster is available | Data |
 | 🟢 Low | A02–A05: Crop area assumptions — well-supported by LSMS-ISA literature | Confirm only |
 | 🟢 Low | A08, A13, A18, A24: Hardcoded household fixes — single-HH impact | Monitor |
+| 🟢 Low | B03: Consider crop-type-specific yield gap aggregation | Code |

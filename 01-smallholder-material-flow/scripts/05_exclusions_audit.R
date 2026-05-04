@@ -104,3 +104,90 @@
 #   is genuinely a survey option (LSMS codebook ag_sec_5a question 33);
 #   if a data-entry artefact, these records should be retained with residue = NA
 # Placeholder — complete after 04_build_households.R is written
+
+# =============================================================================
+# EXCLUSIONS FROM 04_build_households.R (stage 3)
+# Run the code stubs below after households.rds exists
+# =============================================================================
+
+# --- EXCLUSION E_crops_no_dest: crops with no matching destination record ---
+# Source: 04_build_households.R — Section 4 (C05 anti-join)
+# Type: misalignment — known finding (see FLAGS_REVIEW.md, methods appendix)
+# Note: these are crop–household records in pc.rds with no corresponding entry
+#       in crop_disp.rds. May reflect genuine non-disposal crops, recall gaps, or
+#       crops harvested but not yet disposed of at time of survey.
+# Action needed: profile by crop type, region, harvest quantity; compare with
+#       dest_no_crops to assess directionality of mismatch.
+# Stub — run after households.rds is available:
+#
+# households <- readRDS(here::here("data", "processed", "households.rds"))
+# pc         <- readRDS(here::here("data", "processed", "clean", "pc.rds"))
+# crop_disp  <- readRDS(here::here("data", "processed", "clean", "crop_disp.rds"))
+#
+# pc_by_crop <- pc |>
+#   as.data.frame() |>
+#   dplyr::group_by(y4_hhid, cropid) |>
+#   dplyr::summarise(harvest_kg = sum(total_harvest, na.rm = TRUE), .groups = "drop")
+#
+# cd_by_crop <- crop_disp |>
+#   as.data.frame() |>
+#   dplyr::group_by(y4_hhid, cropid) |>
+#   dplyr::summarise(dest_sold_kg = sum(sold, na.rm = TRUE), .groups = "drop")
+#
+# crops_no_dest <- pc_by_crop |>
+#   dplyr::anti_join(cd_by_crop, by = c("y4_hhid", "cropid"))
+#
+# message("E_crops_no_dest: n = ", nrow(crops_no_dest))
+# # Profile: crop type distribution
+# print(dplyr::count(crops_no_dest, cropid, sort = TRUE))
+# # Profile: harvest quantity in unmatched records
+# summary(crops_no_dest$harvest_kg)
+
+# --- EXCLUSION E_dest_no_crops: destination records with no matching crop ---
+# Source: 04_build_households.R — Section 4 (C06 anti-join)
+# Type: misalignment — known finding (see FLAGS_REVIEW.md, methods appendix)
+# Note: these are entries in crop_disp.rds with no corresponding production
+#       record in pc.rds. May reflect crops planted in a season not covered by pc,
+#       or data entry errors in cropid coding.
+# Action needed: profile by crop type and disposition channel (sold, consumed, stored);
+#       compare with crops_no_dest; check if cropid coding differs across sections.
+# Stub — run after households.rds is available:
+#
+# dest_no_crops <- cd_by_crop |>
+#   dplyr::anti_join(pc_by_crop, by = c("y4_hhid", "cropid"))
+#
+# message("E_dest_no_crops: n = ", nrow(dest_no_crops))
+# # Profile: crop type distribution
+# print(dplyr::count(dest_no_crops, cropid, sort = TRUE))
+# # Profile: disposition quantities in unmatched records
+# summary(dest_no_crops$dest_sold_kg)
+
+# --- EXCLUSION E_structural_zero_guard: households where guard changed a value ---
+# Source: 04_build_households.R — Section 6 (structural zero guards)
+# Type: structural zero (confirmed by roster) or potential data issue
+# Note: the case_when guards in Section 6 may set values to 0 (confirmed structural)
+#       or to NA (ambiguous — roster says "yes" but value is missing).
+#       Both types need profiling before exclusion or imputation decisions.
+# Action needed: count households affected per variable; cross-tabulate with
+#       region and asset index to check for systematic patterns.
+# Stub — run after households.rds is available:
+#
+# households <- readRDS(here::here("data", "processed", "households.rds"))
+#
+# # Milk: households with cattle but NA milk yield (guard set to NA_real_)
+# milk_guard <- households |>
+#   dplyr::filter(!is.na(n_cattle) & n_cattle > 0 & is.na(milk_total_kg))
+# message("E_structural_zero_guard — milk: ", nrow(milk_guard),
+#         " households with cattle but NA milk yield")
+#
+# # Eggs: households with poultry but NA egg production (guard set to NA_real_)
+# egg_guard <- households |>
+#   dplyr::filter(!is.na(n_poultry) & n_poultry > 0 & is.na(egg_produced_kg))
+# message("E_structural_zero_guard — eggs: ", nrow(egg_guard),
+#         " households with poultry but NA egg production")
+#
+# # Harvest: households not in crops roster (guard set to 0)
+# harvest_guard <- households |>
+#   dplyr::filter(is.na(crop_n_crops))
+# message("E_structural_zero_guard — harvest: ", nrow(harvest_guard),
+#         " households not in crops roster (harvest set to 0)")
