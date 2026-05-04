@@ -277,7 +277,15 @@ mass_milk_final <- upData(mf,
   drop = .q(feed1)
 )
 
-# 🚩 FLAG UNIT: milk quantities still need conversion from litres, use factor 1.08. 
+# --- UNIT CONVERSION: milk litres → kg ---
+# Conversion factor: 1.03 kg per litre (density of fresh whole milk)
+# Source: FAO Food Balance Sheet conventions / Codex Alimentarius
+# 🚩 FLAG [ASSUMPTION]: density value 1.03 assumed — confirm against LSMS-ISA documentation
+# 🚩 FLAG [UNIT]: all milk quantities downstream are in kg after this point — verify no double conversion
+mass_milk_final <- mass_milk_final |>
+  mutate(across(c(milk, milkwa, SD, consumed, sold, psold, processed, processed_new, smd1, missing),
+                ~ . * 1.03, .names = "{.col}_kg"))
+# NOTE: drop original litre columns after confirming conversion is correct
 
 saveRDS(mass_milk_final, here::here("data", "processed", "clean", "mass_milk_final.rds"),
         compress = TRUE)

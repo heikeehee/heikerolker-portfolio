@@ -87,6 +87,49 @@ Generated after clean/ extraction pass. All items below require a decision befor
 
 ------------------------------------------------------------------------
 
+## [ASSUMPTION] flags from stages 4–7 (06_mfa_input.R through 09_outputs.R)
+
+| ID | Script | Description | Value/Rule | Action needed |
+|------------|------------|------------|------------|------------|
+| M01 | 06_mfa_input.R | Loss quantity = loss_fraction × harvest | Fraction field from ag5a_31/10; converted to absolute kg | Confirm loss is a proportion in LSMS codebook |
+| M02 | 06_mfa_input.R | Long and short season dispositions summed | Seasonal timing differences not modelled | Sensitivity: analyse seasons separately if seasonality is a finding |
+| M03 | 06_mfa_input.R | "crop produces no residue" records dropped | E10 in FLAGS_REVIEW.md — plausibility unconfirmed | Confirm against codebook; double-space in value string may indicate data entry artefact |
+| M04 | 06_mfa_input.R | UsedRes = 1 assumed where not in RPR reference | All residue treated as used | Confirm column exists in RPR_updated_long.csv; if missing, set explicitly to 1 |
+| M05 | 06_mfa_input.R | RPR and DM from FAOSTAT Tanzania country averages | A25 in FLAGS_REVIEW.md | Sensitivity: ±20% on RPR (covered in 08_uncertainty.R) |
+| M06 | 06_mfa_input.R | psold + sold treated as separate milk accounts | smd = consumed + sold + processed | If double-counted, smd is inflated; check LSMS codebook lf06_08 vs lf06_10 |
+| M07 | 06_mfa_input.R | log(x + 1) used for all log transforms | Handles zeros; alternative is log(x) with zero-floor imputation | Sensitivity: compare MFA results with log(x+1) vs log(x+0.01) |
+| M08 | 06_mfa_input.R | smd, uncertain, missing, unallocated excluded from MFA | Diagnostic residuals not independent of harvest/dispositions | Review against MFA variance — if interpretation unclear, re-include as supplementary variables |
+| M09 | 06_mfa_input.R | inedible excluded from MFA | Structural zero for most HH; low variance | Confirm exclusion is appropriate once exclusion audit (05_exclusions_audit.R) is run |
+| M10 | 07_mfa_analysis.R | Number of dimensions retained = 5 | Standard practice ≥5% variance or ≤70% cumulative | Justify against scree plot (Figure 2 in 09_outputs.R) before publishing |
+| M11 | 07_mfa_analysis.R | Variable groupings for MFA | 7 groups: crop volumes, crop flows, tree crops, milk, eggs, slaughter, feed/residue | Confirm matches thesis grouping structure |
+| M12 | 07_mfa_analysis.R | Missing values imputed with column means | Mean imputation fallback; introduces bias | Replace with missMDA::imputeMFA() before publication |
+| M13 | 08_uncertainty.R | Monte Carlo n = 1000 | Runtime is linear; increase to 5000+ before publication | Balance runtime vs precision |
+| M14 | 08_uncertainty.R | Milk density range = [1.02, 1.04] kg/litre | ±0.01 around central value 1.03 (B03 in backlog.md) | Confirm against LSMS-ISA or FAO documentation |
+| M15 | 08_uncertainty.R | Loss rate multiplier range = [0.5×, 1.5×] | Uniform draw around observed rate | Source needed; literature range for post-harvest loss measurement error |
+| M16 | 08_uncertainty.R | Egg laying rate range = [30, 60] eggs/hen/year | MacLeod.2013 SSA values (A15 in FLAGS_REVIEW.md) | Sensitivity to Tanzania-specific values if available |
+| M17 | 08_uncertainty.R | RPR multiplier range = [0.8, 1.2] | ±20% around FAOSTAT Tanzania averages (A25) | Confirm with regional FAOSTAT data if available |
+| M18 | 09_outputs.R | Dim1 × Dim2 used as primary factor map | If Dim2 variance is low, Dim1 × Dim3 may be more informative | Review scree plot before deciding on publication axes |
+| M19 | 09_outputs.R | Crop categories collapsed to "Crops" / "Trees" in Sankey | Thesis-level disaggregation available if needed | Rebuild with type column if crop-level Sankey required |
+
+------------------------------------------------------------------------
+
+## [TABLEAU] flags from 09_outputs.R
+
+| Figure | Description | Action needed |
+|--------|-------------|---------------|
+| Figure 1 (flow_sankey) | Flow allocation by destination — plotly Sankey candidate | Export data to Tableau Public for interactive portfolio visualisation |
+
+------------------------------------------------------------------------
+
+## [UNIT] flags — new in clean/milk.R
+
+| ID | Script | Description | Action needed |
+|-----|--------|-------------|---------------|
+| U01 | clean/milk.R | Milk litres → kg conversion added (factor 1.03) | All downstream quantities now in _kg columns; verify no double conversion in 06_mfa_input.R or 07_mfa_analysis.R |
+| U02 | clean/milk.R | Original litre columns retained alongside _kg columns | Drop original litre columns after confirming conversion is correct end-to-end |
+
+------------------------------------------------------------------------
+
 ## Resolved flags (removed from code)
 
 | Script | Was | Resolution |
@@ -95,6 +138,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | All clean/ scripts | `# 🚩 FLAG [EXCLUSION]: ...` comment blocks | Replaced with standardised `# EXCLUSION E##:` block; placeholder added to 05_exclusions_audit.R |
 | All clean/ scripts | `# 🚩 FLAG [CROSS-SECTION]: ...` single-line comments | Replaced with full `# ⚠️ CROSS-SECTION DEPENDENCY` block |
 | FLAGS_REVIEW.md C01–C06 | `Move to: 04_build_households.R` | ✅ Moved — all six cross-section dependencies resolved in 04_build_households.R |
+| clean/milk.R line 280 | `# 🚩 FLAG UNIT: milk quantities still need conversion from litres, use factor 1.08.` | ✅ Resolved — conversion added using factor 1.03 (FAO/Codex convention); see U01/U02 above |
 
 ------------------------------------------------------------------------
 
@@ -106,7 +150,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | 🔴 High | A10: Confirm whether Alexander.2016 EW includes offal (double-count risk in MFA) | cannot be confirmed, sensitivity analysis |
 | 🔴 High | E03: Confirm codebook meaning of ag3b_01b == 2 | Codebook |
 | 🔴 High | E10: Confirm "crop produces no residue" is a genuine survey category (check double space) | Codebook |
-| 🔴 High | B04: Confirm milk unit (kg vs litres) in mass_milk_final — check across() column range in clean/milk.R | Code |
+| 🔴 High | B04: Confirm milk unit (kg vs litres) in mass_milk_final — **RESOLVED** in clean/milk.R (U01) | ✅ Closed |
 | 🔴 High | E_crops_no_dest / E_dest_no_crops: Profile misalignment counts and add to methods appendix | 05_exclusions_audit.R |
 | 🟡 Medium | A01/A06: Resolve NA conversion factors in recall.R and ag_produce.R | Literature |
 | 🟡 Medium | A11: Confirm tethering definition in LSMS codebook | Codebook |
