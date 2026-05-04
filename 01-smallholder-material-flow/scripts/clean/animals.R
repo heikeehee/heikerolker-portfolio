@@ -62,7 +62,8 @@ animals <- upData(animals,
   # Replace NA with structural 0 where survey question was answered "no"
   # 🚩 FLAG ASSUMPTION: Sentinel 0 applied when gateway question == "no".
   # If a household selected "no" in error (e.g. recall fatigue), these zeros
-  # are incorrect. Profile distribution of zeros vs NAs in 05_exclusions_audit.R.
+  # are incorrect. Condition should account for is.na and == "no" in case "yes" should have been selected. 
+  # Profile distribution of zeros vs NAs in 05_exclusions_audit.R.
   bought   = ifelse(lf02_06 == "no", 0, bought),
   gift     = ifelse(lf02_09 == "no", 0, gift),
   gifted   = ifelse(lf02_12 == "no", 0, gifted),
