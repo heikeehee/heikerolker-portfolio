@@ -27,6 +27,10 @@
 #   7. Fish, honey, and other non-standard livestock: excluded from feed estimation
 #      — insufficient reference data.
 #
+# ADDITIONAL ASSUMPTIONS (from clean/animals.R — documented here as canonical source):
+#   A10. Carcass breakdown coefficients: see Section below
+#   A11. Tethering → feed2 replacement: see Section below
+#
 # =============================================================================
 
 library(here)
@@ -171,3 +175,35 @@ saveRDS(mass_animals,
 
 message("impute/animals.R: feed imputation complete. ",
         nrow(mass_animals), " animal records processed.")
+
+# =============================================================================
+# ASSUMPTIONS REGISTRY — sourced from clean/animals.R
+# =============================================================================
+
+# --- ASSUMPTION A10: Carcass breakdown coefficients ---
+# Source: @Hal.2020 p.151; @beefyieldguide; @lambyieldguide; @Alexander.2016; @Opio.2013 p.171
+#   — literature-derived, not survey-measured
+# Value: Proportional breakdown of live slaughter weight into:
+#   meat (raw meat fraction), offal (offals + fat), hides (feather meal / hides),
+#   waste (bone meal + bloodmeal + meat & bonemeal), edible weight (EW_A16),
+#   and feed conversion ratio (FCR_A16).
+#   Coefficients loaded from data/reference/breakdown.xlsx via raw$ref$breakdown.
+#   Note: Beef cattle excluded from breakdown.xlsx (handled via @Opio.2013 separately).
+# Applied in: clean/animals.R — Section 2 (carcass breakdown), breakdown table join
+# Sensitivity: Particularly uncertain: whether @Alexander.2016 edible weight (ew)
+#   includes offal. If it does, offal would be double-counted in downstream MFA.
+#   Review archived 03_Animals.Rmd note on this. Sensitivity run: exclude offal
+#   from ew calculation as lower bound.
+# 🚩 FLAG [ASSUMPTION]: retained from clean/ review — confirm value before running 08_uncertainty.R
+
+# --- ASSUMPTION A11: Tethering replaced with secondary feed practice ---
+# Source: unknown — expert judgement (definition not confirmed in LSMS codebook)
+# Value: If feed1 == "tethering" AND feed2 is not NA, replace feed1 with feed2.
+#   When feed2 is also unavailable, tethering is retained and assigned 50/50 feed/graze split
+#   by the feed fraction tables (see above).
+# Applied in: clean/animals.R — Section 3 (feeding practices), feed_short derivation
+# Code: feed[, feed1 := ifelse(feed1 == "tethering" & !is.na(feed2), feed2, feed1)]
+# Sensitivity: If tethering is associated with a specific feeding intensity (e.g. higher
+#   supplementary feed than assumed), the 50/50 split would underestimate feed requirements.
+#   Confirm codebook definition of tethering before stage 3.
+# 🚩 FLAG [ASSUMPTION]: retained from clean/ review — confirm value before running 08_uncertainty.R

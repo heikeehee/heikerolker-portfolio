@@ -30,9 +30,7 @@ lf_sec_06 <- raw$milk$lf_sec_06
 milk       <- clean_up(lf_sec_06)
 
 # Manual fixes for three households with missing average milk production
-# 🚩 FLAG ASSUMPTION: Three households with missing average (lf06_03) filled
-# by inspection of raw data — hardcoded by design.
-# Review if raw data changes; see archived 04_Milk.Rmd for rationale.
+# ASSUMPTION REMOVED — see impute/milk.R (A18)
 milk <- milk %>%
   mutate(
     # 1001-001: only lowest value reported — use lo as average
@@ -108,9 +106,9 @@ milk <- upData(milk,
 )
 
 # Keep only milkable species (large and small ruminants)
-# 🚩 FLAG EXCLUSION: Non-ruminant livestock categories dropped from milk section.
-# Confirm no milkable animals (e.g. camels) are coded under other categories
-# — profile in 05_exclusions_audit.R
+# EXCLUSION E06: non-ruminant livestock categories dropped from milk section
+# Type: structural zero (non-ruminants do not produce milk in this context)
+# Profiled in: 05_exclusions_audit.R
 milk <- milk[lvstckcat == "large ruminants" | lvstckcat == "small ruminants"]
 
 saveRDS(milk, here::here("data", "processed", "clean", "milk.rds"), compress = TRUE)
@@ -124,9 +122,7 @@ saveRDS(milk, here::here("data", "processed", "clean", "milk.rds"), compress = T
 cleaned_data <- milk %>%
   mutate(
     # Replace processed with psold if processed < psold (sold > what was processed — data inconsistency)
-    # 🚩 FLAG ASSUMPTION: processed = psold when processed < psold.
-    # Treats psold as a lower bound on processed. Review if processing and sales
-    # data are more reliable than assumed here.
+    # ASSUMPTION REMOVED — see impute/milk.R (A19)
     processed_new    = ifelse(processed < psold, psold, processed),
     processed_new    = replace_na(processed_new, 0),
     smd1             = consumed + sold + processed_new,   # sum of all dispositions
@@ -149,14 +145,12 @@ cleaned_data <- milk %>%
     corrected_max = ifelse(is.na(hi) | is.na(corrected_avg), hi, pmax(hi, corrected_avg)),
 
     # Uncertainty: range / 4 approximation (assumes normal distribution)
-    # 🚩 FLAG ASSUMPTION: SD = range / 4. Standard approximation — not survey-derived.
+    # ASSUMPTION REMOVED — see impute/milk.R (A20)
     range = ifelse(is.na(corrected_max) | is.na(corrected_min), NA, corrected_max - corrected_min),
     SD    = ifelse(is.na(range), NA, range / 4),
 
     # Representative production value
-    # 🚩 FLAG ASSUMPTION: new_av = 0.2*min + 0.6*avg + 0.2*max (PERT-like weighting).
-    # Method chosen as it gave fewest exclusions (n=92) vs alternatives tested.
-    # See archived 04_Milk.Rmd for comparison of methods.
+    # ASSUMPTION REMOVED — see impute/milk.R (A21)
     new_av = ifelse(
       av == smd1, av,
       0.2 * corrected_min + 0.6 * corrected_avg + 0.2 * corrected_max
@@ -181,9 +175,9 @@ excl_milk <- cleaned_data %>%
   ) %>%
   mutate(
     excl = fcase(
-      # 🚩 FLAG EXCLUSION: Exclusion rules for milk — thresholds based on
-      # physiological plausibility and manual inspection. Not codebook-specified.
-      # Profile excluded households in 05_exclusions_audit.R.
+      # EXCLUSION E07: exclusion rules for milk — thresholds based on physiological plausibility
+      # Type: unclear — FLAG (thresholds not codebook-specified)
+      # Profiled in: 05_exclusions_audit.R
       period > 310 & milked == 1,                                          "Implausible",
       smd1 > 7    & milked == 1,                                           "Implausible",
       mean * 1.2 < consumed | mean * 1.2 < sold | mean * 1.2 < processed_new, "Data inconsistent",
@@ -224,18 +218,18 @@ saveRDS(mass_milk, here::here("data", "processed", "clean", "mass_milk.rds"), co
 
 # =============================================================================
 # SECTION 4: MILK FEED REQUIREMENTS
-# 🚩 FLAG CROSS-SECTION: feed_short from clean/animals.R required here.
-# Feed factors from @Opio.2013 — same approach as in impute/animals.R.
-# Consider consolidating feed tables into a shared reference object.
+# ⚠️ CROSS-SECTION DEPENDENCY
+# This script uses feed_short from clean/animals.R.
+# This should move to 04_build_households.R when that script is written.
+# Retained here temporarily to keep pipeline runnable.
+# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
 f <- readRDS(here::here("data", "processed", "clean", "feed_short.rds"))
 
 # Feed fractions by animal type and feeding practice
 # Source: @Opio.2013 p.119 (small ruminants), p.117 (dairy cattle)
-# 🚩 FLAG ASSUMPTION: Feed fraction tables below are duplicated in impute/animals.R.
-# Consolidate into a shared reference (e.g. data/reference/feed_fractions.csv)
-# when both scripts are stable — maintenance risk if assumptions change.
+# ASSUMPTION REMOVED — see impute/milk.R (A22)
 smrum <- data.table(
   feed1  = c("only feeding (no grazing/scavenging)",
              "mainly grazing/scavenging w/ some feeding",
@@ -264,9 +258,7 @@ milk3    <- setDT(mass_milk)
 mf       <- f[milk3, on = c("y4_hhid", "type")]
 mf       <- milkfeed[mf, on = c("type", "feed1")]
 
-# 🚩 FLAG ASSUMPTION: Feed conversion ratio 0.7 kg DM / kg milk from @Alexander.2016.
-# Applied uniformly to small and large ruminants — no differentiation.
-# Review with domain expert; consider separate FCRs for large vs small ruminants.
+# ASSUMPTION REMOVED — see impute/milk.R (A23)
 mf <- upData(mf,
   need   = milk * 0.7,
   feed   = need * feed,
