@@ -15,10 +15,6 @@
 #          ag_sec_4a/4b (crop harvest), ag_sec_6a/6b (tree harvest)
 # =============================================================================
 
-library(here)
-library(tidyverse)
-library(data.table)
-
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
@@ -66,7 +62,7 @@ plots <- upData(plots,
     ag2a_09 = gps_area,
     ag2a_10 = weather
   ),
-  # 🚩 FLAG UNIT: Acres-to-hectares conversion — factor 0.40468564224
+  # Acres-to-hectares conversion — factor 0.40468564224
   # Source: standard international conversion; not codebook-specified.
   # Review if LSMS documentation uses a different factor.
   area_new     = area * 0.40468564224,
@@ -173,15 +169,14 @@ crops <- upData(crops,
   ),
 
   # Replace NA with structural 0 where no harvest occurred
-  # 🚩 FLAG EXCLUSION: harvest_remain, area_harvested, quant_harvest set to 0 when
+  # 🚩 FLAG ASSUMPTION: harvest_remain, area_harvested, quant_harvest set to 0 when
   # harvested == "no". Verify this is structural (crop failed) not missing data
-  # — profile in 05_exclusions_audit.R
   harvest_remain    = ifelse(finished == "yes", 0, harvest_remain),
   area_harvested    = ifelse(harvested == "no", 0, area_harvested),
   harvest_remain    = ifelse(harvested == "no", 0, harvest_remain),
   quant_harvest     = ifelse(harvested == "no", 0, quant_harvest),
 
-  # 🚩 FLAG UNIT: Acres-to-hectares — same factor as plots. Not codebook-specified.
+  # Acres-to-hectares — same factor as plots. Not codebook-specified.
   area_harvested_new = area_harvested * 0.40468564224,
 
   labels = .q(
@@ -244,7 +239,7 @@ pc[, quant_unharvested := ifelse(
 
 # 🚩 FLAG ASSUMPTION: total_harvest = harvest_remain + quant_harvest.
 # Assumes remaining harvest will be fully collected — may overestimate if crop
-# is later abandoned. Decision required before stage 3.
+# is later abandoned or lost.
 pc[, total_harvest := harvest_remain + quant_harvest]
 
 pc[, area_remain := area_planted_new - area_harvested_new]
@@ -369,9 +364,6 @@ long <- ag_sec_3a %>%
 short <- ag_sec_3b %>%
   setDT() %>%
   add_column(season = "short") %>%
-  # 🚩 FLAG EXCLUSION: ag3b_01b == 2 filters short-season plots; confirm codebook
-  # meaning (likely "plot was cultivated in short season"). Profile count in
-  # 05_exclusions_audit.R — decision required before stage 3.
   filter(ag3b_01b == 2) %>%
   select(!ag3b_01b) %>%
   select(occ, y4_hhid, plotnum,
@@ -385,7 +377,7 @@ colnames(short) <- colnames(long)
 labs       <- lapply(short, attr, "label")
 labs       <- unlist(labs, use.names = TRUE)
 
-plots_full <- long %>%
+plots_full <- long %>% # lists all plots cultivated in long and short season, includes duplication if cultivated all year long
   bind_rows(short) %>%
   clean_up()
 

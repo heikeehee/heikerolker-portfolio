@@ -13,9 +13,6 @@
 #          uses the same logic; consider refactoring to share that table.
 # =============================================================================
 
-library(here)
-library(tidyverse)
-library(data.table)
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
