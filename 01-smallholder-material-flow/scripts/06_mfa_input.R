@@ -33,8 +33,8 @@
 #
 #   HARVEST (kg)
 #       │
-#       ├── sold (raw)
-#       ├── consumed (raw)
+#       ├── sold (raw or processed, not specified)
+#       ├── consumed (raw or processed, not specified)
 #       ├── stored
 #       ├── seed
 #       ├── gifted / payment
@@ -138,7 +138,7 @@ message("06_mfa_input.R: ", n_processed_hh, " households with processing records
 
 # 🚩 FLAG [ASSUMPTION]: total_accounted = sold + consumed + stored + seed + payment +
 #   gifts + feed + losses + processing (sent_to_processing_kg).
-# Processed products (product_kg, byproduct_kg) do NOT add to total_accounted —
+# Processed products (product_kg, byproduct_kg) do NOT add to total_accounted and doublecounts with sold/consumed —
 # they decompose sent_to_processing only (canonical rule — see header comment).
 # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE in rowSums — NAs treated as 0.
 # Profile NA prevalence per variable in 05_exclusions_audit.R.
