@@ -11,9 +11,6 @@
 # All rates flagged for sensitivity analysis — see backlog.md B05
 # =============================================================================
 
-library(here)
-library(tidyverse)
-
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
@@ -52,7 +49,7 @@ extraction_rates <- tribble(
 # STEP 2: LOAD CLEANED PROCESSED-CROP DATA
 # =============================================================================
 
-ag_produce <- readRDS(here::here("data", "processed", "clean", "ag_produce.rds"))
+ag_produce <- zap_all(readRDS(here::here("data", "processed", "clean", "ag_produce.rds")))
 
 # Diagnostic: unique crops in ag_produce
 n_crops_raw <- n_distinct(ag_produce$cropid, na.rm = TRUE)
