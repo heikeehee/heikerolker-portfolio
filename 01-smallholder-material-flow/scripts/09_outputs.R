@@ -117,6 +117,15 @@ message("TABLE 4 saved: table4_uncertainty_summary.csv")
 # Source logic: archive/99_C3a.Rmd — sankey() function and data preparation
 # 🚩 FLAG [TABLEAU]: this chart is the candidate for Tableau Public — flow allocation by destination
 # The plotly Sankey is best rendered interactively; export to Tableau for portfolio.
+#
+# Population Sankey built inline below using networkD3.
+# utils/mfa_flow.R provides the canonical wrappers for Sankey construction:
+#   - mfa_flow_type(data_list)    — population-level flow (sums across HH before mfafun)
+#   - mfa_flow_hh(data_list, id)  — single-household flow (for project 03 individual profiles)
+#   - mfa_flow_all_hh(data_list)  — named list of flows for all HH (project 03 clustering input)
+# To rebuild this Sankey via mfa_flow_type(), load the mfa_list (crops/meat/ap) and call:
+#   flow_data <- mfa_flow_type(mfa_list)
+#   sankey(flow_data)
 # =============================================================================
 
 # FIGURE 1: Material flow Sankey — absolute kg from households

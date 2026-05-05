@@ -29,29 +29,17 @@
 #                                  unallocated pattern for crops, milk, eggs, animals)
 # =============================================================================
 #
-# MASS BALANCE RULE (canonical — from analysis/03-sankey.R):
-#
-#   HARVEST (kg)
-#       │
-#       ├── sold (raw or processed, not specified)
-#       ├── consumed (raw or processed, not specified)
-#       ├── stored
-#       ├── seed
-#       ├── gifted / payment
-#       ├── fed to animals (raw)
-#       └── sent_to_processing_kg ──→ PROCESSING NODE
-#                                           │
-#                                 input = sent_to_processing_kg
-#                                           │
-#                             ┌─────────────┴─────────────┐
-#                             ↓                           ↓
-#                       product_kg                  byproduct_kg
-#                 = input × extraction_rate   = input × (1−extraction_rate)
-#
-#   Total harvest = raw_sold + raw_consumed + stored + seed
-#                 + gifted + payment + fed_raw + sent_to_processing
-#   ← processed products do NOT add to harvest total
-#   ← they decompose sent_to_processing only
+# --- PROCESSING NODE: flow structure ---
+# Processing is carved out of harvest as a SEPARATE destination (not included in sold/consumed).
+# sold/consumed in first_flow = raw crop only.
+# prodsold/prodconsumed = processed product flows, tracked separately out of the processing node.
+# Mass balance:
+#   harvest = consumed_raw + sold_raw + transfer + losses + stored + feed + processing + missing
+#   processing = prodsold + prodconsumed + waste
+# 🚩 FLAG [ASSUMPTION]: if survey respondents reported processed sales within raw sold totals,
+#    this creates a negative balance gap at the processing node.
+#    Diagnosis: check sign of balance_gap where sent_to_processing > 0 — backlog B05.
+# Cross-reference: utils/mfa_flow.R mfafun() — canonical flow structure
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
@@ -199,7 +187,15 @@ crops_hh <- crops_mb[,
     seed           = sm(seed),
     payment        = sm(payment),
     gifts          = sm(gifts),
-    feed_crops     = sm(feed),
+    feed_crops     = sm(feed),  # 🚩 FLAG [UNIT]: feed_crops = kg fresh weight (crop destination record)
+    # Units are not comparable with feed_animals_kgDM (Section 8) — fresh weight ≠ dry matter.
+    # Correction requires per-crop DM conversion factors applied to crop-level feed quantities.
+    # LSMS-ISA does not record which crops were fed — conversion unresolvable for most households.
+    # Decision: sum as-is. Sankey flow proportions remain informative; absolute values are not kg DM.
+    # Do not cite absolute feed totals as dry matter equivalents.
+    # [partial correction attempted in archive/03_Animals.Rmd (liveweight-derived feed in kg DM) —
+    #  crop-level fresh weight feed not converted — not carried forward]
+    # Backlog B08 — revisit if crop-level feed recording improves in future survey waves.
     losses_crops   = sm(losses),
     smd_crops      = sm(smd),
     missing_crops  = sm(missing),

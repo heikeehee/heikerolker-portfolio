@@ -140,6 +140,8 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | FLAGS_REVIEW.md C01–C06 | `Move to: 04_build_households.R` | ✅ Moved — all six cross-section dependencies resolved in 04_build_households.R |
 | clean/milk.R line 280 | `# 🚩 FLAG UNIT: milk quantities still need conversion from litres, use factor 1.08.` | ✅ Resolved — conversion added using factor 1.03 (FAO/Codex convention); see U01/U02 above |
 | FLAGS_REVIEW.md B02 | "Household roster not yet a dedicated clean script" | ✅ Resolved — `clean/household_roster.R` created; sourced first in 00_run_pipeline.R |
+| 06_mfa_input.R header | "MASS BALANCE RULE — sold (raw or processed, not specified)" | ✅ Resolved — corrected to: processing is a SEPARATE destination; sold/consumed = raw crop only; corrected comment now in code (--- PROCESSING NODE: flow structure ---). Cross-reference: utils/mfa_flow.R mfafun() |
+| 09_outputs.R Figure 1 | No reference to mfa_flow_type() / mfa_flow_hh() | ✅ Resolved — note added: mfa_flow_type() for population Sankey; mfa_flow_hh() available for project 03 single-household Sankey |
 
 ------------------------------------------------------------------------
 
@@ -193,6 +195,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 |----|----|----|----|
 | U03 | impute/processed_crops.R | sent_to_processing_kg from ag10_05 — confirm field is already in kg (not litres) | Check ag_produce section codebook: ag10_05 unit — if litres, conversion needed before applying extraction rates |
 | U04 | 06_mfa_input.R | Milk quantities: all \_kg columns used (factor 1.03 from clean/milk.R) | Verify no litre columns accidentally used; double-check col names in mass_milk_final.rds |
+| U05 | 06_mfa_input.R / utils/mfa_flow.R | feed_crops = kg fresh weight; feed_animals_kgDM = kg DM — units not comparable | Decision: sum as-is; Sankey proportions informative but absolute feed totals are not kg DM. Backlog B08 — revisit if crop-level feed recording improves |
 
 ------------------------------------------------------------------------
 
