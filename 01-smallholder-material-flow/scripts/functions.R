@@ -18,11 +18,14 @@ md <- function(x) median(x, na.rm = TRUE)
 mn <- function(x) mean(x, na.rm = TRUE)
 
 zap_all <- function(df) {
-  df <- as.data.frame(df)
-  df <- haven::zap_labels(df)
-  df <- haven::zap_label(df)
-  data.table::setDT(df)   # modifies in place AND returns invisibly — must be last
-  df                       # return the now-modified data.table
+  dt <- data.table::as.data.table(df)
+  labelled_cols <- names(dt)[sapply(dt, function(x) inherits(x, "labelled"))]
+  if (length(labelled_cols) > 0) {
+    dt[, (labelled_cols) := lapply(.SD, function(x) {
+      if (is.character(x)) as.character(x) else as.double(x)
+    }), .SDcols = labelled_cols]
+  }
+  dt
 }
 # -----------------------------------------------------------------------------
 # Unit scaling

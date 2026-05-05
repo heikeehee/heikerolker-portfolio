@@ -176,11 +176,15 @@ crops_ct <- rbindlist(
 # 🚩 FLAG [ASSUMPTION]: missing = max(harvest − smd, 0); negative balance set to 0
 crops_mb <- rbindlist(
   list(
-    mass_crops[, .(y4_hhid, cropid, harvest, smd)],
-    mass_trees[, .(y4_hhid, cropid, harvest, smd)]
+    mass_crops[, .(y4_hhid, cropid,
+                   harvest = as.double(harvest),
+                   smd     = as.double(smd))],
+    mass_trees[, .(y4_hhid, cropid,
+                   harvest = as.double(harvest),
+                   smd     = as.double(smd))]
   ),
   fill = TRUE
-)[, missing := pmax(as.double(harvest) - as.double(smd), 0)]
+)[, missing := pmax(harvest - smd, 0)]
 
 crops_ct <- merge(crops_ct, crops_mb[, .(y4_hhid, cropid, missing)],
                   by = c("y4_hhid", "cropid"), all.x = TRUE)
@@ -258,34 +262,39 @@ setnafill(meat_full, fill = 0, cols = c("prodproduced", "prodsold", "hides_cons"
 milk_ap <- mass_milk_final[, .(
   y4_hhid,
   type,
-  product      = "milk",
-  feed,
-  grazed,
-  produced     = milk_kg,
-  consumed     = consumed_kg,
-  sold         = sold_kg,
-  missing      = missing_kg,
-  processing   = processed_new_kg,   # milk sent for processing (butter, yoghurt)
-  prodsold     = psold_kg            # processed milk product sold
+  product    = "milk",
+  feed       = as.double(feed),
+  grazed     = as.double(grazed),
+  produced   = as.double(milk_kg),
+  consumed   = as.double(consumed_kg),
+  sold       = as.double(sold_kg),
+  missing    = as.double(missing_kg),
+  processing = as.double(processed_new_kg),# milk sent for processing (butter, yoghurt)
+  prodsold   = as.double(psold_kg)# processed milk product sold
 )]
-
 # 🚩 FLAG [ASSUMPTION]: egg processing = 0 (no egg processing flow modelled yet)
 # 🚩 FLAG [ASSUMPTION]: egg consumed = 0 placeholder — see impute/animal_products.R (A17)
 eggs_ap <- mass_eggs[, .(
   y4_hhid,
   type,
-  product      = "eggs",
-  feed,
-  grazed,
-  produced,
-  consumed,
-  sold,
-  missing,
-  processing   = 0,
-  prodsold     = 0
+  product    = "eggs",
+  feed       = as.double(feed),
+  grazed     = as.double(grazed),
+  produced   = as.double(produced),
+  consumed   = as.double(consumed),
+  sold       = as.double(sold),
+  missing    = as.double(missing),
+  processing = 0,
+  prodsold   = 0
 )]
 
-ap_full <- rbindlist(list(milk_ap, eggs_ap), fill = TRUE)
+ap_full <- rbindlist(
+  list(
+    milk_ap[, lapply(.SD, function(x) if (inherits(x, "labelled")) as.double(x) else x)],
+    eggs_ap[, lapply(.SD, function(x) if (inherits(x, "labelled")) as.double(x) else x)]
+  ),
+  fill = TRUE
+)
 
 # =============================================================================
 # Assemble and validate data_list
