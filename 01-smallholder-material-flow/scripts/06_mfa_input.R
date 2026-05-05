@@ -64,28 +64,29 @@ dir.create(here::here("data", "processed"), showWarnings = FALSE, recursive = TR
 # All flow allocation and cleaning already done in clean/ and impute/ scripts.
 # =============================================================================
 
-households   <- readRDS(here::here("data", "processed", "households.rds"))
+households   <- zap_all(readRDS(here::here("data", "processed", "households.rds")))
 
 # Crop & tree flow allocation (per hh × crop; smd already computed in destinations.R)
-mass_crops   <- setDT(readRDS(here::here("data", "processed", "clean", "mass_crops.rds")))
-mass_trees   <- setDT(readRDS(here::here("data", "processed", "clean", "mass_trees.rds")))
+mass_crops   <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_crops.rds")))
+mass_trees   <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_trees.rds")))
 
 # Milk — quantities in _kg columns (factor 1.03 from clean/milk.R; see U01, U04 in FLAGS_REVIEW.md)
 # 🚩 FLAG [UNIT]: use _kg columns only — do NOT use the original litre columns.
 # All downstream milk quantities in this script are in kg.
-mass_milk    <- setDT(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds")))
+# Milk — all quantities in litres EXCEPT _kg columns added in clean/milk.R
+mass_milk    <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds")))
 
 # Eggs
-mass_eggs    <- setDT(readRDS(here::here("data", "processed", "clean", "mass_eggs.rds")))
+mass_eggs    <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_eggs.rds")))
 
 # Residue estimates (DM, from clean/destinations.R)
-mass_residue <- setDT(readRDS(here::here("data", "processed", "clean", "mass_residue.rds")))
+mass_residue <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_residue.rds")))
 
 # Slaughter mass balance (imputed carcass breakdown: meat, offal, hides, inedible, feed)
-mass_animals <- setDT(readRDS(here::here("data", "processed", "impute", "mass_animals.rds")))
+mass_animals <- zap_all(readRDS(here::here("data", "processed", "impute", "mass_animals.rds")))
 
 # Hides — produced and sold from clean/animal_products.R
-mass_hides   <- setDT(readRDS(here::here("data", "processed", "clean", "mass_hides.rds")))
+mass_hides   <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_hides.rds")))
 
 # Processed crops — product/byproduct split from impute/processed_crops.R
 # 🚩 FLAG [CROSS-SECTION]: processed_crops joins ag_produce (sent_to_processing)
@@ -178,12 +179,8 @@ if ("processing" %in% names(mass_crops)) {
 
 # 🚩 FLAG [ASSUMPTION]: smd for crops = sold + stored + losses + consumed + payment + gifts + feed
 # residue (quantity residue sold) is excluded from smd — treated as external output,
-# not part of internal harvest disposition. Confirm interpretation against thesis.
-crops_mb <- mass_crops[, `:=`(
-  uncertain   = harvest - smd,
-  missing     = fifelse(harvest - smd < 0, (harvest - smd) * -1, 0),   # disposition > harvest
-  unallocated = fifelse(harvest - smd > 0, harvest - smd, 0)            # disposition < harvest
-)]
+# not part of internal harvest disposition. 
+crops_mb <- add_mb(mass_crops, "harvest", "smd")
 
 # Collapse to household level
 # 🚩 FLAG [ASSUMPTION]: crops collapsed across all crop types and seasons by sum.
@@ -209,11 +206,7 @@ crops_hh <- crops_mb[,
 # Same pattern as crops.
 # =============================================================================
 
-trees_mb <- mass_trees[, `:=`(
-  uncertain   = harvest - smd,
-  missing     = fifelse(harvest - smd < 0, (harvest - smd) * -1, 0),
-  unallocated = fifelse(harvest - smd > 0, harvest - smd, 0)
-)]
+trees_mb <- add_mb(mass_trees, "harvest", "smd")
 
 trees_hh <- trees_mb[,
   .(harvest_trees       = sm(harvest),
@@ -236,18 +229,13 @@ trees_hh <- trees_mb[,
 # =============================================================================
 
 # 🚩 FLAG [ASSUMPTION]: processed milk sold (psold_kg) is treated as a separate account
-# from raw milk sold (sold_kg). If the LSMS survey double-counts these, smd_milk is inflated.
-# Check codebook: lf06_08 (quantity sold raw) vs lf06_10 (processed sold) — are they additive?
+# from raw milk sold (sold_kg). If the LSMS survey double-counts these, smd_milk is inflated: it can be either! most unreliable measure
+# Check codebook: lf06_08 (quantity sold raw) vs lf06_10 (processed sold) — are they additive
 # NOTE: smd_milk uses processed_new_kg (corrected processed value) not psold_kg.
 # psold_kg is tracked separately in the household summary for reference only.
-milk_mb <- mass_milk[, `:=`(
-  smd_milk   = consumed_kg + sold_kg + processed_new_kg,
-  uncertain_milk = milk_kg - (consumed_kg + sold_kg + processed_new_kg),
-  missing_milk   = fifelse(milk_kg - (consumed_kg + sold_kg + processed_new_kg) < 0,
-                           (milk_kg - (consumed_kg + sold_kg + processed_new_kg)) * -1, 0),
-  unalloc_milk   = fifelse(milk_kg - (consumed_kg + sold_kg + processed_new_kg) > 0,
-                           milk_kg - (consumed_kg + sold_kg + processed_new_kg), 0)
-)]
+mass_milk[, smd_milk := as.double(consumed_kg) + as.double(sold_kg) + as.double(processed_new_kg)]
+milk_mb <- add_mb(mass_milk, "milk_kg", "smd_milk",
+                  unc = "uncertain_milk", mis = "missing_milk", unl = "unalloc_milk")
 
 milk_hh <- milk_mb[,
   .(produced_milk   = sm(milk_kg),
@@ -267,12 +255,9 @@ milk_hh <- milk_mb[,
 # =============================================================================
 
 # Note: mass_eggs is already in kg (eggs are reported in numbers × weight factor in clean/animal_products.R)
-eggs_mb <- mass_eggs[, `:=`(
-  smd_eggs     = sold + consumed,
-  uncertain_eg = produced - (sold + consumed),
-  missing_eg   = fifelse(produced - (sold + consumed) < 0, (produced - (sold + consumed)) * -1, 0),
-  unalloc_eg   = fifelse(produced - (sold + consumed) > 0, produced - (sold + consumed), 0)
-)]
+mass_eggs[, smd_eggs := as.double(sold) + as.double(consumed)]
+eggs_mb <- add_mb(mass_eggs, "produced", "smd_eggs",
+                  unc = "uncertain_eg", mis = "missing_eg", unl = "unalloc_eg")
 
 eggs_hh <- eggs_mb[,
   .(produced_eggs   = sm(produced),
@@ -296,16 +281,12 @@ eggs_hh <- eggs_mb[,
 # 🚩 FLAG [ASSUMPTION]: uncertain = total_weight - sold_weight - meat - offal - hides - inedible
 # Any difference reflects incomplete breakdown coverage (not waste).
 # This is the same approach as archive/06_Summary.Rmd.
-animals_mb <- mass_animals[, `:=`(
-  consumed_animals = meat + offal,
-  uncertain_an     = total_weight - sold_weight - meat - offal - hides - inedible,
-  missing_an       = fifelse(
-    total_weight - sold_weight - meat - offal - hides - inedible < 0,
-    (total_weight - sold_weight - meat - offal - hides - inedible) * -1, 0),
-  unalloc_an       = fifelse(
-    total_weight - sold_weight - meat - offal - hides - inedible > 0,
-    total_weight - sold_weight - meat - offal - hides - inedible, 0)
-)]
+mass_animals[, smd_animals := as.double(sold_weight) + as.double(meat) +
+               as.double(offal) + as.double(hides) + as.double(inedible)]
+animals_mb <- add_mb(mass_animals, "total_weight", "smd_animals",
+                     unc = "uncertain_an", mis = "missing_an", unl = "unalloc_an")
+# consumed_animals still needed for the hh summary
+animals_mb[, consumed_animals := meat + offal]
 
 animals_hh <- animals_mb[,
   .(slaughter_weight   = sm(total_weight),

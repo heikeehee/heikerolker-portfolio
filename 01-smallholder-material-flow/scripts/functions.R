@@ -17,7 +17,13 @@ rd <- function(df) df %>% dplyr::mutate_if(is.numeric, round, 1)
 md <- function(x) median(x, na.rm = TRUE)
 mn <- function(x) mean(x, na.rm = TRUE)
 
-
+zap_all <- function(df) {
+  df <- as.data.frame(df)
+  df <- haven::zap_labels(df)
+  df <- haven::zap_label(df)
+  data.table::setDT(df)   # modifies in place AND returns invisibly — must be last
+  df                       # return the now-modified data.table
+}
 # -----------------------------------------------------------------------------
 # Unit scaling
 # -----------------------------------------------------------------------------
@@ -340,7 +346,18 @@ mfafun <- function(list) {
   datamfa <- rbind(data, data2, data3)
 }
 
-
+# Mass balance columns for any flow table.
+# Requires: dt has 'harvest_col' and 'smd_col' already present and numeric.
+# Returns dt with uncertain, missing, unallocated columns added (all double).
+add_mb <- function(dt, harvest_col, smd_col,
+                   unc = "uncertain", mis = "missing", unl = "unallocated") {
+  dt[, diff := as.double(.SD[[harvest_col]]) - as.double(.SD[[smd_col]])
+  ][, c(unc, mis, unl) := list(
+    diff,
+    fifelse(diff < 0, -diff, 0.0),
+    fifelse(diff > 0,  diff, 0.0)
+  )][, diff := NULL]
+}
 # -----------------------------------------------------------------------------
 # Sankey diagram
 # -----------------------------------------------------------------------------
