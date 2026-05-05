@@ -23,6 +23,7 @@ source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
 raw_hh_sec_a   <- read_dta(here::here("data", "raw", "lsms", "hh_sec_a.dta"))
 raw_ag_filters  <- read_dta(here::here("data", "raw", "lsms", "ag_filters.dta"))
+raw_lf_filters  <- read_dta(here::here("data", "raw", "lsms", "lf_filters.dta"))
 
 # -----------------------------------------------------------------------------
 # CROPS — plot and crop production data (ag_sec sections)
@@ -139,6 +140,7 @@ raw <- list(
   # --- Household roster (SPINE) ---
   hh_sec_a   = raw_hh_sec_a,
   ag_filters  = raw_ag_filters,
+  lf_filters = raw_lf_filters,
   # --- LSMS-ISA survey sections ---
   crops = list(
     ag_sec_2a = raw_ag_sec_2a,  # plot roster, long rainy

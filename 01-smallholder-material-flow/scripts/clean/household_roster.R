@@ -12,12 +12,7 @@
 #
 # ASSUMPTIONS:
 #   All variable names below derived from LSMS-ISA Tanzania NPS Wave 4 codebook.
-#   Where names could not be confirmed from archive scripts, a 🚩 FLAG [BOUNDARY]
-#   comment is placed and the pipeline continues with NA for that variable.
 # =============================================================================
-
-library(tidyverse)
-library(here)
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
@@ -30,25 +25,15 @@ dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recur
 
 hh_sec_a <- raw$hh_sec_a
 
-# 🚩 FLAG [BOUNDARY]: variable names below taken from LSMS-ISA Tanzania NPS Wave 4
-# codebook conventions (hh_a01_1 = region, hh_a01_2 = district, hh_a02_1 = stratum,
-# hh_a15 = urban/rural indicator). Confirm against actual dta labels before stage 3.
-# If variable names differ in raw data, update the rename() call below.
-
 roster <- hh_sec_a |>
   clean_up() |>
   rename(
-    # Confirm these variable names from the dta codebook:
-    # 🚩 FLAG [BOUNDARY]: hh_a01_1 assumed = region — confirm codebook
-    region      = hh_a01_1,
-    # 🚩 FLAG [BOUNDARY]: hh_a01_2 assumed = district — confirm codebook
-    district    = hh_a01_2,
-    # 🚩 FLAG [BOUNDARY]: hh_a02_1 assumed = stratum — confirm codebook
-    stratum     = hh_a02_1,
-    # 🚩 FLAG [BOUNDARY]: hh_a15 assumed = urban/rural — confirm codebook
-    urban_rural = hh_a15
+    region      = hh_a01_2,
+    district    = hh_a02_2,
+    stratum     = strataid,
+    urban_rural = y4_rural
   ) |>
-  select(y4_hhid, region, district, stratum, urban_rural) |>
+  select(y4_hhid, region, district, stratum, urban_rural, clusterid, y4_weights) |>
   distinct(y4_hhid, .keep_all = TRUE)
 
 # 🚩 FLAG [EXCLUSION]: duplicate y4_hhid in hh_sec_a — profile in 05_exclusions_audit.R
@@ -65,35 +50,70 @@ if (n_dup_roster > 0) {
 
 ag_filters <- raw$ag_filters
 
-# 🚩 FLAG [BOUNDARY]: participation variable names below are based on LSMS-ISA
-# NPS Wave 4 ag_filters.dta conventions. These files vary by wave.
-# Common coding: 1 = yes, 2 = no (not 0/1).
-# Confirm coding scheme against codebook before using grew_crops etc. as guards.
-
-# 🚩 FLAG [ASSUMPTION]: participation flag coding — confirm against codebook
-# (1 = yes, 2 = no is the standard NPS coding — not 1/0)
 ag_flags <- ag_filters |>
   clean_up() |>
   mutate(
-    # 🚩 FLAG [BOUNDARY]: ag_k01 assumed = crop participation — confirm codebook
-    grew_crops    = if_else(ag_k01    == 1, TRUE, FALSE, missing = NA),
-    # 🚩 FLAG [BOUNDARY]: ag_k02 assumed = animal ownership — confirm codebook
-    owned_animals = if_else(ag_k02    == 1, TRUE, FALSE, missing = NA),
-    # 🚩 FLAG [BOUNDARY]: ag_k03 assumed = processing participation — confirm codebook
-    did_process   = if_else(ag_k03    == 1, TRUE, FALSE, missing = NA),
-    # Recode sentinel values (NPS uses 99, 999, -9, -99 for missing)
-    across(where(is.numeric), ~ if_else(. %in% c(99, 999, -9, -99), NA_real_, .))
+    grew_crops  = dplyr::case_when(
+      ag2a_01 == "yes" ~ TRUE,
+      ag2a_01 == "no"  ~ FALSE,
+      TRUE             ~ NA
+    ),
+    did_process = dplyr::case_when(
+      ag10_01 == "yes" ~ TRUE,
+      ag10_01 == "no"  ~ FALSE,
+      TRUE             ~ NA
+    )
   ) |>
-  select(y4_hhid, grew_crops, owned_animals, did_process)
+  select(y4_hhid, grew_crops, did_process)
 
 # =============================================================================
-# SECTION 3: STRUCTURAL ZERO RULE
+# SECTION 3: LIVESTOCK FLAGS (lf_filters)
+# Ground truth for structural zero classification throughout the pipeline
+# =============================================================================
+lf_filters <- raw$lf_filters
+
+# 🚩 FLAG [DATA]: lf08_09 uses character coding ("yes"/"no"); lf12_01/lf13_01 use
+# numeric coding (1 = yes, 2 = no). Inconsistent within the same module.
+# Confirm against NPS4 codebook before publication.
+
+lf_flags <- lf_filters |>
+  clean_up() |>
+  mutate(
+    # Recode sentinel values — numeric columns only
+    across(where(is.numeric), ~ if_else(. %in% c(99, 999, -9, -99), NA_real_, .))
+  ) |>
+  mutate(
+    # 🚩 FLAG [DATA]: mixed coding within lf_filters module.
+    # lf08_09, lf13_01 → character ("yes"/"no")
+    # lf12_01          → numeric (1 = yes, 2 = no)
+    # Confirmed against count() output — verify against NPS4 codebook before publication.
+    owned_animals = case_when(
+      lf08_09 == "yes" ~ TRUE,
+      lf08_09 == "no"  ~ FALSE,
+      TRUE             ~ NA
+    ),
+    caught_fish = case_when(
+      lf12_01 == 1 ~ TRUE,
+      lf12_01 == 2 ~ FALSE,
+      TRUE         ~ NA
+    ),
+    traded_fish = case_when(
+      lf13_01 == "yes" ~ TRUE,
+      lf13_01 == "no"  ~ FALSE,
+      TRUE             ~ NA
+    )
+  ) |>
+  select(y4_hhid, owned_animals, caught_fish, traded_fish)
+
+# =============================================================================
+# SECTION 4: STRUCTURAL ZERO RULE
 # Documented here — applied in 04_build_households.R via these flags
 # =============================================================================
 
 # If grew_crops    == FALSE → harvest quantities = 0 (structural zero, not missing)
 # If owned_animals == FALSE → animal quantities  = 0 (structural zero, not missing)
 # If did_process   == FALSE → processing quantities = 0 (structural zero, not missing)
+# expand for livestock and fish
 
 # 🚩 FLAG [ASSUMPTION]: participation = FALSE implies structural zero — confirm no cases
 #    where participation flag = FALSE but quantities > 0 (would indicate data error).
@@ -104,7 +124,8 @@ ag_flags <- ag_filters |>
 # =============================================================================
 
 roster_full <- roster |>
-  left_join(ag_flags, by = "y4_hhid")
+  left_join(ag_flags, by = "y4_hhid") %>% 
+  left_join(lf_flags, by = "y4_hhid")
 
 # 🚩 FLAG [EXCLUSION]: households in hh_sec_a with no ag_filters match —
 #    profile in 05_exclusions_audit.R.
@@ -127,4 +148,6 @@ message("clean/household_roster.R: Household roster saved")
 message("  Total households:  ", nrow(roster_full))
 message("  Grew crops:        ", sum(roster_full$grew_crops,    na.rm = TRUE))
 message("  Owned animals:     ", sum(roster_full$owned_animals, na.rm = TRUE))
+message("  Caught fish:     ", sum(roster_full$caught_fish, na.rm = TRUE))
+message("  Traded fish:     ", sum(roster_full$traded_fish, na.rm = TRUE))
 message("  Did process:       ", sum(roster_full$did_process,   na.rm = TRUE))
