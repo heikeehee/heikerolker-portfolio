@@ -38,6 +38,7 @@ source(here::here("01-smallholder-material-flow", "scripts", "impute", "animals.
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "recall.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "crops.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "ag_produce.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "processed_crops.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "animal_products.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "milk.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinations.R"))

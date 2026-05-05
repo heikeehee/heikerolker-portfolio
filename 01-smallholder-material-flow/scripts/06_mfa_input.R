@@ -4,12 +4,16 @@
 # INPUT:   data/processed/households.rds
 #          data/processed/clean/mass_crops.rds      (flow allocation, crops)
 #          data/processed/clean/mass_trees.rds      (flow allocation, trees)
-#          data/processed/clean/mass_milk_final.rds (milk, kg after conversion)
+#          data/processed/clean/mass_milk_final.rds (milk, kg after conversion — see U01/U04)
 #          data/processed/clean/mass_eggs.rds       (egg mass balance)
 #          data/processed/clean/mass_residue.rds    (crop residue flows)
 #          data/processed/impute/mass_animals.rds   (slaughter mass balance)
 #          data/processed/impute/mass_hides.rds     (hides mass balance)
-# OUTPUT:  data/processed/mfa_input.rds — one row per household, analysis-ready
+#          data/processed/imputed/processed_crops.rds  (product/byproduct split — impute/)
+#          data/reference/item_groups.csv           (MFA grouping classification)
+# OUTPUT:  data/processed/mfa_input.rds        — one row per household (with y4_hhid)
+#          data/processed/mfa_input_matrix.rds  — matrix only (without y4_hhid, for MFA())
+#          data/processed/mfa_groups.rds        — group vector for FactoMineR::MFA()
 #
 # THIS SCRIPT: analytical method requirements only — not data quality
 # Transformations here are driven by MFA requirements, not data problems
@@ -17,11 +21,37 @@
 # =============================================================================
 #
 # SOURCE LOGIC FROM:
+#   analysis/03-sankey.R       — canonical flow structure; processing node structure
 #   archive/05_Destinations.Rmd — flow allocation already done in clean/destinations.R;
 #                                  this script adds mass-balance uncertainty measures
 #   archive/06a_Residue.Rmd    — residue already in mass_residue.rds; collapsed here
 #   archive/06_Summary.Rmd     — mass-balance variables for MFA (uncertain, missing,
 #                                  unallocated pattern for crops, milk, eggs, animals)
+# =============================================================================
+#
+# MASS BALANCE RULE (canonical — from analysis/03-sankey.R):
+#
+#   HARVEST (kg)
+#       │
+#       ├── sold (raw or processed, not specified)
+#       ├── consumed (raw or processed, not specified)
+#       ├── stored
+#       ├── seed
+#       ├── gifted / payment
+#       ├── fed to animals (raw)
+#       └── sent_to_processing_kg ──→ PROCESSING NODE
+#                                           │
+#                                 input = sent_to_processing_kg
+#                                           │
+#                             ┌─────────────┴─────────────┐
+#                             ↓                           ↓
+#                       product_kg                  byproduct_kg
+#                 = input × extraction_rate   = input × (1−extraction_rate)
+#
+#   Total harvest = raw_sold + raw_consumed + stored + seed
+#                 + gifted + payment + fed_raw + sent_to_processing
+#   ← processed products do NOT add to harvest total
+#   ← they decompose sent_to_processing only
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
@@ -40,7 +70,9 @@ households   <- readRDS(here::here("data", "processed", "households.rds"))
 mass_crops   <- setDT(readRDS(here::here("data", "processed", "clean", "mass_crops.rds")))
 mass_trees   <- setDT(readRDS(here::here("data", "processed", "clean", "mass_trees.rds")))
 
-# Milk — all quantities in litres EXCEPT _kg columns added in clean/milk.R
+# Milk — quantities in _kg columns (factor 1.03 from clean/milk.R; see U01, U04 in FLAGS_REVIEW.md)
+# 🚩 FLAG [UNIT]: use _kg columns only — do NOT use the original litre columns.
+# All downstream milk quantities in this script are in kg.
 mass_milk    <- setDT(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds")))
 
 # Eggs
@@ -55,8 +87,89 @@ mass_animals <- setDT(readRDS(here::here("data", "processed", "impute", "mass_an
 # Hides — produced and sold from clean/animal_products.R
 mass_hides   <- setDT(readRDS(here::here("data", "processed", "clean", "mass_hides.rds")))
 
+# Processed crops — product/byproduct split from impute/processed_crops.R
+# 🚩 FLAG [CROSS-SECTION]: processed_crops joins ag_produce (sent_to_processing)
+# with extraction rate assumptions. Input = sent_to_processing_kg from ag_produce section.
+processed_crops <- readRDS(here::here("data", "processed", "imputed", "processed_crops.rds"))
+message("06_mfa_input.R: processed_crops loaded — ", nrow(processed_crops), " rows")
+
+# Item classification reference — MFA grouping
+item_groups <- read_csv(here::here("data", "reference", "item_groups.csv"),
+                        # treat empty strings and literal "NA" text as missing values —
+                        # important for mfa_group column where some items have "NA" as text
+                        na = c("", "NA"),
+                        show_col_types = FALSE)
+message("06_mfa_input.R: item_groups loaded — ", nrow(item_groups), " rows, ",
+        sum(!is.na(item_groups$mfa_group)), " with mfa_group assigned")
+
 # =============================================================================
-# SECTION 2: MASS BALANCE — CROPS
+# SECTION 2: PROCESSING NODE — product/byproduct split
+# Cross-reference: analysis/03-sankey.R — processing node sits between harvest and destinations
+# Input to processing node = sent_to_processing_kg (from ag_produce / destinations section)
+# Output split = product_kg + byproduct_kg (from impute/processed_crops.R)
+# 🚩 FLAG [ASSUMPTION]: sent_to_processing_kg assumed to be the correct input volume.
+#    Survey records volume processed, not volume sent — these may differ.
+# 🚩 FLAG [CROSS-SECTION]: destinations (sent_to_processing) joins ag_produce here
+# =============================================================================
+
+# Collapse processed_crops to household level
+# 🚩 FLAG [ASSUMPTION]: na.rm = TRUE — NAs in product_kg or byproduct_kg treated as 0.
+# These occur when sent_to_processing_kg is NA (no processing recorded for that household × crop).
+# Profile NA prevalence in 05_exclusions_audit.R.
+processed_hh <- processed_crops |>
+  group_by(y4_hhid) |>
+  summarise(
+    product_kg   = sum(product_kg,   na.rm = TRUE),  # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE
+    byproduct_kg = sum(byproduct_kg, na.rm = TRUE),  # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE
+    .groups = "drop"
+  ) |>
+  setDT()
+
+n_processed_hh <- n_distinct(processed_hh$y4_hhid)
+message("06_mfa_input.R: ", n_processed_hh, " households with processing records")
+
+# =============================================================================
+# SECTION 3: CROP MASS BALANCE — harvest vs total outflow
+# Explicit balance check per household × crop before collapsing to hh level.
+# This is the canonical mass balance check from analysis/03-sankey.R.
+# mass_crops columns expected: harvest, sold, consumed, stored, seed, payment, gifts,
+#   feed, processing (sent_to_processing_kg), losses, smd
+# =============================================================================
+
+# 🚩 FLAG [ASSUMPTION]: total_accounted = sold + consumed + stored + seed + payment +
+#   gifts + feed + losses + processing (sent_to_processing_kg).
+# Processed products (product_kg, byproduct_kg) do NOT add to total_accounted and doublecounts with sold/consumed —
+# they decompose sent_to_processing only (canonical rule — see header comment).
+# 🚩 FLAG [ASSUMPTION]: na.rm = TRUE in rowSums — NAs treated as 0.
+# Profile NA prevalence per variable in 05_exclusions_audit.R.
+if ("processing" %in% names(mass_crops)) {
+  mass_balance <- copy(mass_crops)[, `:=`(
+    total_accounted = rowSums(.SD, na.rm = TRUE),  # 🚩 FLAG [ASSUMPTION]: na.rm = TRUE
+    .SDcols = intersect(c("sold", "consumed", "stored", "seed",
+                          "payment", "gifts", "feed", "losses", "processing"),
+                        names(mass_crops))
+  )][, `:=`(
+    balance_gap = harvest - total_accounted,
+    balance_pct = fifelse(harvest > 0, (harvest - total_accounted) / harvest, NA_real_)
+  )]
+
+  # Report balance gaps — do not suppress
+  n_gap10 <- sum(abs(mass_balance$balance_pct) > 0.10, na.rm = TRUE)
+  n_gap50 <- sum(abs(mass_balance$balance_pct) > 0.50, na.rm = TRUE)
+  message("06_mfa_input.R: Crop mass balance gap > 10%: ", n_gap10, " records")
+  message("06_mfa_input.R: Crop mass balance gap > 50%: ", n_gap50, " records")
+  # 🚩 FLAG [ASSUMPTION]: 10% tolerance threshold assumed — justify or adjust.
+  # Profile these records in 05_exclusions_audit.R (EX01 in FLAGS_REVIEW.md).
+} else {
+  message("06_mfa_input.R: WARNING — 'processing' column not found in mass_crops. ",
+          "Crop mass balance gap check skipped. ",
+          "This is a non-fatal skip but means sent_to_processing cannot be verified. ",
+          "Confirm the column name produced by clean/destinations.R. ",
+          "If the column was renamed, update the intersect() call in Section 3 above.")
+}
+
+# =============================================================================
+# SECTION 4: MASS BALANCE — CROPS (collapse to household level)
 # Source logic: archive/06_Summary.Rmd (Crops for MFA)
 # mass_crops already has: harvest, sold, stored, losses, consumed,
 #                         seed, payment, gifts, feed, residue, smd
@@ -92,7 +205,7 @@ crops_hh <- crops_mb[,
 ]
 
 # =============================================================================
-# SECTION 3: MASS BALANCE — TREES
+# SECTION 5: MASS BALANCE — TREES
 # Same pattern as crops.
 # =============================================================================
 
@@ -115,7 +228,7 @@ trees_hh <- trees_mb[,
 ]
 
 # =============================================================================
-# SECTION 4: MASS BALANCE — MILK
+# SECTION 6: MASS BALANCE — MILK
 # Source logic: archive/06_Summary.Rmd (Milk for MFA)
 # All quantity columns here use the _kg columns from clean/milk.R (factor 1.03).
 # 🚩 FLAG [UNIT]: milk_kg, consumed_kg, sold_kg, processed_new_kg are in kg.
@@ -149,7 +262,7 @@ milk_hh <- milk_mb[,
 ]
 
 # =============================================================================
-# SECTION 5: MASS BALANCE — EGGS
+# SECTION 7: MASS BALANCE — EGGS
 # Source logic: archive/06_Summary.Rmd (Eggs for MFA)
 # =============================================================================
 
@@ -174,7 +287,7 @@ eggs_hh <- eggs_mb[,
 ]
 
 # =============================================================================
-# SECTION 6: MASS BALANCE — SLAUGHTER ANIMALS
+# SECTION 8: MASS BALANCE — SLAUGHTER ANIMALS
 # Source logic: archive/06_Summary.Rmd (Animals for MFA)
 # mass_animals from impute/animals.R has: total_weight, sold_weight, cons_weight,
 #   meat, offal, hides, inedible, need, feed, grazed, ew
@@ -210,7 +323,7 @@ animals_hh <- animals_mb[,
 ]
 
 # =============================================================================
-# SECTION 7: RESIDUE COLLAPSE
+# SECTION 9: RESIDUE COLLAPSE
 # Source logic: archive/06a_Residue.Rmd + archive/06_Summary.Rmd
 # mass_residue already has DM estimates (clean/destinations.R Section 4).
 # =============================================================================
@@ -223,22 +336,24 @@ residue_hh <- mass_residue[,
 ]
 
 # =============================================================================
-# SECTION 8: BUILD MFA INPUT MATRIX
+# SECTION 10: BUILD MFA INPUT MATRIX
 # One row per household. Merge all household-level summaries onto households spine.
+# y4_hhid is retained as row identifier — see Section 13 for rationale.
 # =============================================================================
 
 mfa_input <- as.data.frame(households) |>
   select(y4_hhid) |>
-  left_join(as.data.frame(crops_hh),    by = "y4_hhid") |>
-  left_join(as.data.frame(trees_hh),    by = "y4_hhid") |>
-  left_join(as.data.frame(milk_hh),     by = "y4_hhid") |>
-  left_join(as.data.frame(eggs_hh),     by = "y4_hhid") |>
-  left_join(as.data.frame(animals_hh),  by = "y4_hhid") |>
-  left_join(as.data.frame(residue_hh),  by = "y4_hhid") |>
+  left_join(as.data.frame(crops_hh),     by = "y4_hhid") |>
+  left_join(as.data.frame(trees_hh),     by = "y4_hhid") |>
+  left_join(as.data.frame(milk_hh),      by = "y4_hhid") |>
+  left_join(as.data.frame(eggs_hh),      by = "y4_hhid") |>
+  left_join(as.data.frame(animals_hh),   by = "y4_hhid") |>
+  left_join(as.data.frame(residue_hh),   by = "y4_hhid") |>
+  left_join(as.data.frame(processed_hh), by = "y4_hhid") |>
   mutate(across(where(is.numeric), ~ replace_na(., 0)))
 
 # =============================================================================
-# SECTION 9: VARIABLE CONSTRUCTION FOR MFA
+# SECTION 11: VARIABLE CONSTRUCTION FOR MFA
 # Ratios, log transforms, and composite scores
 # =============================================================================
 
@@ -276,7 +391,7 @@ mfa_input <- mfa_input |>
   )
 
 # =============================================================================
-# SECTION 10: VARIABLE SELECTION FOR MFA
+# SECTION 12: VARIABLE SELECTION FOR MFA
 # Exclude variables that are:
 #   (a) derived aggregates collinear with selected variables
 #   (b) mass-balance residuals (uncertain, missing, unallocated) — diagnostic only
@@ -313,12 +428,92 @@ mfa_input_mfa <- mfa_input |>
     log_slaughter, sold_animals, consumed_animals, meat, offal,
     # --- Block 7: Feed and residue ---
     residue_DM_total, grazing_res_total,
-    feed_animals_kgDM, grazed_kgDM
+    feed_animals_kgDM, grazed_kgDM,
+    # --- Block 8: Processed crops (processing node outputs) ---
+    # product_kg and byproduct_kg from impute/processed_crops.R
+    # 🚩 FLAG [ASSUMPTION]: product_kg and byproduct_kg included as MFA variables.
+    # These decompose sent_to_processing and are not additive to harvest total.
+    # Confirm block assignment in 07_mfa_analysis.R before running.
+    product_kg, byproduct_kg
   )
 
 # =============================================================================
-# SECTION 11: SAVE
+# SECTION 13: ITEM GROUPS — unclassified diagnostics
+# 🚩 FLAG [ASSUMPTION]: items with classified = FALSE are excluded from MFA input matrix.
+# List them in message() below. See FLAGS_REVIEW.md EX02.
 # =============================================================================
 
-saveRDS(mfa_input_mfa, here::here("data", "processed", "mfa_input.rds"))
-message("MFA input matrix: ", nrow(mfa_input_mfa), " households × ", ncol(mfa_input_mfa), " variables")
+# Get items in the MFA matrix (column names minus y4_hhid and structural cols)
+mfa_vars <- setdiff(names(mfa_input_mfa), "y4_hhid")
+
+# Check which MFA variables match item_groups
+# Note: MFA variables are derived aggregates (log_harvest, share_sold, etc.),
+# not raw item names. item_groups is used for the group vector, not direct join here.
+unclassified_items <- item_groups |>
+  filter(classified == FALSE | is.na(mfa_group))
+
+message("06_mfa_input.R: Items in item_groups with no MFA group: ",
+        nrow(unclassified_items))
+if (nrow(unclassified_items) > 0) {
+  items_preview <- unique(na.omit(unclassified_items$item))
+  n_total <- length(items_preview)
+  preview  <- head(items_preview, 15)
+  suffix   <- if (n_total > 15) paste0("... and ", n_total - 15, " more") else ""
+  message("  Unclassified items (first 15 of ", n_total, "): ",
+          paste(preview, collapse = ", "), suffix)
+}
+# 🚩 FLAG [EXCLUSION]: unclassified items excluded from MFA — profile in 05_exclusions_audit.R
+# See also FLAGS_REVIEW.md EX02.
+
+# =============================================================================
+# SECTION 14: y4_hhid RETENTION POLICY
+# y4_hhid is retained as row identifier in mfa_input
+# This enables:
+# 1. Household-level MFA (single household analysis)
+# 2. Back-joining factor scores to household characteristics (project 03)
+# DO NOT aggregate away y4_hhid at any point in this script
+# =============================================================================
+
+mfa_input_mfa <- mfa_input_mfa |>
+  select(y4_hhid, everything())  # y4_hhid always first column
+
+# =============================================================================
+# SECTION 15: MFA GROUP VECTOR
+# Construct the groups= vector for FactoMineR::MFA()
+# groups= must be a numeric vector of length = ncol(mfa_input_matrix)
+# each element = number of variables in that group
+# Order must match column order in mfa_input_matrix
+#
+# 🚩 FLAG [ASSUMPTION]: group structure defined by mfa_group_label in item_groups.csv.
+# The variable block structure below is defined manually to match the column
+# selection in Section 12 above. Confirm group order matches 07_mfa_analysis.R.
+# =============================================================================
+
+# Build mfa_groups summary from item_groups reference
+mfa_groups <- item_groups |>
+  filter(!is.na(mfa_group)) |>
+  arrange(mfa_group) |>
+  group_by(mfa_group, mfa_group_label) |>
+  summarise(n_items = n(), .groups = "drop")
+
+saveRDS(mfa_groups, here::here("data", "processed", "mfa_groups.rds"))
+message("06_mfa_input.R: MFA groups: ", nrow(mfa_groups), " groups, ",
+        sum(mfa_groups$n_items), " classified items total")
+message("  (groups= vector for MFA() must be set manually in 07_mfa_analysis.R",
+        " to match selected variable blocks — see Section 12 above)")
+
+# =============================================================================
+# SECTION 16: SAVE
+# Save two versions: with y4_hhid (for back-joining) and without (for MFA() call)
+# =============================================================================
+
+saveRDS(mfa_input_mfa,
+        here::here("data", "processed", "mfa_input.rds"))             # with y4_hhid
+saveRDS(mfa_input_mfa |> select(-y4_hhid),
+        here::here("data", "processed", "mfa_input_matrix.rds"))      # data frame without y4_hhid; MFA() accepts data frames
+
+message("06_mfa_input.R: MFA input: ",
+        nrow(mfa_input_mfa), " households × ", ncol(mfa_input_mfa) - 1, " variables")
+message("  mfa_input.rds        — with y4_hhid (for back-joining to household characteristics)")
+message("  mfa_input_matrix.rds — matrix only (use this for MFA() call in 07_mfa_analysis.R)")
+message("  mfa_groups.rds       — group summary from item_groups.csv")
