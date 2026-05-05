@@ -100,8 +100,14 @@ item_groups <- read_csv(here::here("data", "reference", "item_groups.csv"),
                         # important for mfa_group column where some items have "NA" as text
                         na = c("", "NA"),
                         show_col_types = FALSE)
-message("06_mfa_input.R: item_groups loaded — ", nrow(item_groups), " rows, ",
-        sum(!is.na(item_groups$mfa_group)), " with mfa_group assigned")
+
+# Validate item_groups on load
+stopifnot("mfa_group column missing from item_groups" = "mfa_group" %in% names(item_groups))
+stopifnot("classified column missing from item_groups" = "classified" %in% names(item_groups))
+n_unclassified <- sum(!item_groups$classified, na.rm = TRUE)
+message("06_mfa_input.R: item_groups loaded — ", nrow(item_groups), " items, ",
+        sum(!is.na(item_groups$mfa_group)), " with mfa_group assigned, ",
+        n_unclassified, " unclassified")
 
 # =============================================================================
 # SECTION 2: PROCESSING NODE — product/byproduct split

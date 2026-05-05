@@ -69,6 +69,17 @@ project-specific needs — create a project-specific version.
 fruits, spices, and items rarely reported in the Tanzania NPS. Grouping
 decisions for these items are backlogged — see backlog.md B06.
 
+## Read this file with `na = c("", "NA")`
+
+Always load this file with:
+```r
+read_csv(here::here("data", "reference", "item_groups.csv"), na = c("", "NA"))
+```
+The `mfa_group` column for unclassified items is stored as empty string in the CSV.
+Without `na = c("", "NA")`, these appear as empty strings (`""`) rather than `NA_character_`,
+which will break any `is.na(mfa_group)` checks. All scripts using this file (`06_mfa_input.R`,
+`07_mfa_analysis.R`, and any Project 03 scripts) must include this argument.
+
 ## Better structure for future
 
 A long-term improvement would add: - project_id column to allow one

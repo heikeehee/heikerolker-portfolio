@@ -12,6 +12,19 @@ source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 # If a new section is added, add its read_dta() call here and extend `raw` below.
 
 # -----------------------------------------------------------------------------
+# HOUSEHOLD ROSTER — identification, location, agricultural participation
+# Used in: clean/household_roster.R (SPINE — must run first)
+# LSMS-ISA Tanzania NPS Wave 4 household sections
+# hh_sec_a.dta  = household identification, location, stratum
+# ag_filters.dta = agricultural participation flags (grew crops, owned animals, processed)
+# 🚩 FLAG [BOUNDARY]: hh_sec_a and ag_filters variable names not verified from codebook —
+#    see clean/household_roster.R for named flags
+# -----------------------------------------------------------------------------
+
+raw_hh_sec_a   <- read_dta(here::here("data", "raw", "lsms", "hh_sec_a.dta"))
+raw_ag_filters  <- read_dta(here::here("data", "raw", "lsms", "ag_filters.dta"))
+
+# -----------------------------------------------------------------------------
 # CROPS — plot and crop production data (ag_sec sections)
 # Used in: clean/crops.R, impute/yield_gap.R
 # LSMS-ISA Tanzania NPS Wave 4 agricultural sections
@@ -123,6 +136,9 @@ ref_cropmap   <- fread(here::here("data", "reference", "residuematch.csv"), head
 # =============================================================================
 
 raw <- list(
+  # --- Household roster (SPINE) ---
+  hh_sec_a   = raw_hh_sec_a,
+  ag_filters  = raw_ag_filters,
   # --- LSMS-ISA survey sections ---
   crops = list(
     ag_sec_2a = raw_ag_sec_2a,  # plot roster, long rainy

@@ -164,3 +164,20 @@ message("impute/processed_crops.R: processed crops imputed and saved. ",
 # Value: product_kg = sent_to_processing_kg, byproduct_kg = 0 for unmatched crops.
 # Sensitivity: If Coffee, Cashew nut, or other unmatched crops have significant
 #   byproduct fractions, their downstream mass balance will be overstated on the product side.
+
+# --- ASSUMPTION: Mass balance closure in processing ---
+# Value/Rule: product_kg + byproduct_kg = input_kg (extraction_rate + (1 − extraction_rate) = 1)
+# This means processing waste (spillage, moisture loss) = 0
+# Source: simplifying assumption — milling loss typically 2–5% in literature
+# Sensitivity: run with 3% waste deduction — backlog B05
+# 🚩 FLAG [ASSUMPTION]: processing waste assumed zero — add moisture/spillage loss for B05
+
+# --- ASSUMPTION: Anti-double-counting rule ---
+# Value/Rule: destination quantities (sold_kg, consumed_kg) INCLUDE volumes
+# that were first processed then sold/consumed.
+# Processed crop section volumes decompose sold/consumed into raw vs processed form.
+# They do NOT add to the destination total.
+# Basis: without this rule the mass balance deviation is implausibly large.
+# Source: data-derived — mass balance diagnostic
+# This is unverifiable from LSMS-ISA survey data.
+# 🚩 FLAG [ASSUMPTION]: anti-double-counting rule — unverifiable — backlog B05

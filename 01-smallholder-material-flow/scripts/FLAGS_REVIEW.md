@@ -139,6 +139,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | All clean/ scripts | `# 🚩 FLAG [CROSS-SECTION]: ...` single-line comments | Replaced with full `# ⚠️ CROSS-SECTION DEPENDENCY` block |
 | FLAGS_REVIEW.md C01–C06 | `Move to: 04_build_households.R` | ✅ Moved — all six cross-section dependencies resolved in 04_build_households.R |
 | clean/milk.R line 280 | `# 🚩 FLAG UNIT: milk quantities still need conversion from litres, use factor 1.08.` | ✅ Resolved — conversion added using factor 1.03 (FAO/Codex convention); see U01/U02 above |
+| FLAGS_REVIEW.md B02 | "Household roster not yet a dedicated clean script" | ✅ Resolved — `clean/household_roster.R` created; sourced first in 00_run_pipeline.R |
 
 ------------------------------------------------------------------------
 
@@ -158,6 +159,8 @@ Generated after clean/ extraction pass. All items below require a decision befor
 | PC10 | impute/processed_crops.R | Sweet potatoes → Flour extraction rate | 0.25 (assumed — flag) | No verified source; run sensitivity ±10%; see backlog B05 |
 | PC11 | impute/processed_crops.R | Crops not in extraction table treated as 100% product | product_kg = sent_to_processing_kg, byproduct_kg = 0 | Coffee, Cashew nut affected — add rates if processing data available |
 | PC12 | impute/processed_crops.R | input field (ag10_05) used as sent_to_processing_kg | ag10_05 = "Input quantity before processing" — may differ from volume sent if transit losses occur | No survey variable captures transit losses |
+| PC13 | impute/processed_crops.R | Mass balance closure in processing — no processing waste | product_kg + byproduct_kg = input_kg; waste (spillage, moisture loss) = 0 | Sensitivity: run with 3% waste deduction — backlog B05 |
+| PC14 | impute/processed_crops.R | Anti-double-counting rule — sold/consumed totals INCLUDE processed-then-sold/consumed | Processed crop volumes decompose sold/consumed into raw vs processed; they do NOT add to destination total | Unverifiable from LSMS-ISA survey data — backlog B05 |
 
 ------------------------------------------------------------------------
 
@@ -167,6 +170,20 @@ Generated after clean/ extraction pass. All items below require a decision befor
 |---------------|---------------|---------------|---------------|---------------|
 | EX01 | 06_mfa_input.R | Households with mass balance gap \> 10% | assumption threshold | Profile by crop; report counts in methods appendix; sensitivity: ±5% threshold |
 | EX02 | 06_mfa_input.R | Unclassified items (classified = FALSE in item_groups.csv) excluded from MFA input matrix | structural exclusion | Profile which items appear in households.rds; assign groups or document exclusion rationale |
+
+------------------------------------------------------------------------
+
+## [EXCLUSION] flags from 05_exclusions_audit.R (new profiling code)
+
+| ID | Script | Description | Type | Status |
+|---------------|---------------|---------------|---------------|---------------|
+| E_roster_dup | clean/household_roster.R | Duplicate y4_hhid in hh_sec_a — first occurrence retained | data quality | Profiled in 05_exclusions_audit.R — count reported in message() |
+| E_roster_nomatch | clean/household_roster.R | Households in hh_sec_a with no ag_filters match | missing data | Profiled in 05_exclusions_audit.R — grew_crops = NA |
+| E_E01_profiled | 05_exclusions_audit.R | harvest values zeroed when harvested == 'no' — now profiled with n_households and region breakdown | structural zero | ✅ Profiling code added |
+| E_E05_profiled | 05_exclusions_audit.R | hides[produced == 0] now profiled vs included | structural zero | ✅ Profiling code added |
+| E_E07_profiled | 05_exclusions_audit.R | milk exclusions now profiled by excl type with n and n_hh | implausible value | ✅ Profiling code added |
+| E_E09_profiled | 05_exclusions_audit.R | ±30% tolerance crops/trees now profiled by excl type | assumption threshold | ✅ Profiling code added |
+| E_E10_profiled | 05_exclusions_audit.R | "crop produces no residue" now profiled with household count | unclear | ✅ Profiling code added |
 
 ------------------------------------------------------------------------
 
@@ -267,6 +284,7 @@ All 59 items below appear in the raw reference data with no product_type or MFA 
 | 🔴 High | E10: Confirm "crop produces no residue" is a genuine survey category (check double space) | Codebook |
 | 🔴 High | B04: Confirm milk unit (kg vs litres) in mass_milk_final — **RESOLVED** in clean/milk.R (U01) | ✅ Closed — conversion factor 1.03 (FAO/Codex) applied; prior stub value 1.08 replaced |
 | 🔴 High | E_crops_no_dest / E_dest_no_crops: Profile misalignment counts and add to methods appendix | 05_exclusions_audit.R |
+| 🔴 High | B02: Household roster script — **RESOLVED** | ✅ Closed — clean/household_roster.R created; sourced first in 00_run_pipeline.R |
 | 🟡 Medium | A01/A06: Resolve NA conversion factors in recall.R and ag_produce.R | Literature |
 | 🟡 Medium | A11: Confirm tethering definition in LSMS codebook | Codebook |
 | 🟡 Medium | A22: Consolidate duplicate feed fraction tables into shared reference | Code |
