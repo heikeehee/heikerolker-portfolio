@@ -18,6 +18,7 @@ source(here::here("01-smallholder-material-flow", "scripts", "01_load_raw.R"))
 # data/processed/clean/<section>.rds
 # =============================================================================
 
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "household_roster.R"))  # SPINE — run first
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "crops.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "recall.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R"))
