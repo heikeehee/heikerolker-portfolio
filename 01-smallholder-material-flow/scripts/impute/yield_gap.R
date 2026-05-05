@@ -128,8 +128,8 @@ yg_rainfed <- rainfed %>%
 
 # 🚩 FLAG ASSUMPTION: Crops with no GYGA match (YP == NA) will have YG == NA.
 # These crops are not excluded — NA propagates downstream.
-# Decision required before stage 3: impute YP from regional/continental data,
-# or drop crop from yield gap analysis entirely.
+# Decision: impute YP from regional/continental data,
+# or drop crop from yield gap analysis entirely. DROP FOR NOW.
 
 # =============================================================================
 # STEP 5: COMBINE AND SAVE

@@ -84,7 +84,7 @@ set.seed(mc_seed)
 
 # Prepare base MFA data (numeric columns only, mean-imputed as in 07_mfa_analysis.R)
 base_data <- mfa_input |>
-  select(-y4_hhid) |>
+  select(-y4_hhid, -product_kg, -byproduct_kg) |>
   filter(!if_all(where(is.numeric), ~ is.na(.))) |>
   mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 
@@ -97,46 +97,45 @@ n_dim <- 5
 mc_scores <- vector("list", mc_n)
 
 for (i in seq_len(mc_n)) {
-
-  # Draw perturbation factors from uniform distributions
-  milk_density_i    <- runif(1, milk_density_range["low"],  milk_density_range["high"])
-  loss_mult_i       <- runif(1, loss_rate_multiplier_range["low"], loss_rate_multiplier_range["high"])
-  rpr_mult_i        <- runif(1, rpr_multiplier_range["low"], rpr_multiplier_range["high"])
-  egg_rate_i        <- runif(1, egg_laying_range["low"],    egg_laying_range["high"])
-
-  # Perturb the input matrix
+  
+  milk_density_i <- runif(1, milk_density_range["low"],  milk_density_range["high"])
+  loss_mult_i    <- runif(1, loss_rate_multiplier_range["low"], loss_rate_multiplier_range["high"])
+  rpr_mult_i     <- runif(1, rpr_multiplier_range["low"], rpr_multiplier_range["high"])
+  egg_rate_i     <- runif(1, egg_laying_range["low"],    egg_laying_range["high"])
+  
   perturbed <- base_data |>
     mutate(
-      # Milk production: re-scale by ratio of perturbed to central density
       log_produced_milk = log1p(expm1(log_produced_milk) * (milk_density_i / milk_density_range["mid"])),
-      sold_milk         = sold_milk  * (milk_density_i / milk_density_range["mid"]),
-      consumed_milk     = consumed_milk * (milk_density_i / milk_density_range["mid"]),
+      sold_milk         = sold_milk      * (milk_density_i / milk_density_range["mid"]),
+      consumed_milk     = consumed_milk  * (milk_density_i / milk_density_range["mid"]),
       unc_ratio_milk    = unc_ratio_milk * (milk_density_i / milk_density_range["mid"]),
-
-      # Egg production: re-scale by ratio of perturbed to central laying rate
       log_produced_eggs = log1p(expm1(log_produced_eggs) * (egg_rate_i / egg_laying_range["mid"])),
-
-      # Residue: perturb proportionally to RPR uncertainty
       residue_DM_total  = residue_DM_total  * rpr_mult_i,
       grazing_res_total = grazing_res_total * rpr_mult_i
     )
-
-  # Re-run MFA with perturbed data
+  
   mfa_i <- tryCatch(
     MFA(perturbed, group = group_sizes, type = rep("s", length(group_sizes)),
         ncp = n_dim, name.group = group_names, graph = FALSE),
-    error = function(e) NULL
+    error = function(e) {
+      if (i == 1) stop("MC iteration 1 failed: ", conditionMessage(e))
+      NULL
+    }
   )
-
-  if (!is.null(mfa_i)) {
-    mc_scores[[i]] <- as.data.frame(mfa_i$ind$coord)
-    colnames(mc_scores[[i]]) <- paste0("Dim", seq_len(n_dim))
-    mc_scores[[i]]$iteration <- i
+  
+  if (!is.null(mfa_i)) {                                     # ← this block was missing
+    scores_i           <- as.data.frame(mfa_i$ind$coord)
+    colnames(scores_i) <- paste0("Dim", seq_len(n_dim))
+    mc_scores[[i]]     <- scores_i
   }
-}
+  
+}                                                            # ← closing brace for loop
 
-# Remove any failed iterations
+# Remove failed iterations and bind
 mc_scores <- Filter(Negate(is.null), mc_scores)
+mc_all    <- bind_rows(mc_scores, .id = "iteration") |>
+  mutate(iteration = as.integer(iteration))
+
 message("08_uncertainty.R: ", length(mc_scores), "/", mc_n, " MC iterations succeeded.")
 
 # =============================================================================
@@ -144,25 +143,36 @@ message("08_uncertainty.R: ", length(mc_scores), "/", mc_n, " MC iterations succ
 # Source logic: archive/99_C3a.Rmd — uncertainty_milk_stats pattern
 # CI = 2.5th and 97.5th percentile across MC iterations (95% CI)
 # =============================================================================
+# Bind with iteration ID
+mc_all <- bind_rows(mc_scores, .id = "iteration") |>
+  mutate(iteration = as.integer(iteration))
 
-mc_all <- bind_rows(mc_scores)
-
-mc_ci <- mc_all |>
+# Add household index — row position within each iteration
+mc_all <- mc_all |>
   group_by(iteration) |>
+  mutate(hh_index = row_number()) |>
+  ungroup()
+
+# Sanity check — all iterations returned the same number of households
+stopifnot(length(unique(table(mc_all$iteration))) == 1)
+
+# Per-household CI: group by household, summarise across iterations
+mc_ci <- mc_all |>
+  group_by(hh_index) |>
   summarise(across(starts_with("Dim"), list(
-    mean = mean,
+    mean = ~ mean(., na.rm = TRUE),
     lo95 = ~ quantile(., 0.025, na.rm = TRUE),
     hi95 = ~ quantile(., 0.975, na.rm = TRUE)
   ), .names = "{.col}_{.fn}")) |>
   ungroup()
 
-# Dimension-level summary across iterations (spread of factor scores)
+# Dimension-level summary (overall spread across all households × iterations)
 dim_summary <- mc_all |>
   summarise(across(starts_with("Dim"), list(
-    mean   = ~ mean(., na.rm = TRUE),
-    sd     = ~ sd(., na.rm = TRUE),
-    lo95   = ~ quantile(., 0.025, na.rm = TRUE),
-    hi95   = ~ quantile(., 0.975, na.rm = TRUE)
+    mean = ~ mean(., na.rm = TRUE),
+    sd   = ~ sd(., na.rm = TRUE),
+    lo95 = ~ quantile(., 0.025, na.rm = TRUE),
+    hi95 = ~ quantile(., 0.975, na.rm = TRUE)
   ), .names = "{.col}_{.fn}"))
 
 # =============================================================================
@@ -179,40 +189,42 @@ households <- readRDS(here::here("data", "processed", "households.rds"))
 # This is the uncertainty model from archive/06_Summary.Rmd and 99_C3a.Rmd.
 # It captures internal data consistency, not sampling uncertainty.
 
-crops_unc <- mfa_input |>
-  mutate(
-    # ±30% tolerance matches the E09 exclusion threshold in clean/destinations.R
-    # (smd > harvest × 1.3 or < harvest × 0.7 → excluded as data inconsistent).
-    # Using the same tolerance here is internally consistent: households retained
-    # in the analysis passed this threshold, so ±30% represents the maximum
-    # expected data discrepancy in the included sample.
-    upper_harvest = harvest + (harvest * 0.3),
-    lower_harvest = harvest - (harvest * 0.3),
-    mean_harvest  = (upper_harvest + lower_harvest + harvest) / 3
-  ) |>
-  summarise(
-    supper = sum(upper_harvest, na.rm = TRUE),
-    slower = sum(lower_harvest, na.rm = TRUE),
-    smean  = sum(mean_harvest,  na.rm = TRUE),
-    stotal = sum(harvest,       na.rm = TRUE)
-  ) |>
-  mutate(row_stdev = apply(select(., supper, slower, smean, stotal), 1, sd, na.rm = TRUE))
+# ±30% tolerance matches the E09 exclusion threshold in clean/destinations.R
+# (smd > harvest × 1.3 or < harvest × 0.7 → excluded as data inconsistent).
+# Using the same tolerance here is internally consistent: households retained
+# in the analysis passed this threshold, so ±30% represents the maximum
+# expected data discrepancy in the included sample.
 
-milk_unc <- mfa_input |>
+crops_unc <- households |>
+  filter(!is.na(crop_total_harvest_kg)) |>
   mutate(
-    upper_milk = log_produced_milk * (milk_density_range["high"] / milk_density_range["mid"]),
-    lower_milk = log_produced_milk * (milk_density_range["low"]  / milk_density_range["mid"])
+    upper_harvest = crop_total_harvest_kg * 1.3,
+    lower_harvest = crop_total_harvest_kg * 0.7,
+    mean_harvest  = (upper_harvest + lower_harvest + crop_total_harvest_kg) / 3
   ) |>
   summarise(
-    supper = sum(upper_milk, na.rm = TRUE),
-    slower = sum(lower_milk, na.rm = TRUE),
-    stotal = sum(log_produced_milk, na.rm = TRUE)
+    supper = sum(upper_harvest,         na.rm = TRUE),
+    slower = sum(lower_harvest,         na.rm = TRUE),
+    smean  = sum(mean_harvest,          na.rm = TRUE),
+    stotal = sum(crop_total_harvest_kg, na.rm = TRUE)
+  ) |>
+  mutate(row_stdev = sd(c(supper, slower, smean, stotal)))  # single row — sd() directly
+
+milk_unc <- households |>
+  filter(!is.na(milk_total_kg)) |>
+  mutate(
+    upper_milk = milk_total_kg * (milk_density_range["high"] / milk_density_range["mid"]),
+    lower_milk = milk_total_kg * (milk_density_range["low"]  / milk_density_range["mid"])
+  ) |>
+  summarise(
+    supper = sum(upper_milk,    na.rm = TRUE),
+    slower = sum(lower_milk,    na.rm = TRUE),
+    stotal = sum(milk_total_kg, na.rm = TRUE)
   ) |>
   mutate(
-    Mean      = rowMeans(select(., supper, slower, stotal), na.rm = TRUE),
-    row_stdev = apply(select(., supper, slower, stotal), 1, sd, na.rm = TRUE)
+    Mean      = mean(c(supper, slower, stotal)),
+    row_stdev = sd(c(supper, slower, stotal))
   )
-
 # =============================================================================
 # SECTION 6: SAVE
 # =============================================================================
@@ -235,6 +247,7 @@ saveRDS(list(
 ), here::here("data", "processed", "uncertainty_results.rds"))
 
 message("08_uncertainty.R: Uncertainty results saved.")
+file.exists(here::here("data", "processed", "uncertainty_results.rds"))  # must be TRUE
 
 # =============================================================================
 # BACKLOG — not yet implemented

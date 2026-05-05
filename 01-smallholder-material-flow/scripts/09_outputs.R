@@ -140,8 +140,9 @@ crop_sankey <- mfa_input |>
 milk_sankey <- mfa_input |>
   summarise(
     sold_milk     = sm(sold_milk),
-    consumed_milk = sm(consumed_milk),
-    processed     = sm(processed_milk)
+    consumed_milk = sm(consumed_milk)
+    # processed_milk excluded — not in mfa_input
+    # 🚩 FLAG [BACKLOG]: add processed milk column to mfa_input if available
   ) |>
   pivot_longer(everything(), names_to = "target", values_to = "value") |>
   mutate(source = "Milk produced (kg)",

@@ -7,7 +7,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [ASSUMPTION] flags — documented in impute/ scripts
 
 | ID | Clean script | impute/ script | Description | Value/Rule | Action needed |
-|------------|------------|------------|------------|------------|------------|
+|----|----|----|----|----|----|
 | A01 | clean/recall.R | impute/recall.R | Food item unit conversion factors (litre/pieces → kg) | Product-specific density factors; source: literature / standard density references (no single URL — varies per item) | Extract entries that require imputation (unit missing, etc) |
 | A02 | clean/crops.R | impute/crops.R | gps_area == 0 recoded to NA | LSMS team recommendation: zero GPS = unreliable | Confirmed with LSMS team no sensitivity run needed if guidance is firm |
 | A03 | clean/crops.R | impute/crops.R | GPS preferred over farmer area estimate | plotsize = GPS where available, farmer as fallback | Confirmed against LSMS-ISA literature on area measurement bias |
@@ -39,7 +39,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [EXCLUSION] flags — documented in 05_exclusions_audit.R
 
 | ID | Clean script | Reason | Type | Action needed |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | E01 | clean/crops.R | harvest values set to 0 when harvested == "no" | structural zero \| missing data — FLAG | Profile vs included on region, land size, wealth |
 | E02 | clean/crops.R | 2 records where area_planted is NA → replaced with area_harvested_new | missing data | Identify affected HH/crop; confirm replacement is valid |
 | E03 | clean/crops.R | ag3b_01b == 2 filters short-season plots | plots listed for long and short season, means some are double counted and used all year long | No action |
@@ -56,7 +56,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [CROSS-SECTION] dependencies — resolved in 04_build_households.R
 
 | ID | Script | Dependency | Variable | Resolution |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | C01 | clean/animals.R | breakdown.xlsx reference data | raw$ref$breakdown (loaded in 01_load_raw.R) | ✅ Resolved — reference data; confirmed loaded centrally in 01_load_raw.R; no restructuring needed |
 | C02 | clean/animal_products.R | carcass breakdown + slaughter counts | wa.rds, animals_fin.rds from clean/animals.R | ✅ Resolved — mass_hides.rds incorporates wa.rds + animals_fin; hides_hh joined in 04_build_households.R Section 5 |
 | C03 | clean/animal_products.R | poultry ownership + feed practices | animals_fin.rds, feed_short.rds from clean/animals.R | ✅ Resolved — mass_eggs.rds incorporates animals_fin + feed_short; eggs_hh joined in 04_build_households.R Section 5; ownership flags from animals_hh used for structural zero guard |
@@ -69,7 +69,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [ASSUMPTION] flags from 04_build_households.R (stage 3)
 
 | ID | Script | Description | Value/Rule | Action needed |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | B01 | 04_build_households.R | na.rm = TRUE in all sum() calls | NA treated as 0 across all aggregations | Profile NA prevalence per variable in 05_exclusions_audit.R; confirm structural vs missing |
 | B02 | 04_build_households.R | Spine built as union of y4_hhid across sections | Master roster hh_sec_a.dta and and ag_filters.dta (listing only agricultural hosueholds) in data/raw/lsms | Create master limited to agricultural households |
 | B03 | 04_build_households.R | yg_mean_t_ha averages across crops and plots | Loses crop-level variation within household | Consider crop-type-specific yield gaps for MFA input |
@@ -78,7 +78,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [EXCLUSION] flags from 04_build_households.R (stage 3)
 
 | ID | Script | Description | Type | Action needed |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | E_crops_no_dest | 04_build_households.R | Crops in pc.rds with no matching crop_disp.rds record | Misalignment — known finding | Profile by crop type and harvest quantity in 05_exclusions_audit.R |
 | E_dest_no_crops | 04_build_households.R | Destination records in crop_disp.rds with no matching pc.rds record | Misalignment — known finding | Profile by crop type and disposition channel in 05_exclusions_audit.R |
 | E_sz_milk | 04_build_households.R | Structural zero guard: households with cattle but NA milk yield → NA_real\_ | Missing data | Impute in impute/ or exclude with documentation |
@@ -90,7 +90,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [ASSUMPTION] flags from stages 4–7 (06_mfa_input.R through 09_outputs.R)
 
 | ID | Script | Description | Value/Rule | Action needed |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | M01 | 06_mfa_input.R | Loss quantity = loss_fraction × harvest | Fraction field from ag5a_31/10; converted to absolute kg | Loss reported as tenth of production |
 | M02 | 06_mfa_input.R | Long and short season dispositions reported together | Seasonal timing differences not modelled |  |
 | M03 | 06_mfa_input.R | "crop produces no residue" records dropped | E10 in FLAGS_REVIEW.md — plausibility unconfirmed | Confirm against codebook; double-space in value string may indicate data entry artefact |
@@ -116,7 +116,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [TABLEAU] flags from 09_outputs.R
 
 | Figure | Description | Action needed |
-|------------------|-------------------------|-----------------------------|
+|----|----|----|
 | Figure 1 (flow_sankey) | Flow allocation by destination — plotly Sankey candidate | Export data to Tableau Public for interactive portfolio visualisation |
 
 ------------------------------------------------------------------------
@@ -124,7 +124,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [UNIT] flags — new in clean/milk.R
 
 | ID | Script | Description | Action needed |
-|---------------|---------------|--------------------|-----------------------|
+|----|----|----|----|
 | U01 | clean/milk.R | Milk litres → kg conversion added (factor 1.03) | All downstream quantities now in \_kg columns; verify no double conversion in 06_mfa_input.R or 07_mfa_analysis.R |
 | U02 | clean/milk.R | Original litre columns retained alongside \_kg columns | Drop original litre columns after confirming conversion is correct end-to-end |
 
@@ -133,7 +133,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## Resolved flags (removed from code)
 
 | Script | Was | Resolution |
-|----------------------|------------------|--------------------------------|
+|----|----|----|
 | All clean/ scripts | `# 🚩 FLAG [ASSUMPTION]: ...` comment blocks | Replaced with `# ASSUMPTION REMOVED — see impute/[script].R (A##)`; assumption documented in impute/ |
 | All clean/ scripts | `# 🚩 FLAG [EXCLUSION]: ...` comment blocks | Replaced with standardised `# EXCLUSION E##:` block; placeholder added to 05_exclusions_audit.R |
 | All clean/ scripts | `# 🚩 FLAG [CROSS-SECTION]: ...` single-line comments | Replaced with full `# ⚠️ CROSS-SECTION DEPENDENCY` block |
@@ -146,7 +146,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [ASSUMPTION] flags from impute/processed_crops.R
 
 | ID | Script | Description | Value/Rule | Action needed |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | PC01 | impute/processed_crops.R | Maize → Flour extraction rate | 0.72 (FAO 1992 / Golob et al.) | Confirm against local milling data; see backlog B05 |
 | PC02 | impute/processed_crops.R | Paddy → Rice extraction rate | 0.65 (FAO 2003) | Confirm against local milling data; see backlog B05 |
 | PC03 | impute/processed_crops.R | Sorghum → Flour extraction rate | 0.75 (assumed — flag) | No verified source; run sensitivity ±10%; see backlog B05 |
@@ -167,7 +167,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [EXCLUSION] flags from 06_mfa_input.R
 
 | ID | Script | Reason | Type | Action needed |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | EX01 | 06_mfa_input.R | Households with mass balance gap \> 10% | assumption threshold | Profile by crop; report counts in methods appendix; sensitivity: ±5% threshold |
 | EX02 | 06_mfa_input.R | Unclassified items (classified = FALSE in item_groups.csv) excluded from MFA input matrix | structural exclusion | Profile which items appear in households.rds; assign groups or document exclusion rationale |
 
@@ -176,7 +176,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [EXCLUSION] flags from 05_exclusions_audit.R (new profiling code)
 
 | ID | Script | Description | Type | Status |
-|---------------|---------------|---------------|---------------|---------------|
+|----|----|----|----|----|
 | E_roster_dup | clean/household_roster.R | Duplicate y4_hhid in hh_sec_a — first occurrence retained | data quality | Profiled in 05_exclusions_audit.R — count reported in message() |
 | E_roster_nomatch | clean/household_roster.R | Households in hh_sec_a with no ag_filters match | missing data | Profiled in 05_exclusions_audit.R — grew_crops = NA |
 | E_E01_profiled | 05_exclusions_audit.R | harvest values zeroed when harvested == 'no' — now profiled with n_households and region breakdown | structural zero | ✅ Profiling code added |
@@ -190,7 +190,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [UNIT] flags — impute/processed_crops.R and 06_mfa_input.R
 
 | ID | Script | Description | Action needed |
-|---------------|---------------|--------------------|-----------------------|
+|----|----|----|----|
 | U03 | impute/processed_crops.R | sent_to_processing_kg from ag10_05 — confirm field is already in kg (not litres) | Check ag_produce section codebook: ag10_05 unit — if litres, conversion needed before applying extraction rates |
 | U04 | 06_mfa_input.R | Milk quantities: all \_kg columns used (factor 1.03 from clean/milk.R) | Verify no litre columns accidentally used; double-check col names in mass_milk_final.rds |
 
@@ -199,7 +199,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 ## [REFERENCE] flags — data/reference/item_groups.csv
 
 | ID | Source | Description | Action needed |
-|---------------|---------------|--------------------|-----------------------|
+|----|----|----|----|
 | R01 | data/reference/item_groups.csv | \~59 items classified=FALSE — no mfa_group assigned | Confirm which appear in households.rds; assign groups or document exclusion per backlog B06 |
 | R02 | data/reference/item_groups.csv | 3 items have product_type but type=NA (Groundnut flour, Cashew nut seed, Groundnut seed) | classified=TRUE but mfa_group=NA; assign type before MFA run |
 | R03 | data/reference/item_groups.csv | No "Flour (processed)" or "Other processed" type exists in data | Groups 13/14 from problem spec not needed; mfa_group 12 is highest in data |
@@ -277,7 +277,7 @@ All 59 items below appear in the raw reference data with no product_type or MFA 
 ## Priority decisions before Stage 4 (05_exclusions_audit.R)
 
 | Priority | Item | Who |
-|---------------------------------|---------------------|------------------|
+|----|----|----|
 | 🔴 High | A17: Implement egg consumption allocation (consumptionNPS4.dta missing from pipeline) | Data/code |
 | 🔴 High | A10: Confirm whether Alexander.2016 EW includes offal (double-count risk in MFA) | cannot be confirmed, sensitivity analysis |
 | 🔴 High | E03: Confirm codebook meaning of ag3b_01b == 2 | Codebook |

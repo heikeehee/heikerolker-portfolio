@@ -14,6 +14,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
+install.packages("FactoMineR")
 library(FactoMineR)
 
 # =============================================================================
@@ -86,12 +87,12 @@ n_dim <- 5
 set.seed(2024)  # reproducibility
 
 mfa_res <- MFA(
-  X      = mfa_data_imputed,
-  group  = group_sizes,
-  type   = rep("s", length(group_sizes)),  # "s" = standardised (scale = TRUE)
-  ncp    = n_dim,
+  base = dplyr::select(mfa_data_imputed, -product_kg, -byproduct_kg),
+  group      = group_sizes,
+  type       = rep("s", length(group_sizes)),
+  ncp        = n_dim,
   name.group = group_names,
-  graph  = FALSE
+  graph      = FALSE
 )
 
 # =============================================================================

@@ -352,7 +352,7 @@ ag_sec_3b <- raw$crops$ag_sec_3b  # short rainy season
 long <- ag_sec_3a %>%
   setDT() %>%
   add_column(season = "long") %>%
-  select(occ, y4_hhid, plotnum,
+  select(occ, y4_hhid, plotnum, season,
     main_crop  = ag3a_07_2, soil = ag3a_10, soilqual = ag3a_11,
     soiltest   = ag3a_12,   erosion = ag3a_13,
     irrigated  = ag3a_18,   irrigation = ag3a_19,
@@ -366,7 +366,7 @@ short <- ag_sec_3b %>%
   # Profiled in: 05_exclusions_audit.R
   filter(ag3b_01b == 2) %>%
   select(!ag3b_01b) %>%
-  select(occ, y4_hhid, plotnum,
+  select(occ, y4_hhid, plotnum, season,
     main_crop  = ag3b_07_2, soil = ag3b_10, soilqual = ag3b_11,
     soiltest   = ag3b_12,   erosion = ag3b_13,
     irrigated  = ag3b_18,   irrigation = ag3b_19,
