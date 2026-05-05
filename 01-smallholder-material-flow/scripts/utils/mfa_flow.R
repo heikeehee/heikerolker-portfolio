@@ -249,46 +249,57 @@ sankey <- function(
 
 
 # =============================================================================
-# WRAPPER: single household flow
-# Returns mfafun output filtered to one y4_hhid
-# Use for: household-level Sankey, project 03 individual profiles
+# WRAPPERS — added to enable household-level and grouped Sankey outputs
+# group_var parameter allows switching between:
+#   "type"    — food group (default, matches mfafun calc() behaviour)
+#   "region"  — regional breakdown (requires region column in data_list elements)
+#   y4_hhid is always used to filter for single-household views
 # =============================================================================
 
-mfa_flow_hh <- function(data_list, hhid) {
+# --- WRAPPER: population-level, grouped by a chosen variable ---
+# group_var: column name as string — default "type" (food group)
+# Other options: "region", "district", or any column in data_list elements
+# Use for: population Sankey in 09_outputs.R
+mfa_flow_grouped <- function(data_list, group_var = "type") {
+  grouped_list <- lapply(data_list, function(df) {
+    # mfafun() ap section requires both type and product grouping columns.
+    # Preserve 'product' alongside group_var if it exists in the data frame.
+    grp_cols <- intersect(c(group_var, "product"), names(df))
+    if (is.data.table(df)) {
+      df[, lapply(.SD, sum, na.rm = TRUE),
+         .SDcols = is.numeric,
+         by = grp_cols]
+    } else {
+      df |>
+        group_by(across(all_of(grp_cols))) |>
+        summarise(across(where(is.numeric), \(x) sum(x, na.rm = TRUE)),
+                  .groups = "drop")
+    }
+  })
+  # rename grouping column to "type" so mfafun() calc() works unchanged
+  grouped_list <- lapply(grouped_list, function(df) {
+    if (is.data.table(df)) setnames(df, group_var, "type")
+    else rename(df, type = all_of(group_var))
+  })
+  mfafun(grouped_list)
+}
+
+# --- WRAPPER: single household ---
+# hhid: a y4_hhid value
+# group_var: how to label nodes — default "type"
+# Use for: household-level Sankey, project 03 individual profiles
+mfa_flow_hh <- function(data_list, hhid, group_var = "type") {
   hh_list <- lapply(data_list, function(df) {
     if (is.data.table(df)) df[y4_hhid == hhid]
     else filter(df, y4_hhid == hhid)
   })
-  mfafun(hh_list)
+  mfa_flow_grouped(hh_list, group_var = group_var)
 }
 
-
-# =============================================================================
-# WRAPPER: population-level flow collapsed to type
-# Sums across all households before running mfafun
-# Use for: population Sankey in 09_outputs.R
-# =============================================================================
-
-mfa_flow_type <- function(data_list) {
-  type_list <- lapply(data_list, function(df) {
-    if (is.data.table(df)) {
-      df[, lapply(.SD, sum, na.rm = TRUE), .SDcols = is.numeric, by = type]
-    } else {
-      df |> group_by(type) |>
-        summarise(across(where(is.numeric), \(x) sum(x, na.rm = TRUE)), .groups = "drop")
-    }
-  })
-  mfafun(type_list)
-}
-
-
-# =============================================================================
-# WRAPPER: all households (returns named list of flows)
+# --- WRAPPER: all households (returns named list of flows) ---
 # Use for: project 03 — one flow per household for clustering input
-# =============================================================================
-
-mfa_flow_all_hh <- function(data_list) {
+mfa_flow_all_hh <- function(data_list, group_var = "type") {
   hhids <- unique(data_list$crops$y4_hhid)
-  flows <- purrr::map(hhids, \(id) mfa_flow_hh(data_list, id))
+  flows <- purrr::map(hhids, \(id) mfa_flow_hh(data_list, id, group_var))
   purrr::set_names(flows, hhids)
 }

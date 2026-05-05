@@ -118,83 +118,231 @@ message("TABLE 4 saved: table4_uncertainty_summary.csv")
 # 🚩 FLAG [TABLEAU]: this chart is the candidate for Tableau Public — flow allocation by destination
 # The plotly Sankey is best rendered interactively; export to Tableau for portfolio.
 #
-# Population Sankey built inline below using networkD3.
 # utils/mfa_flow.R provides the canonical wrappers for Sankey construction:
-#   - mfa_flow_type(data_list)    — population-level flow (sums across HH before mfafun)
-#   - mfa_flow_hh(data_list, id)  — single-household flow (for project 03 individual profiles)
-#   - mfa_flow_all_hh(data_list)  — named list of flows for all HH (project 03 clustering input)
-# To rebuild this Sankey via mfa_flow_type(), load the mfa_list (crops/meat/ap) and call:
-#   flow_data <- mfa_flow_type(mfa_list)
-#   sankey(flow_data)
+#   - mfa_flow_grouped(data_list, group_var) — population-level flow, grouped by chosen variable
+#   - mfa_flow_hh(data_list, hhid, group_var) — single-household flow (project 03 profiles)
+#   - mfa_flow_all_hh(data_list, group_var)   — named list of flows per household (project 03)
+# group_var default = "type" (food group). Alternatives: "region", "district".
 # =============================================================================
 
-# FIGURE 1: Material flow Sankey — absolute kg from households
-# Using networkD3 for summary-level Sankey (source/target/value format)
-# ggalluvial requires row-per-observation format — not appropriate here
+# Requires: htmlwidgets — install.packages("htmlwidgets") if not present
+# (also listed in packages.R)
 
-library(networkD3)
-library(htmlwidgets)
+# FIGURE 1: Material flow Sankey — all food types, built via mfafun() wrappers
+# REPLACED: partial Sankey (milk + crops only) — see FIGURE 1a/1b below for full flow
 
-# Build flow data in absolute kg
-sankey_flows <- bind_rows(
-  households |>
-    summarise(
-      sold     = sum(dest_sold_kg,     na.rm = TRUE),
-      consumed = sum(dest_consumed_kg, na.rm = TRUE),
-      stored   = sum(dest_stored_kg,   na.rm = TRUE),
-      feed     = sum(dest_feed_kg,     na.rm = TRUE)
-    ) |>
-    pivot_longer(everything(), names_to = "target", values_to = "value") |>
-    mutate(source = "Crops"),
-  households |>
-    summarise(
-      sold     = sum(milk_sold_kg,     na.rm = TRUE),
-      consumed = sum(milk_consumed_kg, na.rm = TRUE)
-    ) |>
-    pivot_longer(everything(), names_to = "target", values_to = "value") |>
-    mutate(source = "Milk"),
-  households |>
-    summarise(
-      sold     = sum(egg_sold_kg,      na.rm = TRUE),
-      consumed = sum(egg_produced_kg - egg_sold_kg, na.rm = TRUE)
-    ) |>
-    pivot_longer(everything(), names_to = "target", values_to = "value") |>
-    mutate(source = "Eggs")
-) |>
-  filter(value > 0) |>
-  mutate(target = paste0(target, " "))   # avoid node name collision (source == target label)
+# Guard: source mfa_flow.R if not already loaded (e.g. when running this script standalone)
+if (!exists("mfa_flow_grouped")) {
+  source(here::here("01-smallholder-material-flow", "scripts", "utils", "mfa_flow.R"))
+}
 
-# Build node list
-nodes <- data.frame(name = unique(c(sankey_flows$source, sankey_flows$target)))
-sankey_flows <- sankey_flows |>
-  mutate(
-    IDsource = match(source, nodes$name) - 1,
-    IDtarget = match(target, nodes$name) - 1
-  )
+# =============================================================================
+# BUILD data_list FOR MFAFUN()
+# 🚩 FLAG [ARCHITECTURE]: data_list uses raw mass flow files (long format, one row per
+# household × food item), NOT mfa_input.rds (which is the wide household-level MFA
+# matrix used in 07_mfa_analysis.R — see 06_mfa_input.R for the distinction).
+# Column names confirmed from clean/destinations.R, clean/milk.R, clean/animal_products.R,
+# impute/animals.R, and impute/processed_crops.R.
+# =============================================================================
 
-fig1_sankey <- sankeyNetwork(
-  Links   = sankey_flows,
-  Nodes   = nodes,
-  Source  = "IDsource",
-  Target  = "IDtarget",
-  Value   = "value",
-  NodeID  = "name",
-  units   = "kg",
-  fontSize = 12,
-  nodeWidth = 20
+# Load raw mass flow files
+mass_crops      <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_crops.rds"))))
+mass_trees      <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_trees.rds"))))
+mass_animals    <- setDT(zap_all(readRDS(here::here("data", "processed", "impute", "mass_animals.rds"))))
+mass_hides      <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_hides.rds"))))
+mass_milk_final <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds"))))
+mass_eggs       <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_eggs.rds"))))
+# processed_crops: y4_hhid, crop (str_to_title), sent_to_processing_kg, product_kg, byproduct_kg
+processed_crops <- setDT(readRDS(here::here("data", "processed", "imputed", "processed_crops.rds")))
+
+# =============================================================================
+# data_list$crops: mass_crops + mass_trees + processing node from processed_crops
+# mass_crops / mass_trees columns (clean/destinations.R):
+#   y4_hhid, type, cropid, harvest, sold, stored, losses, consumed,
+#   seed, payment, gifts, feed, smd  (mass_trees also has ntrees, yield)
+# =============================================================================
+
+crops_ct <- rbindlist(
+  list(
+    mass_crops[, .(y4_hhid, type, cropid,
+                   consumed, sold, payment, gifts, losses, stored, feed, seed)],
+    mass_trees[, .(y4_hhid, type, cropid,
+                   consumed, sold, payment, gifts, losses, stored, feed, seed)]
+  ),
+  fill = TRUE
 )
 
-# Save as PNG via webshot (requires webshot2 + chromium)
-fig1_path <- here::here("01-smallholder-material-flow", "outputs", "figures", "figure1_flow_sankey.html")
-saveWidget(fig1_sankey, fig1_path, selfcontained = TRUE)
+# Mass balance residual: missing = harvest − smd (unaccounted fraction, floored at 0)
+# 🚩 FLAG [ASSUMPTION]: missing = max(harvest − smd, 0); negative balance set to 0
+crops_mb <- rbindlist(
+  list(
+    mass_crops[, .(y4_hhid, cropid, harvest, smd)],
+    mass_trees[, .(y4_hhid, cropid, harvest, smd)]
+  ),
+  fill = TRUE
+)[, missing := pmax(as.double(harvest) - as.double(smd), 0)]
+
+crops_ct <- merge(crops_ct, crops_mb[, .(y4_hhid, cropid, missing)],
+                  by = c("y4_hhid", "cropid"), all.x = TRUE)
+crops_ct[is.na(missing), missing := 0]
+
+# Processing node: join processed_crops to get sent_to_processing, product, byproduct
+# 🚩 FLAG [ASSUMPTION]: prodsold = product_kg (all product assumed sold — disaggregated
+#   product sales not available without joining mass_agprod.rds; see backlog)
+# 🚩 FLAG [ASSUMPTION]: prodconsumed = 0 (placeholder — see mass_agprod for split)
+# 🚩 FLAG [ASSUMPTION]: waste = byproduct_kg (byproduct treated as waste node in Sankey)
+processed_crops[, cropid := tolower(crop)]
+proc_sum <- processed_crops[, .(
+  processing   = sm(sent_to_processing_kg),
+  prodsold     = sm(product_kg),
+  prodconsumed = 0,
+  waste        = sm(byproduct_kg)
+), by = .(y4_hhid, cropid)]
+
+crops_full <- merge(crops_ct, proc_sum, by = c("y4_hhid", "cropid"), all.x = TRUE)
+setnafill(crops_full, fill = 0, cols = c("processing", "prodsold", "prodconsumed", "waste"))
+
+# =============================================================================
+# data_list$meat: mass_animals (impute/animals.R) + hides processing (mass_hides)
+# mass_animals columns: y4_hhid, type, lvstckid, need, feed, grazed,
+#   slaughter (count), total_weight (kg), cons_weight, sold_weight,
+#   ew, meat, offal, hides, inedible
+# mfafun() meat section uses: feed, grazed, slaughtered, sold, inedible,
+#   meat, offal, hides, waste, prodproduced, prodsold, hides_cons
+# 🚩 FLAG [ASSUMPTION]: slaughtered = total_weight (slaughter weight in kg, not head count)
+# 🚩 FLAG [ASSUMPTION]: sold = sold_weight (live weight of animals sold)
+# 🚩 FLAG [ASSUMPTION]: waste = 0 (no separate waste estimate in current pipeline)
+# =============================================================================
+
+meat_base <- mass_animals[, .(
+  y4_hhid,
+  type,
+  feed,
+  grazed,
+  slaughtered = total_weight,
+  sold        = sold_weight,
+  inedible,
+  meat,
+  offal,
+  hides,
+  waste       = 0
+)]
+
+# Hides processing: prodproduced, prodsold, hides_cons from mass_hides
+# mass_hides columns (clean/animal_products.R): y4_hhid, type, pprod, sold2, missing
+# 🚩 FLAG [ASSUMPTION]: prodproduced = pprod  (hides produced, sent to tanning/processing)
+# 🚩 FLAG [ASSUMPTION]: prodsold     = sold2  (hides sold as finished product)
+# 🚩 FLAG [ASSUMPTION]: hides_cons   = missing (hides not sold, assumed household use)
+hides_sum <- mass_hides[
+  type %in% c("large ruminants", "small ruminants"),
+  .(prodproduced = sm(pprod),
+    prodsold     = sm(sold2),
+    hides_cons   = sm(missing)),
+  by = .(y4_hhid, type)
+]
+
+meat_full <- merge(meat_base, hides_sum, by = c("y4_hhid", "type"), all.x = TRUE)
+setnafill(meat_full, fill = 0, cols = c("prodproduced", "prodsold", "hides_cons"))
+
+# =============================================================================
+# data_list$ap: mass_milk_final + mass_eggs (with product column added)
+# mfafun() ap section uses: type, product, feed, grazed, produced,
+#   consumed, sold, missing, processing, prodsold
+# mass_milk_final key columns (clean/milk.R):
+#   y4_hhid, type (large/small ruminants), feed, grazed,
+#   milk_kg, consumed_kg, sold_kg, missing_kg, processed_new_kg, psold_kg
+# mass_eggs key columns (clean/animal_products.R):
+#   y4_hhid, type (poultry), produced, sold, consumed (=0 placeholder), missing, feed, grazed
+# =============================================================================
+
+milk_ap <- mass_milk_final[, .(
+  y4_hhid,
+  type,
+  product      = "milk",
+  feed,
+  grazed,
+  produced     = milk_kg,
+  consumed     = consumed_kg,
+  sold         = sold_kg,
+  missing      = missing_kg,
+  processing   = processed_new_kg,   # milk sent for processing (butter, yoghurt)
+  prodsold     = psold_kg            # processed milk product sold
+)]
+
+# 🚩 FLAG [ASSUMPTION]: egg processing = 0 (no egg processing flow modelled yet)
+# 🚩 FLAG [ASSUMPTION]: egg consumed = 0 placeholder — see impute/animal_products.R (A17)
+eggs_ap <- mass_eggs[, .(
+  y4_hhid,
+  type,
+  product      = "eggs",
+  feed,
+  grazed,
+  produced,
+  consumed,
+  sold,
+  missing,
+  processing   = 0,
+  prodsold     = 0
+)]
+
+ap_full <- rbindlist(list(milk_ap, eggs_ap), fill = TRUE)
+
+# =============================================================================
+# Assemble and validate data_list
+# =============================================================================
+
+data_list <- list(
+  crops = crops_full,
+  meat  = meat_full,
+  ap    = ap_full
+)
+
+purrr::iwalk(data_list, \(df, nm)
+  message("data_list$", nm, ": ", nrow(df), " rows, types: ",
+          paste(unique(df$type), collapse = ", ")))
+
+# --- FIGURE 1a: Population Sankey — all food types, grouped by type ---
+flow_population <- mfa_flow_grouped(data_list, group_var = "type")
+fig_sankey_pop  <- sankey(
+  flow_population,
+  title    = "Smallholder Food Flows — Tanzania NPS",
+  subtitle = "All households · flows grouped by food type"
+)
+htmlwidgets::saveWidget(
+  fig_sankey_pop,
+  here::here("01-smallholder-material-flow", "outputs", "figures", "sankey_population.html"),
+  selfcontained = TRUE
+)
+message("Saved: sankey_population.html")
+
+# --- FIGURE 1b: Single household Sankey — demo (reproducible random draw) ---
+set.seed(42)
+demo_hhid     <- sample(unique(data_list$crops$y4_hhid), 1)
+flow_hh_demo  <- mfa_flow_hh(data_list, hhid = demo_hhid, group_var = "type")
+fig_sankey_hh <- sankey(
+  flow_hh_demo,
+  title    = paste("Household Food Flow — ID:", demo_hhid),
+  subtitle = "Single household · food system profile by food type"
+)
+htmlwidgets::saveWidget(
+  fig_sankey_hh,
+  here::here("01-smallholder-material-flow", "outputs", "figures", "sankey_household_demo.html"),
+  selfcontained = TRUE
+)
+message("Demo household: ", demo_hhid)
+message("Saved: sankey_household_demo.html")
+
+# NOTE: to view any household interactively:
+# sankey(mfa_flow_hh(data_list, hhid = "YOUR_HHID"), title = "HH Flow")
+# NOTE: to group by region instead of type:
+# sankey(mfa_flow_grouped(data_list, group_var = "region"), title = "Regional Flows")
 
 # 🚩 FLAG [TABLEAU]: export sankey_flows data for Tableau Public rebuild
-# Tableau handles Sankey interactivity better than static PNG
-write.csv(sankey_flows |> select(source, target, value),
+write.csv(flow_population |> select(source, target, value),
           here::here("01-smallholder-material-flow", "outputs", "tables", "sankey_data.csv"),
           row.names = FALSE)
 
-message("FIGURE 1 saved: figure1_flow_sankey.html (+ sankey_data.csv for Tableau)")
+message("FIGURE 1 saved: sankey_population.html + sankey_household_demo.html (+ sankey_data.csv for Tableau)")
 
 # =============================================================================
 # --- FIGURE 2: Scree plot ---

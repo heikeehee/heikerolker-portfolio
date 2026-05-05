@@ -11,7 +11,7 @@ packages_cran <- c(
   "knitr", "kableExtra",
   # Visualisation
   "ggplot2", "ggimage", "ggthemes", "treemapify",
-  "plotly", "RColorBrewer", "viridis", "hrbrthemes",
+  "plotly", "RColorBrewer", "viridis", "hrbrthemes", "htmlwidgets",
   # Reporting
   "bookdown", "tinytex",
   # Utilities
