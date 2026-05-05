@@ -119,63 +119,73 @@ message("TABLE 4 saved: table4_uncertainty_summary.csv")
 # The plotly Sankey is best rendered interactively; export to Tableau for portfolio.
 # =============================================================================
 
-# Build Sankey source-target data from crop flows
-# 🚩 FLAG [ASSUMPTION]: crop categories collapsed to "Crops" and "Trees" for Sankey clarity.
-# If thesis-level disaggregation needed, rebuild with type column groupings.
-crop_sankey <- mfa_input |>
-  summarise(
-    sold     = mean(share_sold,     na.rm = TRUE),
-    consumed = mean(share_consumed, na.rm = TRUE),
-    stored   = mean(share_stored,   na.rm = TRUE)
-  ) |>
-  pivot_longer(everything(), names_to = "target", values_to = "value") |>
+# FIGURE 1: Material flow Sankey — absolute kg from households
+# Using networkD3 for summary-level Sankey (source/target/value format)
+# ggalluvial requires row-per-observation format — not appropriate here
+
+library(networkD3)
+library(htmlwidgets)
+
+# Build flow data in absolute kg
+sankey_flows <- bind_rows(
+  households |>
+    summarise(
+      sold     = sum(dest_sold_kg,     na.rm = TRUE),
+      consumed = sum(dest_consumed_kg, na.rm = TRUE),
+      stored   = sum(dest_stored_kg,   na.rm = TRUE),
+      feed     = sum(dest_feed_kg,     na.rm = TRUE)
+    ) |>
+    pivot_longer(everything(), names_to = "target", values_to = "value") |>
+    mutate(source = "Crops"),
+  households |>
+    summarise(
+      sold     = sum(milk_sold_kg,     na.rm = TRUE),
+      consumed = sum(milk_consumed_kg, na.rm = TRUE)
+    ) |>
+    pivot_longer(everything(), names_to = "target", values_to = "value") |>
+    mutate(source = "Milk"),
+  households |>
+    summarise(
+      sold     = sum(egg_sold_kg,      na.rm = TRUE),
+      consumed = sum(egg_produced_kg - egg_sold_kg, na.rm = TRUE)
+    ) |>
+    pivot_longer(everything(), names_to = "target", values_to = "value") |>
+    mutate(source = "Eggs")
+) |>
+  filter(value > 0) |>
+  mutate(target = paste0(target, " "))   # avoid node name collision (source == target label)
+
+# Build node list
+nodes <- data.frame(name = unique(c(sankey_flows$source, sankey_flows$target)))
+sankey_flows <- sankey_flows |>
   mutate(
-    source = "Harvest (share, mean across HH)"
-    # 🚩 FLAG [ASSUMPTION]: Sankey uses mean share-of-harvest per destination (crops).
-    # Rebuild with absolute kg from mass_crops.rds for publication-quality Sankey.
-    # Log-transformed harvest is not summed here as it has no additive interpretation.
-  ) |>
-  select(source, target, value)
+    IDsource = match(source, nodes$name) - 1,
+    IDtarget = match(target, nodes$name) - 1
+  )
 
-milk_sankey <- mfa_input |>
-  summarise(
-    sold_milk     = sm(sold_milk),
-    consumed_milk = sm(consumed_milk)
-    # processed_milk excluded — not in mfa_input
-    # 🚩 FLAG [BACKLOG]: add processed milk column to mfa_input if available
-  ) |>
-  pivot_longer(everything(), names_to = "target", values_to = "value") |>
-  mutate(source = "Milk produced (kg)",
-         target = gsub("_milk", "", target)) |>
-  select(source, target, value)
-
-sankey_data <- bind_rows(crop_sankey, milk_sankey)
-
-# ggalluvial version for static export (Tableau candidate noted above)
-fig1 <- sankey_data |>
-  ggplot(aes(
-    axis1 = source,
-    axis2 = target,
-    y = value
-  )) +
-  geom_alluvium(aes(fill = source), width = 1/12) +
-  geom_stratum(width = 1/12) +
-  geom_label(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
-  scale_x_discrete(limits = c("Source", "Destination"), expand = c(0.15, 0.05)) +
-  scale_fill_brewer(palette = "Set2") +
-  labs(
-    title    = "Material flow by destination",
-    subtitle = "Crop harvest and milk production (kg)",
-    y        = "Quantity (kg)",
-    fill     = "Source"
-  ) +
-  theme_minimal()
-
-ggsave(
-  here::here("01-smallholder-material-flow", "outputs", "figures", "figure1_flow_sankey.png"),
-  plot = fig1, width = 10, height = 6, dpi = 300
+fig1_sankey <- sankeyNetwork(
+  Links   = sankey_flows,
+  Nodes   = nodes,
+  Source  = "IDsource",
+  Target  = "IDtarget",
+  Value   = "value",
+  NodeID  = "name",
+  units   = "kg",
+  fontSize = 12,
+  nodeWidth = 20
 )
-message("FIGURE 1 saved: figure1_flow_sankey.png")
+
+# Save as PNG via webshot (requires webshot2 + chromium)
+fig1_path <- here::here("01-smallholder-material-flow", "outputs", "figures", "figure1_flow_sankey.html")
+saveWidget(fig1_sankey, fig1_path, selfcontained = TRUE)
+
+# 🚩 FLAG [TABLEAU]: export sankey_flows data for Tableau Public rebuild
+# Tableau handles Sankey interactivity better than static PNG
+write.csv(sankey_flows |> select(source, target, value),
+          here::here("01-smallholder-material-flow", "outputs", "tables", "sankey_data.csv"),
+          row.names = FALSE)
+
+message("FIGURE 1 saved: figure1_flow_sankey.html (+ sankey_data.csv for Tableau)")
 
 # =============================================================================
 # --- FIGURE 2: Scree plot ---
