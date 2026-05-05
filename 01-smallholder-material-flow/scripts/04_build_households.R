@@ -503,6 +503,11 @@ households <- households |>
 
 saveRDS(households, here::here("data", "processed", "households.rds"))
 
+# Export for Python translation — parquet format
+# Required by python/01_load_data.py and downstream Python scripts
+arrow::write_parquet(households, here::here("data", "processed", "households.parquet"))
+message("Parquet export: households.parquet")
+
 # Diagnostic summary — print to console, do not suppress
 message("=== 04_build_households.R complete ===")
 message("Households in final dataset: ", nrow(households))

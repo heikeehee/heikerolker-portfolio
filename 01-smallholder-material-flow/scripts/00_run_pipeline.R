@@ -39,21 +39,15 @@ source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "destinations.R"))
 
 # =============================================================================
-# STAGE 2b: Imputation (documentation registries)
-# Each script documents assumptions from the corresponding clean/ script.
-# These registries should be reviewed before stage 3.
-# The actual computation still runs in clean/ (above) to keep the pipeline runnable.
+# STAGE 2b: Imputation
+# Assumption-based estimation steps that extend the cleaned section outputs.
+# Documentation registries (crops, recall, ag_produce, animal_products, milk,
+# destinations) have been moved to scripts/archive/ — see README.md there.
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "yield_gap.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "animals.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "recall.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "crops.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "ag_produce.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "processed_crops.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "animal_products.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "milk.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinations.R"))
 
 # =============================================================================
 # STAGE 3: Build household-level dataset

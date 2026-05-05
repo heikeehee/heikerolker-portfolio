@@ -1,0 +1,6 @@
+pandas
+numpy
+prince
+matplotlib
+plotly
+pyarrow
