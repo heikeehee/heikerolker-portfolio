@@ -495,6 +495,9 @@ saveRDS(mfa_input_mfa,
 saveRDS(mfa_input_mfa |> select(-y4_hhid),
         here::here("data", "processed", "mfa_input_matrix.rds"))      # data frame without y4_hhid; MFA() accepts data frames
 
+arrow::write_parquet(mfa_input_mfa, here::here("data", "processed", "mfa_input.parquet"))
+message("Parquet export: mfa_input.parquet")
+
 message("06_mfa_input.R: MFA input: ",
         nrow(mfa_input_mfa), " households × ", ncol(mfa_input_mfa) - 1, " variables")
 message("  mfa_input.rds        — with y4_hhid (for back-joining to household characteristics)")
