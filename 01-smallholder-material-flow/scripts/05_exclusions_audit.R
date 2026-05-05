@@ -196,19 +196,35 @@ print(profile_E05)
 # Type: structural zero (non-ruminants do not produce milk in this context)
 # =============================================================================
 
-lf_sec_06_cats <- raw$milk$lf_sec_06 |>
-  clean_up() |>
-  distinct(lvstckcat)
+# Load milk raw section directly (raw object not available in this script)
+milk_raw_path <- here::here("data", "raw", "lsms", "lf_sec_06.dta")
+if (file.exists(milk_raw_path)) {
+  lf_sec_06_raw <- haven::read_dta(milk_raw_path)
+  lf_sec_06_cats <- lf_sec_06_raw |>
+    clean_up() |>
+    distinct(lvstckcat)
 
-excluded_E06_cats <- lf_sec_06_cats |>
-  filter(!(lvstckcat %in% c("large ruminants", "small ruminants")))
+  excluded_E06_cats <- lf_sec_06_cats |>
+    filter(!(lvstckcat %in% c("large ruminants", "small ruminants")))
 
-included_E06_cats <- lf_sec_06_cats |>
-  filter(lvstckcat %in% c("large ruminants", "small ruminants"))
+  included_E06_cats <- lf_sec_06_cats |>
+    filter(lvstckcat %in% c("large ruminants", "small ruminants"))
 
-message("E06 — non-ruminant categories dropped from milk section")
-message("  Dropped categories: ", paste(excluded_E06_cats$lvstckcat, collapse = ", "))
-message("  Retained categories: ", paste(included_E06_cats$lvstckcat, collapse = ", "))
+  message("E06 — non-ruminant categories dropped from milk section")
+  message("  Dropped categories: ", paste(excluded_E06_cats$lvstckcat, collapse = ", "))
+  message("  Retained categories: ", paste(included_E06_cats$lvstckcat, collapse = ", "))
+} else {
+  # lf_sec_06.dta not available — report from clean/milk.rds if present
+  milk_clean_path <- here::here("data", "processed", "clean", "milk.rds")
+  if (file.exists(milk_clean_path)) {
+    milk_clean <- zap_all(readRDS(milk_clean_path))
+    message("E06 — retained categories in cleaned milk data: ",
+            paste(unique(milk_clean$lvstckcat), collapse = ", "))
+  } else {
+    message("E06 — lf_sec_06.dta and milk.rds not available; skipping category profile")
+  }
+  excluded_E06_cats <- data.frame(lvstckcat = character(0))
+}
 # 🚩 FLAG [EXCLUSION]: confirm no milkable animals coded under dropped categories
 
 # =============================================================================
@@ -283,21 +299,25 @@ message("  Trees excluded: ",  nrow(excl_trees_flag))
 # =============================================================================
 
 # Note: double space in filter string — "crop produces no  residue"
-crop_disp_residue <- raw$destinations$ag_sec_5a |>
-  clean_up() |>
-  filter(!is.na(ag5a_33)) |>
-  rename(residue_use = ag5a_33)
+# Load from cleaned residue output (raw DTA not available in this script)
+excl_E10_from_residue <- mass_residue |>
+  as.data.frame() |>
+  filter(!is.na(cropid))
 
-excluded_E10 <- crop_disp_residue |>
-  filter(residue_use == "crop produces no  residue")
+# Profile from crop_disp.rds — residue_use column retained in clean/destinations.R
+crop_disp_residue_use <- crop_disp |>
+  as.data.frame() |>
+  filter(!is.na(residue_use))
 
-included_E10 <- crop_disp_residue |>
+excluded_E10 <- crop_disp_residue_use |>
+  filter(residue_use == "crop produces no  residue")  # note: double space
+
+included_E10 <- crop_disp_residue_use |>
   filter(residue_use != "crop produces no  residue")
 
 message("E10 — 'crop produces no residue' records dropped from residue estimation")
-message("  Excluded records: ", nrow(excluded_E10))
+message("  Excluded records (residue_use == 'no residue'): ", nrow(excluded_E10))
 message("  Included records: ", nrow(included_E10))
-# Count unique households
 message("  Excluded households: ", n_distinct(excluded_E10$y4_hhid))
 # 🚩 FLAG [EXCLUSION]: confirm double-space matches raw data; check codebook ag_sec_5a q33
 

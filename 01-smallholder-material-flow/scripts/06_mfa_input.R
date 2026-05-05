@@ -106,9 +106,8 @@ stopifnot("mfa_group column missing from item_groups" = "mfa_group" %in% names(i
 stopifnot("classified column missing from item_groups" = "classified" %in% names(item_groups))
 n_unclassified <- sum(!item_groups$classified, na.rm = TRUE)
 message("06_mfa_input.R: item_groups loaded — ", nrow(item_groups), " items, ",
+        sum(!is.na(item_groups$mfa_group)), " with mfa_group assigned, ",
         n_unclassified, " unclassified")
-message("06_mfa_input.R: item_groups loaded — ", nrow(item_groups), " rows, ",
-        sum(!is.na(item_groups$mfa_group)), " with mfa_group assigned")
 
 # =============================================================================
 # SECTION 2: PROCESSING NODE — product/byproduct split
