@@ -7,6 +7,17 @@
 library(here)
 
 # =============================================================================
+# UTILITIES: Flow construction and Sankey visualisation
+# Load before analysis scripts — mfafun(), sankey(), and household-level wrappers
+# depend on helper functions (sm, calc, cl) defined in functions.R, which is sourced
+# in the first analysis script that needs it (06_mfa_input.R sources functions.R).
+# Sourcing here ensures wrappers are available pipeline-wide.
+# =============================================================================
+
+source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "utils", "mfa_flow.R"))  # flow construction + Sankey utilities
+
+# =============================================================================
 # STAGE 1: Load raw data
 # =============================================================================
 

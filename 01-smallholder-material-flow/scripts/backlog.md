@@ -47,3 +47,12 @@ See FLAGS_REVIEW.md for the full list of unclassified items.
 **Priority:** Low (post-portfolio)
 Single master reference file across all projects with project-specific inclusion flags.
 See data/reference/item_groups_README.md for proposed structure.
+
+## B08 — Feed dry matter conversion
+**Priority:** Low
+**Affects:** Project 01 Sankey, MFA input feed variables
+Feed quantities in Sankey = feed_crops_kg_fresh + feed_liveweight_kg_DM (mixed units).
+Correction requires per-crop DM conversion factors and crop-level feed recording.
+LSMS-ISA data does not support this for most households.
+Do not cite absolute feed totals as dry matter equivalents.
+Revisit if future survey waves record which crops are fed to animals.
