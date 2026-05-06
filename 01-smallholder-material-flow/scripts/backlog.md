@@ -1,7 +1,9 @@
 # Project 01 — Backlog
 
-Items documented here are known limitations or improvements.
-None are on the critical path. Revisit after portfolio is complete.
+Items documented here are known limitations or planned improvements.
+None are on the critical path for the current portfolio release.
+This file is intentionally public — transparent documentation of limitations
+is standard practice in rigorous analytical work.
 
 ## B01 — Imputation sensitivity analysis
 **Priority:** High (methodological)
