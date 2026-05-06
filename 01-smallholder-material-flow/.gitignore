@@ -10,6 +10,8 @@ outputs/tables/*
 !outputs/figures/.gitkeep
 !outputs/tables/.gitkeep
 
+**/archive/
+
 # R session files
 .DS_Store
 *.Rhistory
