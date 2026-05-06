@@ -19,7 +19,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: CROP DISPOSITION (ag_sec_5a / ag_sec_5b)
@@ -115,7 +115,7 @@ crop_disp <- upData(disp,
 crop_disp[y4_hhid == "8659-001" & cropid == "maize", consumed := 480]
 
 saveRDS(crop_disp,
-        here::here("data", "processed", "clean", "crop_disp.rds"),
+        here::here("data", "processed", "01", "clean", "crop_disp.rds"),
         compress = TRUE)
 
 # =============================================================================
@@ -185,7 +185,7 @@ tree_disp <- upData(disp,
 )
 
 saveRDS(tree_disp,
-        here::here("data", "processed", "clean", "tree_disp.rds"),
+        here::here("data", "processed", "01", "clean", "tree_disp.rds"),
         compress = TRUE)
 
 # =============================================================================
@@ -197,8 +197,8 @@ saveRDS(tree_disp,
 # 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
-pc <- readRDS(here::here("data", "processed", "clean", "pc.rds"))
-pt <- readRDS(here::here("data", "processed", "clean", "pt.rds"))
+pc <- readRDS(here::here("data", "processed", "01", "clean", "pc.rds"))
+pt <- readRDS(here::here("data", "processed", "01", "clean", "pt.rds"))
 
 # --- Crops ---
 pn_crops <- pc %>%
@@ -251,7 +251,7 @@ crops_merged <- upData(crops_merged,
 crops_merged[, smd := sold + stored + losses + consumed + payment + gifts + feed]
 crops_merged[, smd := adlab(smd, "Sum of all disposition")]
 
-saveRDS(crops_merged, here::here("data", "processed", "clean", "mass_crops.rds"),
+saveRDS(crops_merged, here::here("data", "processed", "01", "clean", "mass_crops.rds"),
         compress = TRUE)
 
 # Exclusion flags: crops
@@ -284,7 +284,7 @@ ex_crops <- crops_excl %>%
 crops_excl    <- crops_excl[!ex_crops, on = .(y4_hhid, cropid)]
 crops_excl    <- clear.labels(crops_excl)
 excl_crops    <- bind_rows(crops_excl, ex_crops) %>% select(y4_hhid, item = cropid, excl)
-write.csv(excl_crops, here::here("data", "processed", "clean", "excl_crops.csv"),
+write.csv(excl_crops, here::here("data", "processed", "01", "clean", "excl_crops.csv"),
           row.names = FALSE)
 
 # --- Trees ---
@@ -322,7 +322,7 @@ trees_merged <- upData(trees_merged,
 trees_merged[, smd := sold + stored + losses + consumed + payment + gifts + feed]
 trees_merged[, smd := adlab(smd, "Sum of all disposition")]
 
-saveRDS(trees_merged, here::here("data", "processed", "clean", "mass_trees.rds"),
+saveRDS(trees_merged, here::here("data", "processed", "01", "clean", "mass_trees.rds"),
         compress = TRUE)
 
 # Exclusion flags: trees
@@ -347,7 +347,7 @@ ex_trees   <- trees_excl %>%
 trees_excl <- trees_excl[!ex_trees, on = .(y4_hhid, cropid)]
 excl_trees <- trees_excl %>% clear.labels() %>% bind_rows(ex_trees) %>%
   select(y4_hhid, item = cropid, excl)
-write.csv(excl_trees, here::here("data", "processed", "clean", "excl_trees.csv"),
+write.csv(excl_trees, here::here("data", "processed", "01", "clean", "excl_trees.csv"),
           row.names = FALSE)
 
 # --- Combine crops + trees ---
@@ -365,7 +365,7 @@ tc <- upData(tc,
 )
 
 allcrops <- rbindlist(list(ct, tc), fill = TRUE)
-saveRDS(allcrops, here::here("data", "processed", "clean", "mass_allcrops.rds"),
+saveRDS(allcrops, here::here("data", "processed", "01", "clean", "mass_allcrops.rds"),
         compress = TRUE)
 
 # =============================================================================
@@ -379,11 +379,11 @@ saveRDS(allcrops, here::here("data", "processed", "clean", "mass_allcrops.rds"),
 # =============================================================================
 
 # Load inputs (from clean/ and reference data loaded in 01_load_raw.R)
-residue  <- readRDS(here::here("data", "processed", "clean", "crop_disp.rds")) %>%
+residue  <- readRDS(here::here("data", "processed", "01", "clean", "crop_disp.rds")) %>%
   select(y4_hhid, cropid, residue_use, residue, value_residue) %>%
   as.data.table()
 
-prod <- readRDS(here::here("data", "processed", "clean", "pc.rds")) %>%
+prod <- readRDS(here::here("data", "processed", "01", "clean", "pc.rds")) %>%
   select(cropid, y4_hhid, type, harvest = quant_harvest, total_harvest, quant_unharvested) %>%
   as.data.table()
 
@@ -424,8 +424,8 @@ res_out[, grazing_res := ifelse(
   Residues_DM, 0
 )]
 
-saveRDS(res_out,  here::here("data", "processed", "clean", "mass_residue.rds"),
+saveRDS(res_out,  here::here("data", "processed", "01", "clean", "mass_residue.rds"),
         compress = TRUE)
-readr::write_csv(res_out, here::here("data", "processed", "clean", "mass_residue.csv"))
+readr::write_csv(res_out, here::here("data", "processed", "01", "clean", "mass_residue.csv"))
 
 message("clean/destinations.R: all destination and residue outputs saved.")

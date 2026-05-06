@@ -29,8 +29,8 @@ library(FactoMineR)
 # SECTION 1: LOAD INPUTS
 # =============================================================================
 
-mfa_input   <- readRDS(here::here("data", "processed", "mfa_input.rds"))
-mfa_results <- readRDS(here::here("data", "processed", "mfa_results.rds"))
+mfa_input   <- readRDS(here::here("data", "processed", "01", "mfa_input.rds"))
+mfa_results <- readRDS(here::here("data", "processed", "01", "mfa_results.rds"))
 
 # =============================================================================
 # SECTION 2: PARAMETER RANGES FOR MONTE CARLO
@@ -182,7 +182,7 @@ dim_summary <- mc_all |>
 # =============================================================================
 
 # Load full households for mass-balance uncertainty
-households <- readRDS(here::here("data", "processed", "households.rds"))
+households <- readRDS(here::here("data", "processed", "01", "households.rds"))
 
 # 🚩 FLAG [ASSUMPTION]: upper estimate = produced + missing (assumes production underestimated)
 #                        lower estimate = produced - unallocated (assumes production overestimated)
@@ -244,10 +244,10 @@ saveRDS(list(
     fcr_milk_range          = fcr_milk_range,
     rpr_multiplier_range    = rpr_multiplier_range
   )
-), here::here("data", "processed", "uncertainty_results.rds"))
+), here::here("data", "processed", "01", "uncertainty_results.rds"))
 
 message("08_uncertainty.R: Uncertainty results saved.")
-file.exists(here::here("data", "processed", "uncertainty_results.rds"))  # must be TRUE
+file.exists(here::here("data", "processed", "01", "uncertainty_results.rds"))  # must be TRUE
 
 # =============================================================================
 # BACKLOG — not yet implemented

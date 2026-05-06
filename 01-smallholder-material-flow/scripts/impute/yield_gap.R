@@ -31,7 +31,7 @@ library(data.table)
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "impute"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "impute"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # STEP 1: MAP GYGA CROP NAMES TO LSMS SURVEY CROPIDS
@@ -61,8 +61,8 @@ gyga <- gyga_raw %>%
 # STEP 2: LOAD CLEANED CROP DATA
 # =============================================================================
 
-pc          <- readRDS(here::here("data", "processed", "clean", "pc.rds")) %>% clear.labels()
-plots_full  <- readRDS(here::here("data", "processed", "clean", "plot_details.rds"))
+pc          <- readRDS(here::here("data", "processed", "01", "clean", "pc.rds")) %>% clear.labels()
+plots_full  <- readRDS(here::here("data", "processed", "01", "clean", "plot_details.rds"))
 
 # =============================================================================
 # STEP 3: IRRIGATED SAMPLE
@@ -153,7 +153,7 @@ if (neg_yg > 0) {
   message("impute/yield_gap.R: ", neg_yg, " plot(s) with negative yield gap (yield > YP).")
 }
 
-saveRDS(yieldgaps, here::here("data", "processed", "impute", "yieldgaps.rds"),
+saveRDS(yieldgaps, here::here("data", "processed", "01", "impute", "yieldgaps.rds"),
         compress = TRUE)
 
 # CSV for QA / external review

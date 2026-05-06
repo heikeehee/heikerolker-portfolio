@@ -14,35 +14,35 @@ library(data.table)
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # PRE-LOAD: cleaned section files
 # =============================================================================
 
-crops      <- zap_all(readRDS(here::here("data", "processed", "clean", "crops.rds")))
-pc         <- zap_all(readRDS(here::here("data", "processed", "clean", "pc.rds")))
-plot_det   <- zap_all(readRDS(here::here("data", "processed", "clean", "plot_details.rds")))
-animals    <- zap_all(readRDS(here::here("data", "processed", "clean", "animals.rds")))
-animals_fin <- zap_all(readRDS(here::here("data", "processed", "clean", "animals_fin.rds")))
-excl_animals <- readr::read_csv(here::here("data", "processed", "clean", "excl_animals.csv"),
+crops      <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "crops.rds")))
+pc         <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "pc.rds")))
+plot_det   <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "plot_details.rds")))
+animals    <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "animals.rds")))
+animals_fin <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "animals_fin.rds")))
+excl_animals <- readr::read_csv(here::here("data", "processed", "01", "clean", "excl_animals.csv"),
                                  na = c("", "NA"), show_col_types = FALSE)
-produce    <- zap_all(readRDS(here::here("data", "processed", "clean", "produce.rds")))
-hides      <- zap_all(readRDS(here::here("data", "processed", "clean", "hides.rds")))
-mass_milk  <- zap_all(readRDS(here::here("data", "processed", "clean", "milk.rds")))
-excl_milk  <- readr::read_csv(here::here("data", "processed", "clean", "excl_milk.csv"),
+produce    <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "produce.rds")))
+hides      <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "hides.rds")))
+mass_milk  <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "milk.rds")))
+excl_milk  <- readr::read_csv(here::here("data", "processed", "01", "clean", "excl_milk.csv"),
                                na = c("", "NA"), show_col_types = FALSE)
-crop_disp  <- zap_all(readRDS(here::here("data", "processed", "clean", "crop_disp.rds")))
-excl_crops <- readr::read_csv(here::here("data", "processed", "clean", "excl_crops.csv"),
+crop_disp  <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "crop_disp.rds")))
+excl_crops <- readr::read_csv(here::here("data", "processed", "01", "clean", "excl_crops.csv"),
                                na = c("", "NA"), show_col_types = FALSE)
-excl_trees <- readr::read_csv(here::here("data", "processed", "clean", "excl_trees.csv"),
+excl_trees <- readr::read_csv(here::here("data", "processed", "01", "clean", "excl_trees.csv"),
                                na = c("", "NA"), show_col_types = FALSE)
-excl_eggs  <- readr::read_csv(here::here("data", "processed", "clean", "excl_eggs.csv"),
+excl_eggs  <- readr::read_csv(here::here("data", "processed", "01", "clean", "excl_eggs.csv"),
                                na = c("", "NA"), show_col_types = FALSE)
-mass_residue <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_residue.rds")))
+mass_residue <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_residue.rds")))
 
 # Household roster — loads if available (spine for joining region/wealth)
-roster_path <- here::here("data", "processed", "clean", "household_roster.rds")
+roster_path <- here::here("data", "processed", "01", "clean", "household_roster.rds")
 if (file.exists(roster_path)) {
   roster <- zap_all(readRDS(roster_path))
 } else {
@@ -51,7 +51,7 @@ if (file.exists(roster_path)) {
 }
 
 # households.rds — available after 04_build_households.R
-households_path <- here::here("data", "processed", "households.rds")
+households_path <- here::here("data", "processed", "01", "households.rds")
 if (file.exists(households_path)) {
   households <- zap_all(readRDS(households_path))
 } else {
@@ -215,7 +215,7 @@ if (file.exists(milk_raw_path)) {
   message("  Retained categories: ", paste(included_E06_cats$lvstckcat, collapse = ", "))
 } else {
   # lf_sec_06.dta not available — report from clean/milk.rds if present
-  milk_clean_path <- here::here("data", "processed", "clean", "milk.rds")
+  milk_clean_path <- here::here("data", "processed", "01", "clean", "milk.rds")
   if (file.exists(milk_clean_path)) {
     milk_clean <- zap_all(readRDS(milk_clean_path))
     message("E06 — retained categories in cleaned milk data: ",
@@ -401,7 +401,7 @@ message("\n05_exclusions_audit.R — EXCLUSION SUMMARY")
 print(exclusion_summary)
 
 saveRDS(exclusion_summary,
-        here::here("data", "processed", "exclusions_summary.rds"),
+        here::here("data", "processed", "01", "exclusions_summary.rds"),
         compress = TRUE)
 
 message("05_exclusions_audit.R: exclusions_summary.rds saved.")

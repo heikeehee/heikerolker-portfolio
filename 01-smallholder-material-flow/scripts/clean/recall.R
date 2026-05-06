@@ -9,7 +9,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # CONSTANTS
@@ -153,13 +153,13 @@ if (nrow(missing_conversions) > 0) {
 # Save diagnostic for QA review
 readr::write_csv(
   missing_conversions,
-  here::here("data", "processed", "clean", "recall_missing_conversions.csv")
+  here::here("data", "processed", "01", "clean", "recall_missing_conversions.csv")
 )
 
 # =============================================================================
 # OUTPUT
 # =============================================================================
 
-saveRDS(recall_kg, here::here("data", "processed", "clean", "recall.rds"), compress = TRUE)
+saveRDS(recall_kg, here::here("data", "processed", "01", "clean", "recall.rds"), compress = TRUE)
 
 message("clean/recall.R: recall data cleaned and saved.")

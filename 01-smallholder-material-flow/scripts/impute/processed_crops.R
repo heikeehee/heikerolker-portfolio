@@ -14,7 +14,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "imputed"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "impute"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # STEP 1: EXTRACTION RATE TABLE
@@ -49,7 +49,7 @@ extraction_rates <- tribble(
 # STEP 2: LOAD CLEANED PROCESSED-CROP DATA
 # =============================================================================
 
-ag_produce <- zap_all(readRDS(here::here("data", "processed", "clean", "ag_produce.rds")))
+ag_produce <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "ag_produce.rds")))
 
 # Diagnostic: unique crops in ag_produce
 n_crops_raw <- n_distinct(ag_produce$cropid, na.rm = TRUE)
@@ -135,7 +135,7 @@ if (n_imbalance > 0) {
 # STEP 6: SAVE
 # =============================================================================
 
-saveRDS(processed, here::here("data", "processed", "imputed", "processed_crops.rds"),
+saveRDS(processed, here::here("data", "processed", "01", "impute", "processed_crops.rds"),
         compress = TRUE)
 
 message("impute/processed_crops.R: processed crops imputed and saved. ",

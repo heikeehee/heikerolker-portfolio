@@ -40,7 +40,7 @@ library(data.table)
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "impute"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "impute"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # STEP 1: FEED REQUIREMENT ASSUMPTION TABLES
@@ -117,8 +117,8 @@ feeds <- upData(feeds, labels = .q(
 # STEP 2: LOAD CLEANED DATA
 # =============================================================================
 
-wa <- readRDS(here::here("data", "processed", "clean", "wa.rds"))
-f  <- readRDS(here::here("data", "processed", "clean", "feed_short.rds"))
+wa <- readRDS(here::here("data", "processed", "01", "clean", "wa.rds"))
+f  <- readRDS(here::here("data", "processed", "01", "clean", "feed_short.rds"))
 
 # =============================================================================
 # STEP 3: MERGE FEEDING PRACTICE WITH CARCASS DATA AND APPLY FEED FACTORS
@@ -170,7 +170,7 @@ mass_animals <- af %>%
   mutate_at(c(4:15), as.numeric)  # ensure numeric (labelled attributes removed)
 
 saveRDS(mass_animals,
-        here::here("data", "processed", "impute", "mass_animals.rds"),
+        here::here("data", "processed", "01", "impute", "mass_animals.rds"),
         compress = TRUE)
 
 message("impute/animals.R: feed imputation complete. ",

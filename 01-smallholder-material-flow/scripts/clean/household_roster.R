@@ -17,7 +17,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: HOUSEHOLD IDENTIFIERS (hh_sec_a)
@@ -141,7 +141,7 @@ message("clean/household_roster.R: ", n_no_match,
 stopifnot("y4_hhid not unique in household_roster" = !anyDuplicated(roster_full$y4_hhid))
 
 saveRDS(roster_full,
-        here::here("data", "processed", "clean", "household_roster.rds"),
+        here::here("data", "processed", "01", "clean", "household_roster.rds"),
         compress = TRUE)
 
 message("clean/household_roster.R: Household roster saved")

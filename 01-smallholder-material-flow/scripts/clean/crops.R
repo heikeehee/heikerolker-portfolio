@@ -19,7 +19,7 @@ source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
 # Ensure output directory exists
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: PLOTS (ag_sec_2a / ag_sec_2b)
@@ -87,7 +87,7 @@ plots <- upData(plots,
   drop = .q(plotname, ag2a_06_1, ag2a_06_2, ag2a_06_3, ag2a_06_4)
 )
 
-saveRDS(plots, here::here("data", "processed", "clean", "plots.rds"), compress = TRUE)
+saveRDS(plots, here::here("data", "processed", "01", "clean", "plots.rds"), compress = TRUE)
 
 # --------------------------------------------------------------------------
 # Derived: composite plot size (GPS preferred over farmer estimate)
@@ -119,7 +119,7 @@ phh[, land_gps := adlab(land_gps, "Sum of gps plotsizes where available (ha)")]
 phh <- phh %>% select(y4_hhid, land, land_gps) %>% unique()
 phh <- phh[pn, on = "y4_hhid"]
 
-saveRDS(phh, here::here("data", "processed", "clean", "plots_stats.rds"), compress = TRUE)
+saveRDS(phh, here::here("data", "processed", "01", "clean", "plots_stats.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 2: CROPS (ag_sec_4a / ag_sec_4b)
@@ -196,7 +196,7 @@ crops <- upData(crops,
   drop = .q(plotname, ag4a_01, ag4a_02)
 )
 
-saveRDS(crops, here::here("data", "processed", "clean", "crops.rds"), compress = TRUE)
+saveRDS(crops, here::here("data", "processed", "01", "clean", "crops.rds"), compress = TRUE)
 
 # --------------------------------------------------------------------------
 # Merge crops with plots to get per-crop area and yield
@@ -269,7 +269,7 @@ pc <- upData(pc,
 # Mark missing harvest quantities as mismatch for downstream exclusion
 pc[, mismatch := ifelse(is.na(quant_harvest), 1, mismatch)]
 
-saveRDS(pc, here::here("data", "processed", "clean", "pc.rds"), compress = TRUE)
+saveRDS(pc, here::here("data", "processed", "01", "clean", "pc.rds"), compress = TRUE)
 
 # --------------------------------------------------------------------------
 # Pre-harvest losses (crops) — separate file for audit use
@@ -277,7 +277,7 @@ saveRDS(pc, here::here("data", "processed", "clean", "pc.rds"), compress = TRUE)
 crops_prelost <- crops %>%
   select(y4_hhid, cropid, type, plotnum, preharvest_losses, loss_cause)
 
-saveRDS(crops_prelost, here::here("data", "processed", "clean", "crops_prelost.rds"),
+saveRDS(crops_prelost, here::here("data", "processed", "01", "clean", "crops_prelost.rds"),
         compress = TRUE)
 
 # =============================================================================
@@ -319,14 +319,14 @@ trees <- upData(trees,
   )
 )
 
-saveRDS(trees, here::here("data", "processed", "clean", "trees.rds"), compress = TRUE)
+saveRDS(trees, here::here("data", "processed", "01", "clean", "trees.rds"), compress = TRUE)
 
 # Merge trees with plots
 trees_sub <- trees[, .(y4_hhid, plotnum, type, cropid, ntrees, harvest, pre_lost, loss_cause)]
 pt <- p[trees_sub, on = c("y4_hhid", "plotnum")]
 pt[, .q(area_new, gps_area_new) := NULL]
 
-saveRDS(pt, here::here("data", "processed", "clean", "pt.rds"), compress = TRUE)
+saveRDS(pt, here::here("data", "processed", "01", "clean", "pt.rds"), compress = TRUE)
 
 # --------------------------------------------------------------------------
 # Pre-harvest losses: bind crops and trees
@@ -338,7 +338,7 @@ prelost <- rbindlist(list(cph, tph), fill = TRUE)
 prelost[, pre_lost   := as.factor(pre_lost)]
 prelost[, loss_cause := as.factor(loss_cause)]
 
-saveRDS(prelost, here::here("data", "processed", "clean", "prelost.rds"), compress = TRUE)
+saveRDS(prelost, here::here("data", "processed", "01", "clean", "prelost.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 4: PLOT DETAILS (ag_sec_3a / ag_sec_3b)
@@ -384,7 +384,7 @@ plots_full <- long %>% # lists all plots cultivated in long and short season, in
 plots_full <- zap_labels(plots_full)
 label(plots_full) <- as.list(labs[match(names(plots_full), names(labs))])
 
-saveRDS(plots_full, here::here("data", "processed", "clean", "plot_details.rds"),
+saveRDS(plots_full, here::here("data", "processed", "01", "clean", "plot_details.rds"),
         compress = TRUE)
 
 message("clean/crops.R: all crop/plot outputs saved.")

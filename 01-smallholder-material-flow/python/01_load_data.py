@@ -12,7 +12,11 @@ from pathlib import Path
 
 # Paths — adjust DATA_DIR to point to your processed data folder
 # R equivalent: scripts/01_load_raw.R + scripts/04_build_households.R outputs
-DATA_DIR = Path("data/processed")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data" / "processed"
+
+def load_item_groups():
+    return pd.read_csv(PROJECT_ROOT / "data" / "reference" / "item_groups.csv", na_values=["", "NA"])
 
 def load_households():
     """Load household-level processed dataset produced by R pipeline."""

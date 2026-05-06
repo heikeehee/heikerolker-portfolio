@@ -45,41 +45,41 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: LOAD INPUTS
 # All flow allocation and cleaning already done in clean/ and impute/ scripts.
 # =============================================================================
 
-households   <- zap_all(readRDS(here::here("data", "processed", "households.rds")))
+households   <- zap_all(readRDS(here::here("data", "processed", "01", "households.rds")))
 
 # Crop & tree flow allocation (per hh × crop; smd already computed in destinations.R)
-mass_crops   <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_crops.rds")))
-mass_trees   <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_trees.rds")))
+mass_crops   <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_crops.rds")))
+mass_trees   <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_trees.rds")))
 
 # Milk — quantities in _kg columns (factor 1.03 from clean/milk.R; see U01, U04 in FLAGS_REVIEW.md)
 # 🚩 FLAG [UNIT]: use _kg columns only — do NOT use the original litre columns.
 # All downstream milk quantities in this script are in kg.
 # Milk — all quantities in litres EXCEPT _kg columns added in clean/milk.R
-mass_milk    <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds")))
+mass_milk    <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_milk_final.rds")))
 
 # Eggs
-mass_eggs    <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_eggs.rds")))
+mass_eggs    <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_eggs.rds")))
 
 # Residue estimates (DM, from clean/destinations.R)
-mass_residue <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_residue.rds")))
+mass_residue <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_residue.rds")))
 
 # Slaughter mass balance (imputed carcass breakdown: meat, offal, hides, inedible, feed)
-mass_animals <- zap_all(readRDS(here::here("data", "processed", "impute", "mass_animals.rds")))
+mass_animals <- zap_all(readRDS(here::here("data", "processed", "01", "impute", "mass_animals.rds")))
 
 # Hides — produced and sold from clean/animal_products.R
-mass_hides   <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_hides.rds")))
+mass_hides   <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_hides.rds")))
 
 # Processed crops — product/byproduct split from impute/processed_crops.R
 # 🚩 FLAG [CROSS-SECTION]: processed_crops joins ag_produce (sent_to_processing)
 # with extraction rate assumptions. Input = sent_to_processing_kg from ag_produce section.
-processed_crops <- readRDS(here::here("data", "processed", "imputed", "processed_crops.rds"))
+processed_crops <- readRDS(here::here("data", "processed", "01", "impute", "processed_crops.rds"))
 message("06_mfa_input.R: processed_crops loaded — ", nrow(processed_crops), " rows")
 
 # Item classification reference — MFA grouping
@@ -479,7 +479,7 @@ mfa_groups <- item_groups |>
   group_by(mfa_group, mfa_group_label) |>
   summarise(n_items = n(), .groups = "drop")
 
-saveRDS(mfa_groups, here::here("data", "processed", "mfa_groups.rds"))
+saveRDS(mfa_groups, here::here("data", "processed", "01", "mfa_groups.rds"))
 message("06_mfa_input.R: MFA groups: ", nrow(mfa_groups), " groups, ",
         sum(mfa_groups$n_items), " classified items total")
 message("  (groups= vector for MFA() must be set manually in 07_mfa_analysis.R",
@@ -491,11 +491,11 @@ message("  (groups= vector for MFA() must be set manually in 07_mfa_analysis.R",
 # =============================================================================
 
 saveRDS(mfa_input_mfa,
-        here::here("data", "processed", "mfa_input.rds"))             # with y4_hhid
+        here::here("data", "processed", "01", "mfa_input.rds"))             # with y4_hhid
 saveRDS(mfa_input_mfa |> select(-y4_hhid),
-        here::here("data", "processed", "mfa_input_matrix.rds"))      # data frame without y4_hhid; MFA() accepts data frames
+        here::here("data", "processed", "01", "mfa_input_matrix.rds"))      # data frame without y4_hhid; MFA() accepts data frames
 
-arrow::write_parquet(mfa_input_mfa, here::here("data", "processed", "mfa_input.parquet"))
+arrow::write_parquet(mfa_input_mfa, here::here("data", "processed", "01", "mfa_input.parquet"))
 message("Parquet export: mfa_input.parquet")
 
 message("06_mfa_input.R: MFA input: ",

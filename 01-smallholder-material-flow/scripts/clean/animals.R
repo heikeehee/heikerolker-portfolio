@@ -21,7 +21,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: ANIMAL OWNERSHIP AND SLAUGHTER (lf_sec_02)
@@ -139,7 +139,7 @@ ls_list <- data.table(
 
 animals <- merge(ls_list, animals, by = "lvstckid")
 
-saveRDS(animals, here::here("data", "processed", "clean", "animals.rds"), compress = TRUE)
+saveRDS(animals, here::here("data", "processed", "01", "clean", "animals.rds"), compress = TRUE)
 
 # --------------------------------------------------------------------------
 # Derived stock measures and exclusion flags
@@ -176,7 +176,7 @@ animals_sub <- upData(animals_sub,
   )
 )
 
-saveRDS(animals_sub, here::here("data", "processed", "clean", "animals_fin.rds"),
+saveRDS(animals_sub, here::here("data", "processed", "01", "clean", "animals_fin.rds"),
         compress = TRUE)
 
 # Exclusion flags
@@ -202,7 +202,7 @@ excl_animals <- excl_animals %>%
   unique()
 
 write.csv(excl_animals,
-          here::here("data", "processed", "clean", "excl_animals.csv"),
+          here::here("data", "processed", "01", "clean", "excl_animals.csv"),
           row.names = FALSE)
 
 # =============================================================================
@@ -260,7 +260,7 @@ wa <- upData(wa,
   drop = .q(waste, fcr, bot, top, topown)
 )
 
-saveRDS(wa, here::here("data", "processed", "clean", "wa.rds"), compress = TRUE)
+saveRDS(wa, here::here("data", "processed", "01", "clean", "wa.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 3: LIVESTOCK FEEDING PRACTICES (lf_sec_04)
@@ -287,7 +287,7 @@ feed <- upData(feed,
   )
 )
 
-saveRDS(feed, here::here("data", "processed", "clean", "feed.rds"), compress = TRUE)
+saveRDS(feed, here::here("data", "processed", "01", "clean", "feed.rds"), compress = TRUE)
 
 # Simplify: use feed2 where tethering (ambiguous) and feed2 is more informative
 # 🚩 FLAG ASSUMPTION: "tethering" replaced with feed2 if available.
@@ -296,7 +296,7 @@ feed[, feed1 := ifelse(feed1 == "tethering" & !is.na(feed2), feed2, feed1)]
 f <- feed[, .(y4_hhid, type, feed1)]
 f[, type := as.factor(type)]
 
-saveRDS(f, here::here("data", "processed", "clean", "feed_short.rds"), compress = TRUE)
+saveRDS(f, here::here("data", "processed", "01", "clean", "feed_short.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 4: FISHERY (lf_sec_12)
@@ -330,6 +330,6 @@ fishes <- lf_sec_12 %>%
 # NOTE: fish labour data (lf_sec_09) not integrated — labour variables
 # not required for MFA pipeline. Revisit if fish section is expanded.
 
-saveRDS(fishes, here::here("data", "processed", "clean", "fishes.rds"), compress = TRUE)
+saveRDS(fishes, here::here("data", "processed", "01", "clean", "fishes.rds"), compress = TRUE)
 
 message("clean/animals.R: all animal outputs saved.")

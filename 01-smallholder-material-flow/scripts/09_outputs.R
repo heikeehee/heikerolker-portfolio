@@ -30,10 +30,10 @@ dir.create(here::here("01-smallholder-material-flow", "outputs", "figures"),
 # LOAD INPUTS
 # =============================================================================
 
-households          <- readRDS(here::here("data", "processed", "households.rds"))
-mfa_results         <- readRDS(here::here("data", "processed", "mfa_results.rds"))
-uncertainty_results <- readRDS(here::here("data", "processed", "uncertainty_results.rds"))
-mfa_input           <- readRDS(here::here("data", "processed", "mfa_input.rds"))
+households          <- readRDS(here::here("data", "processed", "01", "households.rds"))
+mfa_results         <- readRDS(here::here("data", "processed", "01", "mfa_results.rds"))
+uncertainty_results <- readRDS(here::here("data", "processed", "01",  "uncertainty_results.rds"))
+mfa_input           <- readRDS(here::here("data", "processed", "01", "mfa_input.rds"))
 
 mfa_scores   <- mfa_results$scores
 mfa_loadings <- mfa_results$loadings
@@ -146,14 +146,14 @@ if (!exists("mfa_flow_grouped")) {
 # =============================================================================
 
 # Load raw mass flow files
-mass_crops      <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_crops.rds"))))
-mass_trees      <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_trees.rds"))))
-mass_animals    <- setDT(zap_all(readRDS(here::here("data", "processed", "impute", "mass_animals.rds"))))
-mass_hides      <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_hides.rds"))))
-mass_milk_final <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds"))))
-mass_eggs       <- setDT(zap_all(readRDS(here::here("data", "processed", "clean", "mass_eggs.rds"))))
+mass_crops      <- setDT(zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_crops.rds"))))
+mass_trees      <- setDT(zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_trees.rds"))))
+mass_animals    <- setDT(zap_all(readRDS(here::here("data", "processed", "01", "impute", "mass_animals.rds"))))
+mass_hides      <- setDT(zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_hides.rds"))))
+mass_milk_final <- setDT(zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_milk_final.rds"))))
+mass_eggs       <- setDT(zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_eggs.rds"))))
 # processed_crops: y4_hhid, crop (str_to_title), sent_to_processing_kg, product_kg, byproduct_kg
-processed_crops <- setDT(readRDS(here::here("data", "processed", "imputed", "processed_crops.rds")))
+processed_crops <- setDT(readRDS(here::here("data", "processed", "01", "impute", "processed_crops.rds")))
 
 # =============================================================================
 # data_list$crops: mass_crops + mass_trees + processing node from processed_crops

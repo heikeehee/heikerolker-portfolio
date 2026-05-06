@@ -17,7 +17,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: LOAD AND RENAME (lf_sec_06)
@@ -110,7 +110,7 @@ milk <- upData(milk,
 # Profiled in: 05_exclusions_audit.R
 milk <- milk[lvstckcat == "large ruminants" | lvstckcat == "small ruminants"]
 
-saveRDS(milk, here::here("data", "processed", "clean", "milk.rds"), compress = TRUE)
+saveRDS(milk, here::here("data", "processed", "01", "clean", "milk.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 2: MILK QUANTITY RECONCILIATION AND UNCERTAINTY
@@ -188,7 +188,7 @@ excl_milk <- cleaned_data %>%
   select(y4_hhid, item, excl)
 
 write.csv(excl_milk,
-          here::here("data", "processed", "clean", "excl_milk.csv"),
+          here::here("data", "processed", "01", "clean", "excl_milk.csv"),
           row.names = FALSE)
 
 # =============================================================================
@@ -213,7 +213,7 @@ mass_milk <- cleaned_data %>%
     missing     = milk - smd1
   )
 
-saveRDS(mass_milk, here::here("data", "processed", "clean", "mass_milk.rds"), compress = TRUE)
+saveRDS(mass_milk, here::here("data", "processed", "01", "clean", "mass_milk.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 4: MILK FEED REQUIREMENTS
@@ -224,7 +224,7 @@ saveRDS(mass_milk, here::here("data", "processed", "clean", "mass_milk.rds"), co
 # 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
-f <- readRDS(here::here("data", "processed", "clean", "feed_short.rds"))
+f <- readRDS(here::here("data", "processed", "01", "clean", "feed_short.rds"))
 
 # Feed fractions by animal type and feeding practice
 # Source: @Opio.2013 p.119 (small ruminants), p.117 (dairy cattle)
@@ -288,7 +288,7 @@ mass_milk_final <- mass_milk_final |>
 # milkwa = "unadjusted" milk estimate (av × period); milk = adjusted estimate (new_av × period)
 # NOTE: drop original litre columns after confirming conversion is correct
 
-saveRDS(mass_milk_final, here::here("data", "processed", "clean", "mass_milk_final.rds"),
+saveRDS(mass_milk_final, here::here("data", "processed", "01", "clean", "mass_milk_final.rds"),
         compress = TRUE)
 
 message("clean/milk.R: milk outputs saved.")

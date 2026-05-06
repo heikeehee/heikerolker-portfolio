@@ -21,7 +21,7 @@ library(FactoMineR)
 # SECTION 1: LOAD INPUT
 # =============================================================================
 
-mfa_input <- readRDS(here::here("data", "processed", "mfa_input.rds"))
+mfa_input <- readRDS(here::here("data", "processed", "01", "mfa_input.rds"))
 
 # Remove household ID for MFA (non-numeric)
 mfa_data <- mfa_input |>
@@ -130,7 +130,7 @@ saveRDS(list(
   scores      = mfa_scores,
   loadings    = mfa_loadings,
   variance    = mfa_variance
-), here::here("data", "processed", "mfa_results.rds"))
+), here::here("data", "processed", "01", "mfa_results.rds"))
 
 message("07_mfa_analysis.R: MFA complete. ",
         nrow(mfa_scores), " households × ", n_dim, " dimensions retained.")

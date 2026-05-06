@@ -12,7 +12,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: LOAD AND RENAME
@@ -53,7 +53,7 @@ ag_produce <- upData(ag_produce,
   sold = ifelse(sales == "no", 0, sold)
 )
 
-saveRDS(ag_produce, here::here("data", "processed", "clean", "ag_produce.rds"),
+saveRDS(ag_produce, here::here("data", "processed", "01",  "clean", "ag_produce.rds"),
         compress = TRUE)
 
 # =============================================================================
@@ -206,7 +206,7 @@ inputs_final <- input_stats %>%
   mutate(uncertain = input - produced)  # residual waste / unaccounted
 
 saveRDS(inputs_final,
-        here::here("data", "processed", "clean", "mass_agprod.rds"),
+        here::here("data", "processed", "01", "clean", "mass_agprod.rds"),
         compress = TRUE)
 
 message("clean/ag_produce.R: ag produce outputs saved.")

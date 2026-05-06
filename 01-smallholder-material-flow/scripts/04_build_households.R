@@ -22,7 +22,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: Load all processed section files
@@ -32,21 +32,21 @@ zap_all <- function(df) {
 }
 
 # Clean section outputs
-pc              <- zap_all(readRDS(here::here("data", "processed", "clean", "pc.rds")))
-pt              <- zap_all(readRDS(here::here("data", "processed", "clean", "pt.rds")))
-plots_stats     <- zap_all(readRDS(here::here("data", "processed", "clean", "plots_stats.rds")))
-mass_agprod     <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_agprod.rds")))
-animals_fin     <- zap_all(readRDS(here::here("data", "processed", "clean", "animals_fin.rds")))
-mass_eggs       <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_eggs.rds")))
-mass_milk_final <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_milk_final.rds")))
-recall          <- zap_all(readRDS(here::here("data", "processed", "clean", "recall.rds")))
-crop_disp       <- zap_all(readRDS(here::here("data", "processed", "clean", "crop_disp.rds")))
-mass_residue    <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_residue.rds")))
-mass_hides      <- zap_all(readRDS(here::here("data", "processed", "clean", "mass_hides.rds")))
+pc              <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "pc.rds")))
+pt              <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "pt.rds")))
+plots_stats     <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "plots_stats.rds")))
+mass_agprod     <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_agprod.rds")))
+animals_fin     <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "animals_fin.rds")))
+mass_eggs       <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_eggs.rds")))
+mass_milk_final <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_milk_final.rds")))
+recall          <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "recall.rds")))
+crop_disp       <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "crop_disp.rds")))
+mass_residue    <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_residue.rds")))
+mass_hides      <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "mass_hides.rds")))
 
 # Imputed outputs
-yieldgaps    <- zap_all(readRDS(here::here("data", "processed", "impute", "yieldgaps.rds")))
-mass_animals <- zap_all(readRDS(here::here("data", "processed", "impute", "mass_animals.rds")))
+yieldgaps    <- zap_all(readRDS(here::here("data", "processed", "01", "impute", "yieldgaps.rds")))
+mass_animals <- zap_all(readRDS(here::here("data", "processed", "01", "impute", "mass_animals.rds")))
 
 # =============================================================================
 # SECTION 2: Build household spine
@@ -501,11 +501,11 @@ households <- households |>
 # SECTION 7: Final output
 # =============================================================================
 
-saveRDS(households, here::here("data", "processed", "households.rds"))
+saveRDS(households, here::here("data", "processed", "01", "households.rds"))
 
 # Export for Python translation — parquet format
 # Required by python/01_load_data.py and downstream Python scripts
-arrow::write_parquet(households, here::here("data", "processed", "households.parquet"))
+arrow::write_parquet(households, here::here("data", "processed", "01", "households.parquet"))
 message("Parquet export: households.parquet")
 
 # Diagnostic summary — print to console, do not suppress

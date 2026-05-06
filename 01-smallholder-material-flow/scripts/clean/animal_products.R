@@ -18,7 +18,7 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "clean"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # SECTION 1: ANIMAL PRODUCTS — base cleaning (lf_sec_08)
@@ -52,7 +52,7 @@ produce <- upData(produce,
   )
 )
 
-saveRDS(produce, here::here("data", "processed", "clean", "produce.rds"), compress = TRUE)
+saveRDS(produce, here::here("data", "processed", "01", "clean", "produce.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 2: HIDES
@@ -65,8 +65,8 @@ saveRDS(produce, here::here("data", "processed", "clean", "produce.rds"), compre
 # 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
-wa          <- readRDS(here::here("data", "processed", "clean", "wa.rds"))
-animals_sub <- readRDS(here::here("data", "processed", "clean", "animals_fin.rds"))
+wa          <- readRDS(here::here("data", "processed", "01", "clean", "wa.rds"))
+animals_sub <- readRDS(here::here("data", "processed", "01", "clean", "animals_fin.rds"))
 
 # Extract hides from produce
 hides <- produce[productid == "skin / hides"]
@@ -172,7 +172,7 @@ hides <- upData(hides,
 # Profiled in: 05_exclusions_audit.R
 hides <- hides[produced > 0]
 
-saveRDS(hides, here::here("data", "processed", "clean", "hides.rds"), compress = TRUE)
+saveRDS(hides, here::here("data", "processed", "01", "clean", "hides.rds"), compress = TRUE)
 
 # --------------------------------------------------------------------------
 # Assemble hides with slaughter info (mass_hides_long / mass_hides)
@@ -241,8 +241,8 @@ mass_hides <- mass_hides_long %>%
 mass_hides[, rel_prod := adlab(rel_prod,
   "Proportion of hides produced from total (i.e. not slaughter)")]
 
-saveRDS(mass_hides,      here::here("data", "processed", "clean", "mass_hides.rds"),      compress = TRUE)
-saveRDS(mass_hides_long, here::here("data", "processed", "clean", "mass_hides_long.rds"), compress = TRUE)
+saveRDS(mass_hides,      here::here("data", "processed", "01", "clean", "mass_hides.rds"),      compress = TRUE)
+saveRDS(mass_hides_long, here::here("data", "processed", "01", "clean", "mass_hides_long.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 3: EGGS
@@ -253,8 +253,8 @@ saveRDS(mass_hides_long, here::here("data", "processed", "clean", "mass_hides_lo
 # 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
 # =============================================================================
 
-animals_fin <- readRDS(here::here("data", "processed", "clean", "animals_fin.rds"))
-f           <- readRDS(here::here("data", "processed", "clean", "feed_short.rds"))
+animals_fin <- readRDS(here::here("data", "processed", "01", "clean", "animals_fin.rds"))
+f           <- readRDS(here::here("data", "processed", "01", "clean", "feed_short.rds"))
 
 # Feed coefficients for poultry (backyard, @MacLeod.2013 p.107)
 # ASSUMPTION REMOVED — see impute/animal_products.R (A14)
@@ -329,7 +329,7 @@ excl_eggs <- eggs[, excl := fcase(
 )]
 excl_eggs <- excl_eggs %>% select(y4_hhid, item = productid, excl)
 write.csv(excl_eggs,
-          here::here("data", "processed", "clean", "excl_eggs.csv"),
+          here::here("data", "processed", "01", "clean", "excl_eggs.csv"),
           row.names = FALSE)
 
 # Feed requirements for egg production
@@ -356,6 +356,6 @@ mass_eggs <- upData(ef,
 # Egg consumption allocation logic is in archive/04_Animal_products.Rmd lines 565–671.
 # Decision required before stage 3: move allocation here or to a dedicated impute/ script.
 
-saveRDS(mass_eggs, here::here("data", "processed", "clean", "mass_eggs.rds"), compress = TRUE)
+saveRDS(mass_eggs, here::here("data", "processed", "01", "clean", "mass_eggs.rds"), compress = TRUE)
 
 message("clean/animal_products.R: animal product outputs saved.")
