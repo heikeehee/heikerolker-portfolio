@@ -1,11 +1,26 @@
+# OS
 .DS_Store
+
+# R
 *.Rhistory
 *.RData
 .Rproj.user/
+
+# Python
 __pycache__/
 *.pyc
-*.ipynb_checkpoints
-data/raw/*
-data/processed/*
+.ipynb_checkpoints/
+.venv/
+
+# Data — never committed (LSMS-ISA licence restrictions)
+# Folder structure preserved via .gitkeep files
+data/raw/
+data/processed/
+04-plate-waste-impact/data/raw/
 !**/data/raw/.gitkeep
 !**/data/processed/.gitkeep
+
+# Large R output formats
+*.rds
+*.parquet
+*.feather

@@ -1,0 +1,85 @@
+# Canonical crops + ag_produce merge for portfolio and industry audit
+# Author: Heike Rolker [for portfolio/industry]
+# Project: 01-smallholder-material-flow, Tanzania LSMS
+# Output: canonical merged file ("mass_crops_agprod.RDS") with full, flagged audit trail
+# See README: "Data Lineage" section for merge protocol and logic explanation
+
+library(here)
+library(dplyr)
+library(data.table)
+# ---- 1. Load cleaned, canonical input datasets (never raw in a join script) ----
+
+crops <- readRDS(here::here("data", "processed", "01", "mass_crops.RDS")) %>% as.data.table() # all crop production + disposition at HH-crop
+agprod <- readRDS(here::here("data", "processed", "01", "mass_agprod_new.RDS")) %>% as.data.table() # processing/byproduct flows reconciled
+
+# ---- 2. Audit log of all corrections/manual fixes used in any section ----
+# Add all new manual fixes in this block, always explain why, never elsewhere.
+# These will propagate to all reporting/analysis.
+audit_log <- tibble::tribble(
+  ~y4_hhid, ~cropid, ~reason, ~action,
+  "8659-001", "maize", "Data entry error in survey; actual value known", "consumed := 480"
+)
+# Implementation of fix (example; expand as needed)
+crops[y4_hhid == "8659-001" & cropid == "maize", consumed := 480] # propagate to canonical
+
+# ---- 3. Merge crops and agprod (single point of merge) ----
+# "crops" (the truth for production/disposition) + agprod (byproduct flows)
+
+mass_crops_agprod <- crops %>%
+  left_join( # Always left join: every crop, disposition, plus agprod match if available
+    agprod %>%
+      select(y4_hhid, cropid,
+             produced_agprod = produced,         # uniformly named
+             input_proc = input,                 # input used for processing
+             input_sales,                        # input used for sales (processed)
+             sold_proc = sold,                   # sold after processing
+             input_cons,                         # input used for consumption
+             consumed_proc = consumed,           # processed consumption
+             uncertain_proc = uncertain),        # uncertainty field from agprod
+    by = c("y4_hhid", "cropid")
+  ) %>%
+  mutate(
+    # Processing ambiguity: LSMS team confirms processing figures may overlap or exceed survey total production.
+    # Business convention: Flag both direct survey value (from crops) and processed value from agprod.
+    processing_conflict = case_when(
+      !is.na(input_proc) & produced < input_proc ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    max_processed_possible = pmin(produced, input_proc, na.rm = TRUE),     # the smaller
+    min_processed_possible = pmax(0, input_proc - (input_proc - produced), na.rm = TRUE), # the plausible minimum
+    # Canonical uncertainty: excess processed over produced
+    processing_uncertainty = ifelse(processing_conflict, input_proc - produced, 0),
+    # Destination fields (where known)
+    processed_and_consumed = coalesce(consumed_proc, 0),
+    processed_and_sold = coalesce(sold_proc, 0),
+    total_processed = coalesce(input_proc, 0),
+    # Unallocated: what's left after all known destinations
+    unallocated = produced - rowSums(across(c(sold, stored, losses, consumed, payment, gifts, feed, residue, total_processed)), na.rm = TRUE)
+  ) %>%
+  # Remove negative unallocated for reporting if computation uncertainties arise
+  mutate(unallocated = ifelse(unallocated < 0, 0, unallocated))
+
+# ---- 4. Final fields and explicit business-readable columns ----
+
+mass_crops_agprod_clean <- mass_crops_agprod %>%
+  select(
+    y4_hhid, cropid, type,
+    produced, sold, stored, consumed, payment, gifts, feed, residue, losses,
+    produced_agprod, input_proc, input_sales, sold_proc, input_cons, consumed_proc, 
+    processing_uncertainty, processed_and_consumed, processed_and_sold,
+    max_processed_possible, min_processed_possible,
+    unallocated, processing_conflict
+  )
+
+# ---- 5. Save canonical output, for all downstream reporting ----
+
+saveRDS(mass_crops_agprod_clean, here::here("data", "processed", "01", "mass_crops_agprod.RDS"), compress = TRUE)
+readr::write_csv(mass_crops_agprod_clean, here::here("data", "processed", "01", "mass_crops_agprod.csv"))
+
+# ---- 6. Save/append canonical audit_log (for future handoff/documentation) ----
+
+write.csv(audit_log, here::here("data", "processed", "01", "mass_crops_agprod_auditlog.csv"), row.names = FALSE)
+
+# ---- 7. Portfolio summary ----
+# This script creates a single, canonical crop+agproduce set: for every {household, crop}, you get crop-level harvest, all known destinations (sold, consumed, stored, feed, payment, gift, residue, loss, processed*), and reconciles with all byproducts/processing from ag_produce. Ambiguous processing is flagged, and audit log is applied. 
+# All reports/dashboards/analyses should now use this file, not merge/clean again!

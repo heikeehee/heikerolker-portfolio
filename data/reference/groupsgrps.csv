@@ -1,0 +1,180 @@
+category,product_type,type,subtype,item
+Animal,Animal product,Large ruminants,Processed milk,Processed milk - large ruminants
+Animal,Animal product,Small ruminants,Processed milk,Processed milk - small ruminants
+Animal,Animal product,Large ruminants,Bulls,Bulls meat
+Animal,Animal product,Large ruminants,Bulls,Bulls offal
+Animal,Animal product,Large ruminants,Calves,Calves meat
+Animal,Animal product,Large ruminants,Calves,Calves offal
+Animal,Animal product,Poultry,Chickens,Chickens meat
+Animal,Animal product,Poultry,Chickens,Chickens offal
+Animal,Animal product,Large ruminants,Cows,Cows meat
+Animal,Animal product,Large ruminants,Cows,Cows offal
+Animal,Animal product,Other animals,Dogs,Dogs meat
+Animal,Animal product,Other animals,Dogs,Dogs offal
+Animal,Animal product,Other animals,Donkeys,Donkeys meat
+Animal,Animal product,Other animals,Donkeys,Donkeys offal
+Animal,Animal product,Poultry,Ducks,Ducks meat
+Animal,Animal product,Poultry,Ducks,Ducks offal
+Animal,Animal product,Eggs,Eggs,Eggs
+Animal,Animal product,Small ruminants,Goats,Goats meat
+Animal,Animal product,Small ruminants,Goats,Goats offal
+Animal,Animal product,Other animals,Hare,Hare meat
+Animal,Animal product,Other animals,Hare,Hare offal
+Animal,Animal product,Large ruminants,Heifers,Heifers meat
+Animal,Animal product,Large ruminants,Heifers,Heifers offal
+Animal,Animal product,Large ruminants,Milk,Milk - large ruminants
+Animal,Animal product,Small ruminants,Milk,Milk - small ruminants
+Animal,Animal product,Other animals,Other,Other meat
+Animal,Animal product,Other animals,Other,Other offal
+Animal,Animal product,Poultry,Other poultry,Other poultry meat
+Animal,Animal product,Poultry,Other poultry,Other poultry offal
+Animal,Animal product,Pigs,Pigs,Pigs meat
+Animal,Animal product,Pigs,Pigs,Pigs offal
+Animal,Animal product,Small ruminants,Sheep,Sheep meat
+Animal,Animal product,Small ruminants,Sheep,Sheep offal
+Animal,Animal product,Large ruminants,Steers,Steers meat
+Animal,Animal product,Large ruminants,Steers,Steers offal
+Animal,Slaughter product,Poultry,Other,Chickens
+Plant,Food crops,Pulses,Pulses,Beans
+Plant,Food crops,Cereals,Cereals,Maize
+Plant,Food crops,Oilcrops,Oilcrops,Sunflower
+Plant,Processed crop,Cereals,Flour,Maize flour
+Plant,Processed crop,Cereals,Seed,Maize seed
+Plant,NA,NA,NA,Fiwi
+Plant,NA,NA,NA,Pigeon pea
+Plant,NA,NA,NA,NA
+Plant,Food crops,Cereals,Cereals,Finger millet
+Plant,Processed crop,Cereals,Flour,Finger millet flour
+Plant,NA,NA,NA,Plum
+Plant,NA,NA,NA,Timber
+Plant,Processed crop,Cereals,Bran,Maize bran
+Plant,Processed crop,Oilcrops,Oil,Sunflower oil
+Plant,Processed crop,Oilcrops,Wet husk,Sunflower wet husk
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Avocado
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Banana
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Mango
+Plant,NA,NA,NA,Orange
+Plant,NA,NA,NA,Papaw
+Plant,Other crops,Cashcrops,Cashcrops,Sugar cane
+Plant,NA,NA,NA,Guava
+Plant,NA,NA,NA,Mandarin
+Plant,NA,NA,NA,Pomegranate
+Plant,NA,NA,NA,Custard apple
+Plant,Food crops,Cereals,Cereals,Sorghum
+Plant,NA,NA,NA,Green gram
+Animal,Slaughter product,Small ruminants,Other,Goats
+Animal,Slaughter product,Small ruminants,Other,Sheep
+Animal,other,Small ruminants,Other,Hides-small ruminants
+Plant,Food crops,Pulses,Pulses,Cowpeas
+Plant,Food crops,Oilcrops,Oilcrops,Sesame
+Plant,Food crops,Roots and tubers,Roots and tubers,Sweet potatoes
+Plant,NA,NA,NA,Firewood/fodder
+Plant,NA,NA,NA,Groundnut
+Plant,Processed crop,Cereals,Flour,Sorghum flour
+Plant,NA,NA,NA,Carrot
+Plant,NA,NA,NA,Peaches
+Animal,Slaughter product,Poultry,Other,Ducks
+Plant,NA,NA,NA,Coconut
+Plant,NA,NA,NA,Date
+Plant,NA,NA,NA,Jack fruit
+Plant,NA,NA,NA,Malay apple
+Plant,NA,NA,NA,Other (specify)
+Plant,NA,NA,NA,Cashew nut
+Plant,Food crops,Cereals,Cereals,Paddy
+Plant,Processed crop,Cereals,Cover,Paddy cover
+Plant,Processed crop,Cereals,Seed,Paddy seed
+Plant,NA,NA,NA,Pumpkins
+Plant,NA,NA,NA,Medicinal plant
+Plant,Food crops,Roots and tubers,Roots and tubers,Cassava
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Passion fruit
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Amaranths
+Plant,Food crops,Oilcrops,Oilcrops,Palm oil
+Plant,Processed crop,Roots and tubers,Flour,Cassava flour
+Plant,NA,NA,NA,Lemon
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Pineapple
+Plant,NA,NA,NA,Egg plant
+Plant,NA,NA,NA,Fence tree
+Plant,NA,NA,NA,Okra
+Plant,NA,NA,NA,Lime
+Plant,Other crops,Cashcrops,Cashcrops,Coffee
+Plant,Processed crop,Oilcrops,Oil,Palm oil oil
+Plant,Processed crop,Oilcrops,Wet husk,Palm oil wet husk
+Plant,NA,NA,NA,Spinach
+Animal,Slaughter product,Large ruminants,Other,Cows
+Plant,Food crops,Pulses,Pulses,Bambara nuts
+Plant,Processed crop,Cereals,Other,Sorghum other
+Animal,Slaughter product,Pigs,Other,Pigs
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Onions
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Tomatoes
+Animal,Slaughter product,Poultry,Other,Other poultry
+Plant,Processed crop,Cereals,Flour,Paddy flour
+Plant,NA,NA,NA,Water mellon
+Plant,NA,NA,NA,Cucumber
+Plant,Processed crop,Oilcrops,Other,Sunflower other
+Plant,Food crops,Roots and tubers,Roots and tubers,Irish potatoes
+Plant,NA,NA,NA,Bamboo
+Plant,NA,NA,NA,Cocoyams
+Plant,Food crops,Roots and tubers,Roots and tubers,Yams
+Plant,NA,NA,NA,Ginger
+Animal,Slaughter product,Large ruminants,Other,Bulls
+Animal,other,Large ruminants,Other,Hides-large ruminants
+Plant,NA,NA,NA,Field peas
+Plant,NA,NA,NA,Soyabeans
+Plant,NA,NA,NA,Clove
+Animal,Slaughter product,Large ruminants,Other,Calves
+Plant,NA,NA,NA,Bread fruit
+Plant,NA,NA,NA,Bilimbi
+Plant,Processed crop,Cereals,Seed,Sorghum seed
+Plant,Other crops,Cashcrops,Cashcrops,Tobacco
+Plant,Other crops,Cashcrops,Cashcrops,Sisal
+Plant,NA,NA,NA,Cinnamon
+Plant,NA,NA,NA,Plums
+Plant,NA,NA,NA,Pears
+Plant,NA,NA,NA,Rambutan
+Plant,Processed crop,Cereals,Other,Maize other
+Plant,Food crops,Cereals,Cereals,Bulrush millet
+Plant,Processed crop,Cereals,Flour,Bulrush millet flour
+Plant,Other crops,Cashcrops,Cashcrops,Cotton
+Plant,NA,NA,NA,Rubber
+Plant,NA,NA,NA,Chick peas
+Plant,Processed crop,NA,Flour,Groundnut flour
+Plant,Other crops,Cashcrops,Cashcrops,Cocoa
+Plant,NA,NA,NA,Cardamom
+Plant,Other crops,Cashcrops,Cashcrops,Vanilla
+Plant,NA,NA,NA,Kapok
+Plant,NA,NA,NA,Tamarind
+Plant,Processed crop,Roots and tubers,Other,Sweet potatoes other
+Plant,Processed crop,Roots and tubers,Other,Cassava other
+Plant,Processed crop,Roots and tubers,Cover,Sweet potatoes cover
+Plant,Processed crop,Roots and tubers,Flour,Sweet potatoes flour
+Plant,NA,NA,NA,Grapes
+Plant,NA,NA,NA,Apples
+Plant,Food crops,Cereals,Cereals,Wheat
+Plant,Processed crop,NA,Seed,Cashew nut seed
+Plant,Food crops,Fruits and vegetables,Fruits and vegetables,Cabbage
+Plant,NA,NA,NA,Monkeybread
+Plant,NA,NA,NA,Chilies
+Plant,Processed crop,NA,Seed,Groundnut seed
+Animal,Slaughter product,Large ruminants,Other,Heifers
+Plant,Other crops,Cashcrops,Cashcrops,Tea
+Plant,Processed crop,Cereals,Juice,Paddy juice
+Plant,Processed crop,Cereals,Bran,Paddy bran
+Plant,Processed crop,Cereals,Cover,Maize cover
+Animal,Slaughter product,Other animals,Other,Hare
+Plant,Processed crop,Cashcrops,Cover,Coffee cover
+Plant,Processed crop,Cashcrops,Flour,Coffee flour
+Plant,Processed crop,Oilcrops,Flour,Sunflower flour
+Plant,NA,NA,NA,Black pepper
+Plant,NA,NA,NA,Tungamaa
+Plant,Processed crop,Oilcrops,Seed,Palm oil seed
+Plant,NA,NA,NA,Seaweed
+Plant,NA,NA,NA,Star fruit
+Plant,Processed crop,Oilcrops,Other,Palm oil other
+Plant,NA,NA,NA,Grapefruit
+Plant,Processed crop,Oilcrops,Oil,Sesame oil
+Plant,Processed crop,Oilcrops,Thread,Palm oil thread
+Plant,Processed crop,Roots and tubers,Seed,Cassava seed
+Plant,NA,NA,NA,God fruit
+Animal,Slaughter product,Large ruminants,Other,Steers
+Plant,Processed crop,Oilcrops,Bran,Sunflower bran
+Plant,Processed crop,Cereals,Oil,Paddy oil

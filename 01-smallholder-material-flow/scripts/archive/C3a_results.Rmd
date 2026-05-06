@@ -1,0 +1,898 @@
+---
+title: "C3a results"
+author: "Heike Rolker"
+date: "2024-01-31"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(here)
+source(here::here("scripts", "packages.R"))
+source(here::here("scripts", "functions.R"))
+# NOTE: produce_long, mfa_crops and figure objects (range_*, uncertainty_*,
+# mfaw, sankey) must be loaded from 99_C3a.R before knitting this document.
+# Uncomment the line below to source the full pipeline:
+# sys.source(here::here("scripts", "99_C3a.R"), envir = knitr::knit_global())
+```
+
+
+```{r key data, include=FALSE}
+# this should possibly all be loaded from 99_C3a
+# list of all households with weights
+hhs_3a <- read_csv(here::here("data", "processed", "01", "hhs_3a.csv")) %>% setDT()
+
+# basic numbers
+
+# all households surveyed
+nrow(hhs_3a)
+
+# all agricultural households surveyed
+ag <- hhs_3a %>% filter(hh_type == "agricultural")
+
+# all agricultural households included
+hhs_3a %>% filter(hh_type == "agricultural" & status == "included")
+
+# population equivalent of all agricultural households
+ag_eq <- sum(ag$y4_weights) # same as weights_adj
+
+# total population equivalent
+pop <- sum(hhs_3a$y4_weights)
+```
+
+
+
+# Production - x
+
+Table 1: Overview of total quantities per food group produced across household equivalents. - x
+
+```{r include=FALSE}
+setDT(produce_long)
+# Reduce households to food group
+produce_long[, itemcount :=ifelse(produced>0, 1, 0)] # number of items produced
+sc1 <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by= .(y4_hhid, category, product_type, type)] # type is smallest category - milk, eggs should be types at next run!
+
+# replace weights
+sec1 <- sc1 %>% 
+  select(!weight_adj) %>% 
+  weigh()
+
+# Tab1: total production quantities - x
+tab1 <- sec1 %>% 
+  filter(produced>0) %>% # many empties not clear why!
+  filter(product_type!="Processed crop" & product_type!="other") %>% # check milk, eggs filter
+  group_by(category, product_type, type) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = n(), # number of households producing
+    perc_obs = n_obs*100/nrow(ag), # percentage of agricultural household producing items in type
+    average = mean(produced), # average production quantity of producers
+    # weighted sample
+    neq = sum(weight_adj), # hh eq producing item
+    perc = neq*100/ag_eq, # percentage of smallholders producing
+    production = sum(w_produced), # total production
+    av_w = production/neq, # average production quantity of producer
+    avitems = mean(itemcount)) %>%   # average number of items per group being produced
+# scale and round prior to table
+  rd()
+```
+
+```{r echo=FALSE}
+# Table 1 - x
+# adjust order, scaling & other formatting issues
+tab1 %>% 
+  arrange(desc(category)) %>% 
+  gt() %>% 
+  tab_header(
+    title = md("Annual food production quantities")) %>%
+  # unweighted
+  tab_spanner(
+    label = md("Number of observations producing at least one item of group"),
+    columns = c(n_obs, perc_obs)
+  ) %>%
+  # weighted
+  tab_spanner(
+    label = md("Total household equivalent"),
+    columns = c(neq, perc)
+  ) %>%
+  cols_label(
+    # unweighted
+    n_obs = md("n"),
+    perc_obs = md("(%)"),
+    average = md("Average annual quantities produced"),
+    # weighted
+    production = md("Total annual quantity produced ()"),
+    neq = md("Number of household equivalents"),
+    perc = md("(%)"),
+    av_w = md("Average annual quantity produced per household ()"),
+    avitems = md("Average number of items in food group produced")) %>% 
+  tblfmt()
+```
+
+
+```{r inline production, include=FALSE}
+# inline code
+# scaling... rounding...
+grains <- tab1 %>% filter(type == "Grains & cereals") %>% pull(production)
+grainsp <- tab1 %>% filter(type == 'Grains & cereals') %>% pull(perc)
+rtp <- tab1 %>% filter(type == 'Roots & tubers') %>% pull(perc)
+nutsp <- tab1 %>% filter(type == 'Nuts & seeds') %>% pull(perc)
+vegp <- tab1 %>% filter(type == 'Vegetables') %>% pull(perc)
+legp <- tab1 %>% filter(type == 'Legumes') %>% pull(perc)
+
+leg <- tab1 %>% filter(type == 'Legumes') %>% pull(production)
+nuts <- tab1 %>% filter(type == 'Nuts & seeds') %>% pull(production)
+milk <- tab1 %>% filter(type == 'Milk (large ruminants)') %>% pull(production)
+
+poulp <- tab1 %>% filter(type == 'Poultry') %>% pull(perc)
+```
+
+We divided food production into plants (food and other crops) and animal categories (slaughtered animals and animal products). Table \@ref(tab:production-tab) shows the estimated production quantities for each food group, the estimated number of households producing products of the food group and average household production quantities. The production of grains & cereals was be far the largest of all food groups with `r round(sc_mt(grains),1)` Mt of which `r produce_long %>% filter(item == "Maize") %>% summarise(sum = sm(w_produced)) %>% sc_mt() %>% rd()` Mt are maize. Overall, `r grainsp`% of households produced at least one cereal or grain.  This was followed by fruits, legumes and roots & tubers.  Overall, a larger share of households engaged in legume production (`r legp`%) compared roots & tubers (`r rtp`%) and nuts & seeds (`r nutsp`%) which was produced by a similar share of households. Yet, the overall quantities of roots & tubers and nuts & seeds exceeded the total quantity of legumes produced. A small share of households (`r vegp`%) engaged in vegetable production. 
+
+# Pre-production
+
+-   Pre-harvest losses and their causes across food groups - x
+
+```{r text2: pre-harvest losses}
+prelost <- readRDS(here::here("data", "processed", "01", "prelost.RDS")) %>% 
+  clear.labels() %>% 
+  weigh() 
+
+# Number of households and crops affected by each loss category - x
+prelost %>% 
+  select(!plotnum) %>% 
+  filter(pre_lost == "yes") %>% 
+  mutate(
+    n_crops = 1,
+    losses = ifelse(pre_lost == "yes", 1, 0)
+  ) %>% 
+  group_by(loss_cause, y4_hhid,type) %>% 
+  summarise(
+    n = sum(n_crops) # number of crops lost to cause in food group
+  ) %>% 
+  weigh() %>% 
+  group_by(loss_cause, type) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(), # number of households-crops affected
+    total = sum(n), # total number of crops affected per food group
+    mean = mean(n), # average number of crops by food group and household
+    # weighted
+    neq = sum(weight_adj) # number of households affected
+  )
+
+# Percentage of losses by cause category for each food group - x
+prelost %>% 
+  mutate(
+    n_crops = 1) %>% 
+  group_by(type, loss_cause) %>% 
+  summarise(
+    n = sum(n_crops),
+    perc = n*100/nrow(prelost[pre_lost == "yes"])) # percentage of total losses (should be for each category)
+
+# Total count of crops lost by food group (percentage of items produced) - x
+prelost %>% 
+  mutate(
+    n_crops = 1,
+    losses = ifelse(pre_lost == "yes", 1, 0)) %>%
+  group_by(type) %>% 
+  summarise(
+    lost = sm(losses), # number of crops grown across plots lost
+    plost = lost*100/sm(n_crops) # percentage of total grown affected
+  )
+```
+
+-   Text: Yield gaps
+
+
+```{r eval=FALSE}
+# currently all in chapter file
+# yieldgaps <- readRDS(here::here("data", "processed", "01", "yieldgaps.RDS")) # comes from 99_C3a
+
+# total yield gap by type
+yg_stat <- yieldgaps %>% 
+  filter(!is.na(YP)) %>% # no need to include items we didnt calculate YP for
+  mutate(
+    pyg = yield*100/YP # yield as percentage of yield potential
+  ) %>% 
+  group_by(type) %>% 
+  summarise(
+    yieldt = sm(yield), # contains NA, total yield
+    ypt = sm(YP), # total yield potential
+    perc_gap = yieldt*100/ypt, # total gap between potential and acutal
+    mean_gap = mn(pyg) # average yield of yield potential household-crop-plot
+  )
+  
+# yield gaps that contain confirmed pre-harvest losses  
+yp_prelost <- yieldgaps %>% 
+  filter(YP>0) %>% 
+  filter(preharvest_losses == "yes") %>% 
+    mutate(
+    pyg = yield*100/YP # yield as percentage of yield potential
+  ) %>% 
+  group_by(type) %>% 
+  summarise(
+    yieldt = sm(yield), # contains NA, total yield
+    ypt = sm(YP), # total yield potential
+    perc_gap = yieldt*100/ypt, # total gap between potential and acutal
+    mean_gap = mn(pyg) # average yield of yield potential household-crop-plot
+  )
+```
+
+
+
+- Text: residue
+
+```{r}
+mass_residue <- readRDS(here::here("data", "processed", "01", "mass_residue.RDS")) %>% 
+  clear.labels() %>% 
+  weigh() %>% 
+  mutate(across(is.numeric & !contains("weight_adj"), ~. * weight_adj))
+
+write_csv(mass_residue, here::here("data", "results", "mass_residue.csv"))
+
+mass_residue %>% 
+  mutate(perc = Residues/harvest) %>% 
+  group_by(type) %>% 
+  summarise(
+    # total residue
+    sum = sum(Residues),
+    ofharvest = sum/sum(harvest), # residue quantities relative to harvest
+    # residue available & intended for animals - wet!
+    animalresidue = sum(grazing_res),
+  )
+```
+
+
+-   Text: Animal ownership, losses & causes - x
+
+```{r text3: animals}
+animals_fin <- readRDS(here::here("data", "processed", "01", "animals_fin.RDS")) %>% 
+  clear.labels() %>% 
+  weigh() %>% 
+  mutate(
+    w_owned = max_owned * weight_adj,
+    w_slaughter = slaughter * weight_adj,
+    w_slcons = n_slcons * weight_adj,
+    w_all_lost = all_lost * weight_adj) # dont know whats included
+
+write_csv(animals_fin, here::here("data", "results", "animals_fin.csv"))
+
+# must be better and more central way...
+lvstowners <- animals_fin %>% select(y4_hhid, weight_adj) %>% unique()
+
+# select animal loss categories
+lshh <- animals_fin[,.(y4_hhid, type, lvstckid, slaughter, disease, theft, injury, max_owned, all_lost, all_lost2)]
+
+# Animal ownership across categories with hh equivalent - x
+aown <- animals_fin %>%  
+  filter(ownershp == "yes") %>% 
+  filter(!is.na(type)) %>% # weighting "completes" household list (intentionally) 
+  select(y4_hhid, weight_adj, type) %>% 
+  unique() %>% # is this necessary?
+  group_by(type) %>%  
+  summarise(
+    n_obs = n(),
+    neqg = sum(weight_adj),
+    perc = neqg/ag_eq) # percentage of households owning
+
+# Overview of animals lost per category (and animal equivalents) - x
+txt3 <- lshh[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)] # collapse to type
+text3 <- txt3 %>%
+  # equivalent of animals lost to range of causes
+  weigh() %>% 
+  mutate(across(c(slaughter:all_lost2), ~. * weight_adj, .names = "w_{col}")) %>% # not sure this is the correct appraoch...
+  group_by(type) %>%
+  summarise(
+    # unweighted
+    diseased = sm(disease),
+    stolen = sm(theft),
+    injured = sm(injury),
+    slaughtered = sm(slaughter),
+    total_owned = sm(max_owned),
+    total_lost = sm(all_lost),
+    # weighted equivalents
+    w_diseased = sm(w_disease),
+    w_stolen = sm(w_theft),
+    w_injured = sm(w_injury),
+    w_slaughtered = sm(w_slaughter),
+    w_total_owned = sm(w_max_owned),
+    w_total_lost = sm(w_all_lost),
+  ) %>%
+  mutate(
+    # unweighted
+    pdis = diseased/total_lost,
+    pstolen = stolen/total_lost,
+    pinjured = injured/total_lost,
+    # weighted
+    w_pdis = w_diseased/w_total_lost,
+    w_pstolen = w_stolen/w_total_lost,
+    w_pinjured = w_injured/w_total_lost,
+  ) 
+ # %>%
+  # mutate(across(c("diseased", "stolen", "injured", "slaughtered", "total_owned", "total_lost"), sct)) %>% # per thousand
+# rd()
+
+# Overview of households affected by losses per category - x
+hhls <- lshh %>% filter(all_lost>0) %>% 
+  group_by(y4_hhid) %>% 
+  summarise(
+    # unweighted
+    slaughter = sm(slaughter),
+    disease = sm(disease),
+    theft = sm(theft),
+    injury = sm(injury),
+    all_lost = sm(all_lost)
+  ) %>% 
+  ungroup() %>% 
+  setDT() %>% 
+  # weighted hh equivalents that lost any animal to the categories listed
+  weigh() %>% 
+  mutate(across(c(slaughter:all_lost), 
+               ~ ifelse(.x > 0, weight_adj, 0), .names = "w_{col}"))
+
+sum(hhls$w_slaughter)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_disease)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_theft)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_injury)*100/sum(lvstowners$weight_adj)
+sum(hhls$w_all_lost) # number of households with losses
+
+aown
+text3
+hhls
+```
+An estimated `r sum(hhls$w_all_lost)` (`r sum(hhls$w_all_lost)*100/sum(lvstowners$weight_adj)`% of owners) households incurred livestock losses of a total of `r sum(text3$w_total_lost)` animals. The cause of loss that affected most households was disease (`r sum(hhls$w_disease)*100/sum(lvstowners$weight_adj)`%), followed by injury (`r sum(hhls$w_injury)*100/sum(lvstowners$weight_adj)`%) and `r sum(hhls$w_injury)*100/sum(lvstowners$weight_adj)`% of households were affected by theft. In terms of animals lost the most animals across livestock category died of disease, accounting for `r text3 %>% filter(type == "large ruminants") %>% pull(w_pdis)`% and `r text3 %>% filter(type == "small ruminants") %>% pull(w_pdis)`% among large and small ruminants and `r text3 %>% filter(type == "poultry") %>% pull(w_pdis)`% among poultry. Between `r text3 %>% filter(type == "large ruminants") %>% pull(w_pinjured)`% (large ruminants) and `r text3 %>% filter(type == "poultry") %>% pull(w_pdis)`% were lost to injury. Theft was a relatively uncommon causes of loss ranging between `r text3 %>% filter(type == "large ruminants") %>% pull(w_pstolen)`% for large ruminants and `r text3 %>% filter(type == "pigs") %>% pull(w_pstolen)`% for pigs.
+
+
+# Post-harvest 
+
+-   Storage - x
+
+```{r storage}
+# take from mass_crops to maintain unweighted sample
+mass_crops <- readRDS(here::here("data", "processed", "01", "mass_crops.RDS")) %>% 
+  clear.labels() %>% 
+  select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
+  weigh() # included hhs only
+
+mass_trees <- readRDS(here::here("data", "processed", "01", "mass_trees.RDS")) %>% 
+  clear.labels() %>% 
+  select(y4_hhid, cropid, type, produced = harvest, stored, seed) %>% 
+  weigh() # included hhs only
+
+storage <- mass_crops %>% 
+  bind_rows(mass_trees)
+
+# 
+storage[, `:=` (
+  pstor = stored/produced, # % of harvest in storage
+  pseed = seed/stored, # % of storage for seed
+  n = ifelse(stored>0, 1, 0), # count of items in storage
+  w_produced = produced*weight_adj,
+  w_stored = stored*weight_adj,
+  w_seed = seed*weight_adj,
+  w_pstor = (stored*weight_adj)/(produced*weight_adj),
+  w_pseed = (seed*weight_adj)/(stored*weight_adj))] 
+
+# Overview of households storing, quantities in storage and proportion of which are seed, weighted - x
+storage %>% 
+  filter(produced>0) %>% # contains only livestock owning households
+  group_by(type, cropid) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = n(), # producers
+    n_stor = length(stored[stored>0]), # storers
+    n = mn(n),   # average number of crops by category per household in storage
+    total = sm(stored),
+    ptotal = sm(stored)/sm(produced),
+    totalseed = sm(seed),
+    pseed = sm(seed)/sm(stored),
+    # weighted sample
+    neq = sum(weight_adj), # household equivalents storing
+    w_total = sm(w_stored), # total quantity stored
+    w_ptotal = sm(w_stored)/sm(w_produced), # proportion stored
+    w_totalseed = sm(w_seed), # total seed stored
+    w_pseed = sm(w_seed)/sm(w_stored) # proportion seed stored
+  ) %>% 
+  filter(ptotal>.1) %>% 
+  arrange(desc(w_ptotal))
+```
+
+
+x % *unweighted* of households reported to have food in storage at the time of the survey. The largest quantity of a single crop in storage was..., by group x (% of total production),.... The most frequently reported purpose for storage was ... (% of items in storage) for [food groups...] and among [food group]. Seed for the next season made up % of total quantities in storage.
+
+Most common storage methods were.. for.... Only x number of households used additional protection methods such as.... and most frequently for...
+
+
+- Storage methods - x/-
+
+```{r}
+crop_disp <- readRDS(here::here("data", "processed", "01", "crop_disp.RDS")) %>% 
+  clear.labels() %>% 
+  select(y4_hhid, cropid, type, stored, method = ag5a_25, protection = ag5a_27, purpose = storage_purpose) %>% 
+  weigh()
+
+tree_disp <- readRDS(here::here("data", "processed", "01", "tree_disp.RDS")) %>% 
+  clear.labels() %>% 
+  select(y4_hhid, cropid, type, stored, method = ag7a_10, protection = ag7a_12) %>%  # no purpose
+  weigh()
+
+storagemethods <- crop_disp %>% 
+  bind_rows(tree_disp) %>% 
+  filter(stored>0) %>% 
+  unique() %>% 
+  mutate(purpose = replace_na(purpose, "Unknown"),
+         w_stored = stored*weight_adj)
+
+# TBD ---
+storagemethods %>% 
+  group_by(method, type) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(),
+    storage = sum(stored),
+    # weighted
+    neq = sum(weight_adj),
+    w_storage = sum(w_stored)
+  ) %>% 
+  filter(storage>100)
+
+# Overview of methods used, number of households and total quantities affected - x
+storagemethods %>% 
+  group_by(method) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(), # count of method-crop
+    storage = sum(stored),
+    pstor = storage*100/sum(storagemethods$stored), # percentage of total with method
+    # weighted
+    neq = sum(weight_adj), # not accurate as double counts households if used method multiple times
+    w_storage = sum(w_stored),
+    wpstor = w_storage*100/sum(storagemethods$w_stored)
+  ) %>% 
+  arrange(desc(pstor))
+```
+*Expressed as percentage of total in storage and number of household equivalents/proportion of households*
+
+Most frequently used storage methods are ... x % of total grains etc. in storage are held in airtight drum,... N number of households use further protection methods, most commonly smoking, etc.. (x% of grains in storage...)
+
+-   Processing - x
+
+```{r}
+processed <- produce_long %>% 
+  filter(product_type == "Processed crop"| subtype == "Processed milk") %>%  # to be added: 
+  group_by(type, subtype) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(), # double counts households in food category
+    sum = sum(produced), # total produce (not relative to overall production)
+    # weighted
+    w_sum = sum(w_produced),
+    psold = sum(w_sold)*100/w_sum, # sold is given, consumed is estimated
+    w_waste = sum(w_uncertain) # estimated waste; should not be 0 since new calculation
+  )
+  
+processed %>% 
+  kable()
+```
+
+
+# Destinations
+
+-   Consumption vs sales - TBD
+```{r}
+
+```
+
+
+-   Consumption - x
+```{r}
+produce_long[, itemcount :=ifelse(consumed>0, 1, 0)] # number of items consumed
+
+cons <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, category, product_type, type, subtype)]
+
+# replace weights
+consumption <- cons %>% 
+  select(!weight_adj) %>% 
+  weigh()
+
+cons_stat <- consumption %>% 
+  filter(produced>0) %>% # many empties, some of them not clear why
+  filter(product_type!="Processed crop" & product_type!="other") %>% # check milk, eggs filter  
+  group_by(category, product_type, type, subtype) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = length(consumed[consumed>0]), # households consuming
+    perc = n_obs*100/nrow(ag), # consumed fo all households.
+    average = mean(consumed), # mean consumption of producers
+    pav = mean(consumed*100/produced), # mean proportion consumed from production (across sample, makes it comparable to weighted)
+    pavconsumers = mean(consumed[consumed>0]*100/produced[consumed>0]), # mean proportion of production consumed by consumers
+    # weighted sample
+    neq = sum(weight_adj[consumed>0]),
+    pneq = neq*100/ag_eq, # percentage consumers of all households included
+    consumption = sum(w_consumed), # total consumption
+    av_w = consumption/neq, # average consumption of consumers
+    pcons = sum(w_consumed)/sum(w_produced), # proportion of total production consumed
+    avitems = mean(itemcount[consumed>0])) %>%  # item count for consumers only
+  ungroup() %>% 
+  arrange(desc(perc)) %>% 
+  rd()
+
+cons_stat
+```
+
+
+-   Sales - x
+
+```{r}
+produce_long[, itemcount :=ifelse(sold>0, 1, 0)] # number of items consumed
+
+sale <- produce_long[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, category, product_type, type, subtype)]
+
+# replace weights
+sales <- sale %>% 
+  select(!weight_adj) %>% 
+  weigh()
+
+sales %>% 
+  filter(produced>0) %>% # many empties, some of them not clear why
+  filter(product_type!="Processed crop" & product_type!="other") %>% # check milk, eggs filter  
+  group_by(category, product_type, type, subtype) %>% 
+  summarise(
+    # unweighted sample
+    n_obs = length(sold[sold>0]), # number of observed sellers
+    perc = n_obs/nrow(ag), # percentage of sellers among agricultural households (more meaningful if among producers)
+    percprod = n_obs/length(produced[produced>0]), # percentage of producers that sell
+    average = mean(sold), # mean consumption of producers
+    pav = mean(sold*100/produced), # mean proportion sold from production (across sample, makes it comparable to weighted)
+    pavsales = mean(sold[sold>0]*100/produced[sold>0]), # mean proportion of production consumed by consumers
+    # weighted sample
+    neq = sum(weight_adj[sold>0]),
+    pneq = neq/ag_eq, # percentage consumers of all households included
+    sales = sum(w_sold), # total sales
+    av_w = sales/neq, # average consumption of consumers
+    pcons = sum(w_sold)/sum(w_produced), # proportion of total production consumed
+    avitems = mean(itemcount[sold>0])) %>%  # item count for consumers only
+  filter(n_obs>0)
+
+# adjust order, scaling & other formatting issues
+```
+- Transfers - x
+
+Importance of informal allocations such as gifts and food as payment, only available for crops
+```{r}
+mfa_crops %>% 
+  mutate(
+    pgifts = gifts*100/produced,
+    ppay = payment*100/produced
+  ) %>% 
+  group_by(type) %>% 
+  summarise(
+    # unweighted
+    n_gifts = length(gifts[gifts>0]), # number of items given
+    n_pays = length(payment[payment>0]), # number of items as payment
+    # weighted sample
+    tgifts = sum(gifts),
+    tpgifts = sum(gifts)*100/sum(produced),
+    mngifts = mean(pgifts[gifts>0]),
+    tpay = sum(payment),
+    tppay = sum(payment)*100/sum(produced),
+    mnpay = mean(ppay[payment>0])
+  )
+```
+
+- Buyers - x
+```{r}
+ b1 <- readRDS(here::here("data", "final", "b1.RDS")) %>% 
+  clear.labels() %>% 
+  weigh() %>% 
+  mutate(w_sold = sold*weight_adj) %>% 
+  dplyr::rename(type = type_new) # type_new created in 06_Summary.Rmd to avoid overwriting
+                                # raw 'type' during buyer merges — renamed here for consistency
+
+table(b1$new_name)
+table(b1$new_location)
+
+# Allocation as alluvial by frequency - x
+b1alalt <- b1 %>%
+  # filter(product != "cashcrops") %>%
+  group_by(type, new_name, new_location) %>%
+  summarise(
+    value = n()
+  ) %>% 
+  ungroup() %>% 
+  filter(!is.na(new_name))
+
+ggplot(data = b1alalt,
+       aes(axis1 = type,   # First variable on the X-axis
+           axis2 = new_name, # Second variable on the X-axis
+           axis3 = new_location,   # Third variable on the X-axis
+           y = value)) +
+  geom_alluvium(aes(fill = type))+
+  geom_stratum() +
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("type", "b1_loc", "b1_rel"),
+                   expand = c(0.15, 0.05)) +
+  theme_void()
+
+# NOTE (backlog): alluvial package alternative not working — ggalluvial used instead.
+# Remove once Tableau Sankey is built — R alluvial charts not needed for portfolio output.
+# https://cran.r-project.org/web/packages/alluvial/vignettes/alluvial.html
+# alluvial(b1alalt[,1:3], freq=b1alalt$value,
+#          col = ifelse(b1alalt$new_name == "other region", "orange", "grey"),
+#          border = ifelse(b1alalt$new_location == "other region", "orange", "grey"),
+#          hide = b1alalt$value == 0,
+#          cex = 0.7
+# )
+
+# Allocation as alluvial by mass - 
+
+b1mass <- b1 %>%
+  # filter(product != "cashcrops") %>%
+  group_by(type, new_name, new_location) %>%
+  summarise(
+    value = sum(w_sold) # weighted
+  ) %>% 
+  ungroup() %>% 
+  filter(!is.na(new_name))
+
+b1massfig <- ggplot(data = b1mass,
+       aes(axis1 = type,   # First variable on the X-axis
+           axis2 = new_name, # Second variable on the X-axis
+           axis3 = new_location,   # Third variable on the X-axis
+           y = value)) +
+  geom_alluvium(aes(fill = type))+
+  geom_stratum() +
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("type", "b1_loc", "b1_rel"),
+                   expand = c(0.15, 0.05)) +
+  theme_void()
+
+b1massfig
+
+# reshape for flourish
+data1 <- b1mass %>% 
+  filter(!is.na(type)) %>% 
+  select(source = type, target = new_name, value) %>% 
+  mutate(
+    from = 0,
+    to = 1
+  )
+
+data <- b1mass %>% 
+  filter(!is.na(type)) %>% 
+  select(source = new_name, target = new_location, value) %>% 
+  mutate(
+    from = 1,
+    to = 2
+  ) %>% 
+  bind_rows(data1)
+  
+  nodes <- data.frame(name=c(as.character(data$source), as.character(data$target)) %>% unique())
+  
+  data$IDsource <- match(data$source, nodes$name)-1 
+  data$IDtarget <- match(data$target, nodes$name)-1
+  
+  write_csv(data, here::here("data", "results", "b1mass_flourish.csv"))
+```
+Frequency and percentage of interactions using the unweigthed data in text, show mass as alluvial.
+
+# Missing
+
+-   Post-harvest losses - x
+
+```{r phl text new, echo=FALSE}
+mass_crops <- readRDS(here::here("data", "processed", "01", "mass_crops.RDS")) %>% 
+  clear.labels() %>% 
+  select(y4_hhid, cropid, type, produced = harvest, losses) %>% 
+  weigh() # included hhs only
+
+mass_trees <- readRDS(here::here("data", "processed", "01", "mass_trees.RDS")) %>% 
+  clear.labels() %>% 
+  select(y4_hhid, cropid, type, produced = harvest, losses) %>% 
+  weigh() # included hhs only
+
+phlosses <- mass_crops %>% 
+  bind_rows(mass_trees) 
+
+write_csv(phlosses, here::here("data", "results", "phlosses.csv"))
+
+# some duplication
+phlosses <- phlosses[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, cropid, type)]
+phlosses <- phlosses %>% 
+  mutate(across(c(produced:losses), ~.* weight_adj, .names = "w_{col}"),
+         n_lost = ifelse(losses>0, 1, 0),
+         n_crops = ifelse(produced>0,1,0))
+
+# Quantity, proportion and count lost for each crop, including weighting - x
+top10 <- phlosses[, `:=`(
+  perc = losses*100/produced)]
+# top 10 lost --> to compare with APHLIS once weighted; all much lower...
+top10 <- top10 %>%
+  filter(produced>0) %>% 
+  # mutate(w_perc = w_losses*100/w_produced) %>% 
+  group_by(type, cropid) %>%
+  summarise(
+    # unweighted
+    n_obs = n(), # number of households growing crop
+    n = sum(n_lost), # number of times the crop was lost/same as number of households affected; weighted eq to weight_adj as hh
+    lost = sum(losses),
+    perc_mn = mean(perc[losses>0]), # average losses of losers
+    perc = sum(losses)*100/sum(produced[losses>0]),
+    perctot = sum(losses)*100/sum(produced),
+    # weighted
+    w_n = sum(weight_adj[n_lost>0]), # hh equivalents affected/times the crop was lost 
+    w_lost = sum(w_losses),
+    w_perc = sum(w_losses)*100/sum(w_produced[w_losses>0]), # percentage lost among losers
+    w_perctot = sum(w_losses)*100/sum(w_produced), # percentage lost among producers
+    ) 
+  
+top10 %>% 
+  rd() %>%
+  arrange(desc(perc)) %>% 
+  filter(lost>0 & n>1) %>% 
+  gt()
+```
+
+```{r ph inline}
+# Overview of losses by type for inline only - x
+phtype <- phlosses[, lapply(.SD, sm), .SDcols=is.numeric, by=.(y4_hhid, type)]
+
+phl <- phtype %>% 
+  filter(type != "cashcrops") %>% 
+  select(!weight_adj) %>% 
+  weigh() %>% 
+  group_by(type) %>% 
+  summarise(
+    # unweighted
+    n_obs = n(),
+    # weighted
+    w_lost = sum(w_losses),
+    perc = w_lost*100/sum(w_produced), # all lost relative to all produced
+    neq = sum(weight_adj[w_losses>0]), # hh eq with losses
+    neq_p = neq*100/sum(weight_adj[w_produced>0]), # proportion of hh eq producing with losses
+    avprod = sum(w_produced[w_losses>0])/neq, # av production of hh eq affected 
+    av = w_lost/neq, # average losses per hh eq affected
+    # pm = mean(perc),
+    pmn = av*100/avprod # av perc loss per hh eq
+    ) %>% 
+  arrange(desc(w_lost))
+
+# Average, min & max losses for specified crops - TBD
+
+# Inline based on type_totals
+
+write_csv(phl, here::here("data", "results", "phl.csv"))
+```
+
+Across all production a total of `r sum(phl$w_lost)` *kg* (`r sum(phl$perc)`%) of total food crop production are estimated to have been lost at the post-harvest stage. Overall, the largest quantity of post-harvest losses occurred for grains & cereals, yet this represented less than 1% of total production volume. Relative post-harvest losses across all producers were highest for vegetables. Producers of fruits, grains & cereals and vegetables were most commonly affected by post-harvest losses (`r phl %>% filter(type == "fruits") %>%  pull(neq_p)`, `r phl %>% filter(type == "grains & cereals") %>%  pull(neq_p)` and `r phl %>% filter(type == "vegetables") %>%  pull(neq_p)` % of producers, respectively). Among affected households, average total losses were highest for vegetables (`r phl %>% filter(type == "vegetables") %>%  pull(av)` kg), roots & tubers (`r phl %>% filter(type == "roots & tubers") %>%  pull(av)`kg) and grains & cereals (`r phl %>% filter(type == "grains & cereals") %>%  pull(av)`kg). Yet, relative to total produciton volume of affected households highest average losses were recorded for roots & tubers (`r phl %>% filter(type == "roots & tubers") %>%  pull(pmn)`%), vegetables (`r phl %>% filter(type == "vegetables") %>%  pull(pmn)`%) and fruits (`r phl %>% filter(type == "fruits") %>%  pull(pmn)`).
+
+Looking at individual crops based for which the data are based on more than a single grower, within each food group there is one item that, when lost, is lost at a high rate (on average about a quarter of affected households production) [@tab]. *More about individual crops of interest*. On average, when lost, the highest average proportion is lost by cassava growers (`r top10 %>% filter(cropid == "cassava") %>% pull(w_perc)`%), followed by mango (`r top10 %>% filter(cropid == "mango") %>% pull(w_perc)`), pigeon pea (`r top10 %>% filter(cropid == "pigeon pea") %>% pull(w_perc)`%) and tomato (`r top10 %>% filter(cropid == "tomatoes") %>% pull(w_perc)`%). In absolute quantities maize and mangos are lost most, `r top10 %>% filter(cropid == "maize") %>% pull(w_lost)`kg and `r top10 %>% filter(cropid == "mango") %>% pull(w_perc)`kg, respectively.
+
+
+-   Missing milk & unaccounted eggs - x
+
+```{r}
+produce_long %>% 
+  filter(subtype == "Milk" | subtype == "Eggs") %>% 
+  mutate(
+    puncertain = uncertain/produced,
+    puncertain = ifelse(puncertain<0, puncertain*-1, puncertain),
+    w_puncertain = w_uncertain/w_produced,
+    w_puncertain = ifelse(w_puncertain<0, w_puncertain*-1, w_puncertain)
+  ) %>% 
+  group_by(subtype, item) %>%
+  summarise(
+    # unweighted
+    n_obs = length(produced[produced>0]), # number of households producing
+    n_pos = length(uncertain[uncertain>0]), # "waste" households
+    n_neg = length(uncertain[uncertain<0]), # "over-users"
+    unsum = sum(uncertain[uncertain>0]), # total uncertain from overestimate
+    unneg = sum(uncertain[uncertain<0]), # total uncertain from underestimate
+    ptot = unsum/sum(produced) + unneg*-1/sum(produced), # percentage of total production uncertain
+    perc = mean(puncertain, na.rm=T), # percentage uncertain when uncertainty is recorded
+    # weighted
+    neq = sum(weight_adj[produced>0]), # number of household equivalents producing
+    w_unsum = sum(w_uncertain[w_uncertain>0]), # total uncertain
+    w_unneg = sum(w_uncertain[w_uncertain<0]),
+    w_ptot = w_unsum/sum(w_produced) + w_unneg*-1/sum(w_produced), # percentage of total production uncertain
+    # w_perc = mean(w_puncertain, na.rm=T) # percentage uncertain when uncertainty is recorded - same
+  )
+
+# Regional breakdown of milk losses - x
+# produce_long %>% 
+#   filter(subtype == "Milk") %>% 
+#   mutate(
+#     puncertain = uncertain/produced,
+#     puncertain = ifelse(puncertain<0, puncertain*-1, puncertain),
+#     w_puncertain = w_uncertain/w_produced,
+#     w_puncertain = ifelse(w_puncertain<0, w_puncertain*-1, w_puncertain)
+#   ) %>% 
+#   left_join(zones, by = "y4_hhid") %>% # zone information
+# NOTE (backlog): requires region field on produce_long and zones lookup from
+# 06_Summary.Rmd. Extract zones to shared reference file before enabling.
+#   group_by(subtype, zone) %>%
+#   summarise(
+#     # unweighted
+#     n_obs = n(), # number of households producing
+#     unsum = sum(uncertain[uncertain>0]), # total uncertain
+#     unneg = sum(uncertain[uncertain<0]),
+#     ptot = unsum/sum(produced) + unneg*-1/sum(produced), # percentage of total production uncertain
+#     perc = mean(puncertain, na.rm=T), # percentage uncertain when uncertainty is recorded
+#     # weighted
+#     neq = sum(weight_adj), # number of household equivalents producing
+#     w_unsum = sum(w_uncertain[w_uncertain>0]), # total uncertain
+#     w_unneg = sum(w_uncertain[w_uncertain<0]),
+#     w_ptot = w_unsum/sum(w_produced) + w_unneg*-1/sum(w_produced), # percentage of total production uncertain
+#     # w_perc = mean(w_puncertain, na.rm=T) # percentage uncertain when uncertainty is recorded - same
+#   )
+```
+
+
+-   Slaughter waste - x
+
+```{r}
+mass_animals <- readRDS(here::here("data", "processed", "01", "animals_mass.RDS")) %>% 
+  clear.labels() %>% 
+  weigh() %>% 
+  select(y4_hhid, type, lvstckid, meat, offal, hides, inedible, weight_adj) %>% 
+  mutate(across(c(meat:inedible), ~ .x * weight_adj, .names = "w_{col}")) %>% 
+  filter(meat > 0)
+
+# join hide information
+
+# [Number of animals slaughtered for consumption and] total inedible waste - x
+sl_waste <- mass_animals %>% 
+  group_by(type) %>% 
+  summarise(
+    # unweighted
+    totined = sm(inedible),
+    # count of animals slaughtered for consumption
+    # quantity of hides not further processed
+    # weighted
+    w_totined = sm(w_inedible),
+    w_totoffal = sm(w_offal)
+  ) %>% 
+  arrange(desc(totined))
+
+write_csv(sl_waste, here::here("data", "results", "sl_waste.csv"))
+```
+
+# Sankey
+
+```{r eval=FALSE}
+# NOTE: eval=FALSE — depends on mfaw object from 99_C3a.R.
+# Source 99_C3a.R in setup chunk before enabling.
+sankey(mfaw)
+```
+
+
+# Uncertainty & range of estimates
+
+## Range of over- and underestimation
+
+```{r eval=FALSE}
+# NOTE: eval=FALSE — depends on figure and stats objects from 99_C3a.R.
+# Source 99_C3a.R in setup chunk before enabling.
+range_crops_fig
+# save figure
+range_milk_fig
+```
+
+
+Uncertainty using weigthed sample
+
+```{r eval=FALSE}
+# NOTE: eval=FALSE — depends on figure and stats objects from 99_C3a.R.
+# Source 99_C3a.R in setup chunk before enabling.
+uncertainty_crops_stats %>% 
+  bind_rows(uncertainty_milk_stats) %>% 
+  select(!c(supper:sum)) %>% 
+  select(type, Mean, row_stdev) %>% 
+  arrange(desc(Mean))
+```
+
