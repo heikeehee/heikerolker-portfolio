@@ -1,5 +1,11 @@
-# Flags Review Log — Project 01
+# Analytical Assumptions and Exclusions Log — Project 01
 
+This file documents every assumption, exclusion decision, and data quality flag
+in the pipeline. Each entry links to the script where it appears and notes what
+action or sensitivity analysis is needed before results can be treated as final.
+
+This is standard practice in policy-facing and ESG-relevant analysis — making
+uncertainty explicit and auditable rather than hidden in code.
 Generated after clean/ extraction pass. All items below require a decision before Stage 3 (build_households).
 
 ------------------------------------------------------------------------
