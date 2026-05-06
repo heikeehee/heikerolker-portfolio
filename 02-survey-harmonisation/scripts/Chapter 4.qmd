@@ -1,0 +1,1491 @@
+---
+title: "Chapter 4"
+format: docx
+editor: visual
+# bibliography: 5_writeup/bib/C3a.bib
+# csl: 5_writeup/bib/vancouver.csl
+# always_allow_html: true
+# link-citations: true
+# latex_engine: xelatex
+# papersize: a4
+# hide_code: true
+---
+
+```{r refs, eval=FALSE, echo=FALSE}
+@misc{waterfootprint,
+  title = {Product Gallery – Water Footprint Network},
+  howpublished = {\url{https://www.waterfootprint.org/resources/interactive-tools/product-gallery/}},
+  note = {Developers: Arjen Hoekstra (University of Twente) & Michiel van Heek (Water Footprint Network)},
+  year = {2017}
+}
+
+```
+
+```{r set-up, include=FALSE}
+sys.source("99_C3b_essentials.R", envir = knitr::knit_global())
+sys.source("03_Descriptives.R", envir = knitr::knit_global())
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r load, include=FALSE}
+excl_3b <- read_csv("2_data/final/excl_3b.csv")
+shortnames <- read_excel("2_data/reference/shortnames.xlsx")
+```
+
+# Key outstanding
+
+-   multiply by household AFE during bootstrap (i.e. bootstrap at household level)
+-   is an extrapolation to total population possible, just like in previous chapter?
+-   run bootstrap at specified number of times
+-   integrate appendix and expand on comparison
+-   In Appendix: who responded to the survey sections
+
+## Abstract {.unnumbered}
+
+<!--# Copy from annual progress review -->
+
+## Introduction
+
+```{r eval=FALSE}
+@book{fao_economic_lives,
+  author = {Food and Agriculture Organization (FAO)},
+  title = {The economic lives of smallholder farmers - An analysis based on household data from nine countries},
+  year = {2015},
+  url = {https://openknowledge.fao.org/server/api/core/bitstreams/32709b4d-ed41-4b1e-9d37-91786824cb9e/content}
+}
+
+```
+
+<!--# Why smallholder farming systems matter: "Of the 570 million farms worldwide, 83% of which are in sub-Saharan Africa (9%) and Asia (74%), 475 million are smallholder farms (<2 hectares). These smallholder farms operate about 12% of the world's agricultural land [@Lowder.2016]. They produce some of the major commodities consumed in the world and provide more than 70% of the food calories to people living in Asia and sub-Saharan Africa; yet many of these farmers are poor and somewhat neglected. These farmers lack the necessary capital for rural development and transformation, including natural, built, human, social, political, and financial capital [@IFAD]." @Fanzo.2017 -->
+
+<!-- Population and why they matter -->
+
+In the Republic of Tanzania the agricultural sector contributes to about a quarter of the country's Gross Domestic Product [@Benson.2017]. A large majority of farms in the country are smallholder family production systems on which 3.7 million households (equivalent of 19.2 million people) depend directly [@fao_economic_lives]. Therefore, to improve overall food system performance and efficiency policies primarily need to account for and be supportive of the smallholder farming context. <!-- definition smallholder - avoid duplication from previous chapter *Smallholders or family farmers are food producers (farmers, fishers, pastoralists, etc.) with small areas of land (up to 10 hectares), “characterized by family-focused motives such as favouring the stability of the farm household system” [@smallholder.fao]. Typically, food is predominantly produced through family labour and a portion of it is allocated to household consumption. In this context, improving food system efficiency through food waste reduction is expected to directly benefit the household’s health, social and economic well-being [@Rolker.2022; @Sehti.2020].* ^[copied from Chapter 3]--> <!-- their situation, wellbeing etc. --> Yet, low levels of education, an ageing rural population and wide-spread lack or inadequacy of agricultural extension programmes, finance and markets keep many smallholders from achieving efficiency and production potential [^1]. Many smallholder households are affected by food insecurity and poverty [@ref]. *agricultural investments, access to finance, markets, poverty, food insecurity, and health.* In acknowledgement of the relevance of smallholder farm households for the global food system, surveys such as the Living Standards Measurements Survey (LSMS) and others are aimed at assessing and monitoring smallholders' well-being, support needs and to inform policy [@ref].
+
+[^1]: needs thorough referencing
+
+<!-- Recap of previous study -->
+
+The previous study quantified inefficiencies across smallholder farming households in Tanzania at the national level using a Material-Flow-Analysis (MFA) approach. Yet, the attempt was constrained by the information provided in the agricultural questionnaire of the LSMS-ISA survey. To assess the validity and reliability of our MFA findings (and typically for survey data in general) we compared our results to similar reference studies and official statistics. Another approach commonly taken in MFA is to reconcile the information provided by multiple sources to overcome eventual bias. Survey data in particular is prone to suffer from recall and other systematic or random bias [@ref]. However, it is possible to increase reliability of the information provided through cross-referencing the information internally [@ref!][^2]. The LSMS-ISA survey by the Worldbank collect a wide-range of information from a number of household members within the smallholder farm household.
+
+[^2]: not sure I'll find one
+
+<!-- Consumption data generally and its availability in LSMS -->
+
+Food consumption data generally is derived from one of two sources. It can be estimated from total food availability, an approach taken the Food and Agriculture Organisation's (FAO) food balance sheets. This approach accounts for food production volumes, exports and imports to estimate the total amount of food available for consumption in a given year. From this estimate the average per person (daily or annual) food supply can be calculated [@ref]. Notably, however food supply will exceed actual consumption, it is not able to differentiate regional consumption patterns or seasonal variation [@ref]. The other approach relies on the recall of all food items consumed in the household over a short period of time (typically multiple 24 hour periods or seven days). They deliver different information and granularity in terms of seasonality and average per-person consumption. The LSMS-ISA survey collects data on food produced for consumption in the agricultural survey covering one year and data on food consumed from production in the household survey covering seven days.
+
+<!-- §4 Justification and specific questions -->
+
+<!-- **In Material Flow Analyses (MFA) aimed at estimating the quantities and flows of materials within a given system, for example, it is common practice to compare the information required across multiple data sources available. In the previous chapter, the MFA is derived from the agricultural survey only. In this chapter, I propose a method of extending the previous estimate by cross-referencing the quantities with the information given in the household questionnaire. Ultimately, this will allow to extend the inefficiency estimates previously provided by estimating household food waste.** -->
+
+<!-- What'll happen here... propose method to align information provided and overall time-scale difference, expand inefficiency estimate. Further, helps to show and learn about how reliable surveys are.-->
+
+The overall aim of this study is to align and compare information provided in the agricultural and household questionnaires of the LSMS-ISA survey for Tanzania from 2012/14. From this follow the following objectives: 1) develop and compare methods to extrapolate 7-day food consumption recall to annual consumption 2) extrapolate 7-day food consumption recall to annual consumption by bootstrapping for each household/agricultural zone among smallholder farming households, 3) compare the quantities and overall information provided across survey sections and bootstrapped results for food consumed from production (i.e., food produced for consumption) and **4) reconcile data misalignment, estimate waste and show full MFA for LSMS-ISA data.** Ultimately, these objectives contribute to two overarching aims. First and specifically, this will extend the estimate of food system inefficiencies within the Worldbank survey for Tanzania. Second and generally, the approach will improve our understanding of the accuracy and reliability of information provided in survey data to improve decision making.
+
+```{=html}
+<!-- *General narrative: How reliable are the different survey sections and does cross-referencing improve reliability of the data and allow greater accuracy of food consumption estimates?* 
+
+**Thesis narrative: Can we extend inefficiency estimates between production and consumption by cross-referencing the agricultural and household questionnaires?**-->
+```
+
+<!-- have these methods been combined or cross-references in some way in other studies? -->
+
+## Methodology
+
+### Surveys & measures of food consumption
+
+<!-- Surveys among smallholders or food systems  -->
+
+Household surveys are widely used to gather information representative for a given population to guide policy decisions. Surveys among smallholder farm households in Low-and-Middle Income Countries (LMICs) are a crucial tool to assess living standards, guide policy, and design interventions. In many countries smallholder farming is still widespread and in Sub-Saharan Africa 80% of the population depend on it for their livelihood [@fao?]. Understanding the broader household context in which food production takes place is critical for economic development and essential to food security. They require good planning and design to be representative of the target population and questionnaires are trialled and improved continuously [@ref]. <!-- Cite inferences made on smallholder well-being (why it matters to connect multiple sections and see the smallholder in a wider context: community, household and producer); food system papers from WUR, UPAVAN, etc. -->
+
+<!-- DOES NOT ADD TO NARRATIVE: Typically, the information provided in a given survey will be compared to similar or reference studies to evaluate the reliability of the information provided. Larger surveys such as the LSMS-ISA survey by the Worldbank collect a wide-range of information from a number of respondents within a smallholder farm household. Rather than comparing results from one survey to other surveys or studies, cross-referencing the answers given within the survey (and therefore across household members) may improve our understanding of the accuracy and range of the information provided. -->
+
+<!-- §2 Pros/cons of survey data; reliability and bias of different sections -->
+
+Survey data has several advantages and disadvantages. Surveys are relatively cheap and easy to administer and a good tool to gather information to guide decision making. Multi-stage random sampling from the target population is done to collect representative information and minimise bias. Expert contribution to the design of questions, training of enumerators and data checks are put in place to collect relevant information reliably. However, all survey data will contain a degree of error (i.e., recall or reporting bias) that may interfere with the accurate interpretation of results [@survey book]. In some cases, this can be wilful (or systematic) misreporting, or it can be based on random inaccuracies. The extent to which recall data is biased differs based on multiple factors (e.g., subject, time, cultural, literacy & numeracy, subject area) [@ref]. Some evidence suggests that recall of agricultural activities is less affected by the time between events and reporting [@Beegle.2010], whereas the recall error for food consumption can be relatively large [@Brzozowski.2017], and affect the inferences made for nutrient intake [@Sununtnasku.2017]. Household food consumption can be assessed using a number of tools. Surveys frequently use a combination of 7-day recalls and/or repeat 24-hour recall (listing of all items and quantities consumed in the household in the past week or day), and food frequency questionnaires (number of times an item/food group was consumed in the household in the course of a month). Despite the relatively short recall time frame, over- and under-reporting of household food consumption may be as high as ...x% when compared to ... [@ref].
+
+**Measures of food consumption** <!-- Comparing different methods of deriving information on food consumption: more detail than introduction; examples on where and how the different types of data are used and what the pros & cons are --> Moreover, the methods do not capture seasonal food consumption at the household level. To capture annual variation in consumption patterns costly repeat data collection would be necessary, an approach only few studies have taken [@Keding.2012; @Waswa.2021]. Another approach to longer term food consumption is via the production pathway. Food production data is used as an input for estimating annual food consumption in Food Balance Sheets (FBS). The FAO FBS show food availability of a given country based on national production, imports and exports [@ref **expand on method**]. The resulting annual per capita food supply can be used to estimate annual nutrient intake [@Kalmpourtzidou.2020], identify food consumption patterns overtime linked to adverse health outcomes [@Le.2020] or estimate the environmental footprint linked to diets [@Kovacs.2021]. <!--**pros and cons of supply data - example inferences that have been made using these data - why annual can be useful**--> However, food availability does not strictly result in consumption (nor can intake be assumed equitable or consistent over the course of a year) therefore food intake will always be lower than food supply [@ref]. The same applies for household production data, allocation for consumption can not be assumed to be equal to consumption. <!-- Even consumption as reported often leads to researchers applying a refuse factor to the reported quantities to determine the final edible portion (after discarding peels etc and potential cooking losses). --> <!-- Neither capture seasonality/annual patterns but if bootstrapped and in combination they could complement another for a more accurate annual estimate and provide further understanding of the possible error (would require primary data collection for verification). --> <!-- §3 Problem definition --> This "patchiness" is a common problem of food consumption data [@ref]. Yet, food consumption is subject to geographical and seasonal variation [@Waswa.2021] resulting in potential gaps in our knowledge of temporal-spatial food consumption patterns. Typically, the survey design and sampling strategy attempt, but may not always be successful in accounting for these variations [@ref]. When using food recall data that has been collected across the year there is a general assumption that seasonal variation is compensated for through survey design, households sampled in any given month are representative for that month (mostly ignoring differences in household characteristics). Therefore, the sum of means for each month can generate a reliable mean annual consumption across a sample population [@Ignowski.2023]. Yet, the sample size for each month varies and can be relatively small resulting in a de facto unknown distribution of food consumption across items for at least some temporal-spatial contexts. The general assumption is based on a) an assumption that all 7-day recall information is representative of the temporal-spatial context it has been collected in (i.e., the sample is representative), and b) a fair representation of the distribution of consumption for the given temporal-spatial context and all food items consumed is captured (i.e., the sample size is large enough). **Studies that identified seasonality and approaches used, to an extent it must be true...but gold standard verification would be costly repeat measures throughout the year** **Key problems: 1) patchiness and the consequences for our knowledge of the temporal-spatial distribution -\> can be overcome by bootstrap, 2) means of verification: comparison to reference values or food supply data (typically used by economists), here: their own production data (does not overcome the issue of seasonality)**
+
+<!-- study justification: both approaches are flawed but if combined and cross-referenced we may be able to get more accurate information; first step is to align**  -->
+
+The overall aim of this study is to cross-reference food consumption from production based on the agricultural and the household questionnaires, to estimate the quantity of food waste that occurs at the household level. To this end, the difference between recall periods must be overcome first. Once recall periods are aligned, it is possible to estimate the waste that occurred between production, allocation to the household for consumption and ultimately consumption. Food consumption is reported for a seven-day period, whereas food production covers 12 months (i.e., food availability) and therefore requires food consumption to be extrapolated to annual quantities. Food consumption data from the LSMS-ISA survey for Tanzania covers monthly and geographical variation relatively well, yet for some months, and in some zones no households have been surveyed.
+
+<!--  Whether this assumption holds when compared to other methods that extrapolate to annual consumption and how this assumption is affected by missing months is unclear. To derive an estimate for annual consumption at the household level, we construct virtual households based on repeated random sampling from available food consumption data across months for each agricultural zone. We compare this method to other more direct approaches of extrapolating to annual consumption in the Appendix. -->
+
+```{=html}
+<!-- **Why extrapolate to annual consumption: how can it be useful** 
+1) in this case comparing two measures 
+2) seasonality and food insecurity, estimate average availability throughout the year to understand nutrient adequacy-->
+```
+
+<!-- The simplest approach to extrapolate to annual food consumption, and implicit (or explicit) assumption in a number of studies exploring seasonality of food consumption [@Bonuedi.2022], is by taken the sum of each month's average food consumption. As previously mentioned however, this approach is often not possible due to temporal-spatial "patchiness" in the data. Based on the exclusions steps and the survey design, data for some temporal-spatial contexts (i.e., unique combination of month and agricultural zone) is missing (see Table x). We propose two methods based on this initial crude extrapolation principle for imputing data for the missing temporal-spatial contexts to estimate annual consumption. -->
+
+<!-- Factors influencing food consumption patterns, that need to be accounted for when extrapolating from existing data; -> best appraoch given the data to focus on temporal-spatial-->
+
+Food consumption patterns are dependent on a wide range of temporal, spatial, socio-economic, and cultural factors, to name a few [@Tingum.2020; @Aweke.2022]. As previously mentioned in the introduction, surveys are designed to capture a sample of respondents representative to a defined population. Yet, due to practical considerations (i.e., cost and logistics) not all temporal-spatial contexts are sufficiently covered when collecting household 7-day food consumption recall data (let alone an additional representation of other socio-demographic and other factors). **Seasonality and location matter in this context because of storage and infrastructure [@ref], consumptions is more influenced by these than in urban contexts for example [@Bonuedi.2022].**
+
+-   Seasonality important: seasonal calendar FEWS [^3]; @Kansanga.2022
+-   Agricultural zone important: Wasaka.2021
+
+[^3]: check if sampled outside
+
+**Survey: detailed knowledge. Pro: directly linked to household characteristics, allows for studying determinants. Cons: short recall, often with bias, no knowledge about household food allocation, unclear how consistently patterns persist throughout the year.** **Production: average estimate across the year. Pro: knowledge of total annual consumption, indication of longer term intake. Cons: not sensitive to seasonal variation (consumption lower just before harvest, some produce highly perishable)**
+
+```{r echo=FALSE}
+miss_mo <- readRDS("2_data/final/miss_mo.RDS")
+```
+
+```{r echo=FALSE}
+#| label: tbl-missmo
+#| tbl-cap: "Overview of sample size for each temporal-spatial context"
+# table showing number of households sampled for each temporal-spatial context
+miss_mo %>% 
+  gt()
+```
+
+### LSMS-ISA, data preparation & exclusion steps
+
+We use the fourth wave of LSMS-ISA survey for the Republic of Tanzania, collected in between 2014 and 2015. We describe all data preparation and cleaning steps for the agricultural production data in the previous chapter. This chapter further includes the household questionnaire of the LSMS-ISA survey, more specifically the 7-day household food consumption section. The household survey is administered to the largest number of households participating in the LSMS-ISA survey, with it a filtering questionnaire is conducted to identify the households that are involved in agriculture, fishery, and livestock activities. Food consumption is reported as a 7-day recall for the entire household and for roughly 60 commodities. All consumption units are converted into kilograms. All household members and their context are recorded in the roster section of the survey. It provides information on who consumed food in the household during the recall week, this value determines the initial household AME when calculating per FME household consumption for the recall week.
+
+Reported household consumption is translated into per capita consumption using Adult Female Equivalents (AFE) [@Coates.2017; @Weisell.2012; HcesNutR package] (See table x in Appendix). Members of the household that were absent during the recall period and guests are not considered [@Fiedler.2016]. Adult Female Equivalent for the 7 day recall is calculated for each household based on sex, age and reproductive state of household members that consumed food in the recall week (i.e. 'consumers'). A minimum estimate of household members across the year is based on consumers that were present for at least eight months out of twelve, the maximum AFE estimate is based on all household member independent on reported consumption and length of presence across the year. Households reported the sources of the food they consumed as derived from home production, purchases, and receipt of gifts. The main part of this study uses the quantities consumed from production (henceforth "consumption"), we further specify if this refers to production for consumption (i.e., data from the agricultural survey) or consumption from production (i.e., data from the recall/household survey and results from bootstrapping). Total consumption or other sources of consumption are mentioned and specified as such where relevant. All food items from the agricultural and household survey are matched to entries from the Kenya Food Composition Table and other relevant regional Food Composition Tables \[FAO/INFOODS Evaluation framework to assess the quality of published food composition tables and databases; TNPSW4/food-matching at main · rgoto55/TNPSW4 · GitHub, <https://github.com/rgoto55/TNPSW4/blob/main/food-matching/documentation/_01.food-matching.qmd>\]. Missing food items are taken from other food composition tables, mostly Western Africa (see Appendix). We calculate total kilo-calorie consumption for the recall period and determine per capita consumption using the AFE. We account for additional energy requirements due to pregnancy and lactation. Households with a daily per capita AFE consumption below 500 kcal or above 5,000 kcal are deemed unrealistic and are excluded [@Mekonnen.2021]. All extrapolation steps are conducted using per AFE household food consumption, this is multiplied by the all household total AFE to derive an estimate of total food consumption for each zone.
+
+```{r exclusions:tab, echo=FALSE}
+#| label: tbl-excl
+#| tbl-cap: "Exclusion criteria"
+data.table(
+  Section = c(
+    "Household AFE estimates",
+    "Per capita kcal consumption",
+    "Total consumption",
+    "No consumption"
+  ),
+  Assumption = c(
+     "Adult Female Equivalent for the 7 day recall is calculated for each household based on sex, age and reproductive state of household members that consumed food in the recall week (i.e. 'consumers'). A minium estimate of household members across the year is based on consumers that were present for at least eight months out of twelve, the maxmimum AFE estimate is based on all household member independent on reported consumption and length of presence across the year.",
+    "A realist/biological range of normal consumption exists and its range is between 500 and 5000 kcal, households with per AFE consumption outside this range are excluded. The range is sufficiently wide to account for household members skipping meals (eating outside) or allowing for other people to consume meals and be included in the 7-day recall.",
+    "Total household consumption that exceeds or falls short 30% of the sum of food derived from all sources is unreliable. We exclude observations where the quantity of food derived from the different sources (i.e., purchases, home production, or gifts) differs substantially from the total quantity consumed. Further, any observation where the source quantity exceeds total consumption quantity by 20% is excluded.",
+    "Households that reported no consumption are excluded."
+  ),
+  Reference = c(
+    "HcesNutR package","@Mekonnen.2021", "Same as previous chapter", "TBD")
+) %>%
+  gt()
+```
+
+### Objective 1: Extrapolation methods
+
+Extrapolating to annual consumption we use two methods with two additional approaches to imputing missing data, to compare four sets of results.
+
+**Crude extrapolation method**
+
+<!-- Any caveats or boundaries worth mentioning -->
+
+The current methods do not account for possible differences between rural and urban households and sampling does not consider this specific location.
+
+-   then multiplied by number of AFE, single AFE in appendix.
+
+**Bootstrap method**
+
+§ on bootstrapping as a method more generally
+
+For missing temporal-spatial contexts or when only a small number of households were sampled in a given temporal-spatial context (n\<10)[^4], we randomly sampled data from households in the previous and subsequent months within the given zone. **Based on the results of comparing extrapolation methods, we considered the geographical/spatial context as more relevant given the ultimate cross-referencing to agricultural production which is geography dependent [@ref on differences in production across Tanzania or elsewhere]**[^5] We deemed more than 10 data points as necessary to reduce potential bias when extrapolating the data [@ref]. Next, we recreate virtual households by randomly sampling each food item from existing recall data within the zone for every month of the year. By sampling food items rather than *food consumption* (i.e., the pattern of an entire household), complementarity of food items may be broken, however due to the large number of samples taken we determined this possible effect not to be apparent in the final data. Frequent item combination are statistically likely to re-appear in the bootstrapped data. The number of households in each zone is determined by the original dataset (prior to imputing data for months missing in the zone, Table x). <!-- TBD if here: multiply by AFE to reflect household, i.e., ultimately sample each household 10,000 times --> Sampling/bootstrapping results in an assumed consumption for each household for every month based on data recorded in the temporal-spatial context. Subsequently, we calculate the sum of total consumption within the zone across the year (where each household represents one AFE)[^6]. This process is replicated 10,000 times and further analyses are based on the mean across these 10,000 "years". Given the uncertainty surrounding the number of household members present and consuming food throughout the year, we extrapolate the results to a range of total zone AFE estimates to derive total annual consumption for the zone. This bootstrapping workflow is shown in detail in the Appendix, the underlying assumptions of data exclusion and manipulation steps are summarised in Table \@ref:tab.
+
+[^4]: expand if required
+
+[^5]: TBD if this holds, code can easily be changed
+
+[^6]: TBD see comment above
+
+```{r echo=FALSE}
+#| label: tbl-methods
+#| tbl-cap: "Overview of data imputation methods for missing temporal-spatial data"
+data.table(
+  Name = c("Crude spatial", "Crude temporal", "Bootstrap spatial", "Bootstrap temporal"),
+  `Method description`= c(
+    "Data for missing months is based on the annual average for the zone. (Prioritises spatial context).", 
+    "Data for missing months is based on the monthly average across all zones. (Prioritises temporal context).", 
+    "Data for missing months is randomly selected from households sampled the previous and subsequent months within the zone.",
+    "Data for missing months is randomly selected from households sampled in the missing month from all other zones."
+    ),
+  References = c("TBD", "TBD", "Any?", "Any?")
+) %>% 
+  gt()
+```
+
+**Compare extrapolation estimates** For each zone we calculate total consumption for each food group and the mean consumption across the sample (for each food group and the total consumption as sum of all means). We calculate the difference of means between the simple crude estimate and four annual consumption estimates at multiple levels of aggregation (*final list*: mean of total consumption in zone, mean consumption of food group, mean consumption in month).
+
+Methods are compared using a Bland-Altman plot to show the difference of means across the methods.
+
+### Cross-referencing
+
+For the cross-referencing between survey sections we compare the items listed as consumed (from production) across sections (i.e., agricultural and recall survey). The two sections have different degrees of disaggregation of the items listed with the agricultural survey in general being more granular (e.g., single items vs. groups of items). However, in some instances the household survey is more detailed by listing a number of variations for a certain food (i.e., maize flour, cob, grain). The level of aggregation in the recall survey can be problematic when the focus of a given analysis is for example on estimating nutrient intake. In this case, two approaches can be taken. First, to generate a nutrient profile based on the average across all items listed. Or, second, to refer to other relevant recall surveys with a higher level of disaggregation for a more detailed distribution of items consumed. This can then be used to apply weighting factors to the individual items aggregated in a single group item [@lucia LSHTM]. The approach here will allow for a third approach to determining what single food item could have been consumed when multiple items are grouped. As a first step, we matched and aggregated the items in each section as necessary to allow for a merging of the data (see Appendix). From the agricultural survey we list 179 items (including multiple iterations of an item after processing steps), the recall survey contains 61 items, after aligning and aggregating 36 items are remaining. For example, single items such as orange, lemon, and lime in the agricultural survey are renamed to become "citrus" to match the "citrus fruits (oranges, lemon, tangerines, etc.)" from the recall survey. Similarly, cassava fresh and cassava flour from the recall survey become "cassava" to match the agricultural survey.
+
+Some items/quantities are not matched. As explained in the previous chapter, it was not possible to estimate the quantities of fish and sea food produced by each household and therefore this food group is excluded from the comparison of quantities. We do however consider when a household reported to have produced fish or seafood as a binary measure in the comparison of items consumed. **(This still needs to be added...)**
+
+### Extended MFA
+
+<!-- Bootstrap for analysis: any differences to above etc. -->
+
+Follows approach above, using agricultural households only and extrapolate to total AFE. We a priori decide that the spatial context is more relevant than the temporal and impute missing data from within each agricultural zone from adjacent months.
+
+<!-- Reconciliation -->
+
+To reconcile we take the mean across AFE estimates, and mean boot AFE estimate and the reconcile the production and boot estimate (by taking the average), we consider the difference between production allocation and reconciled consumption as unallocated and inefficiency estimate. Lastly, we calculate the percentage of inefficiency estimated based on the production value to compare to the literature.
+
+```{r echo=FALSE}
+#| label: tbl-input
+#| tbl-cap: "Overview of input data"
+data.table(
+  Objective = c("Method development", "Qualitative alignement", "Quantitative alignment", "Extended MFA"),
+  `Survey section` = c("7-day recall", "7-day recall; Agricultural production", "7-day recall; Agricultural production") ,
+  Population = c("All households meeting the inclusion criteria", "Agricultural households meeting the inclusion criteria"),
+  Description = c("All input data as single household AFE, no extrapolation to the total household AFE", "Unit of alignment categorical (i.e., food item at varying levels of aggregation), quantitative data unadjusted", "Household level, bootstrap single AFE extrapolated to household by using mean across all total household AFEs", "Mean across household boot"),
+  `Outcome measure` = c("Absolute (& percentage?) difference relative to the recall data; 
+By food group^[by item too detailed], zone & month (imputed vs non-imputed) household level (or AFE?)", "Binary", "Absolute and percentage difference relative to annual food production data where total household AFE is the mean across all total AFE estimates. By food group, zone & month Mean difference by food group & zone annually")) %>% 
+  gt()
+```
+
+## Results
+
+The results section is organised as follows. First we compare our proposed method to other approaches to extrapolating seven-day recall data to annual food consumption. Then and at the household level, we present consumption as reported across the the survey sections and resulting from bootstrapping. Third, we show a direct comparison of AFE consumption derived from these three estimates. Fourth, we show the alignment of cross-referencing items consumed across survey sections. Next and at the zone level, we compare the quantities consumed across the year based on the agricultural survey and the bootstrapped consumption. **Lastly, we provide a reconciliation of the quantities consumed from the agricultural survey and bootstrapped results, an estimation of wastage and an extended MFA visualised in a Sankey diagram.** Where available, we present the range of estimate as they result from the number of household members assumed to have been present and consuming food throughout the year.
+
+```{=html}
+<!--# We present un-manipulated data for the household level:
+
+1)  Number of households that produce → measure of dependence
+2)  Percentage of production for consumption → typical allocation pattern
+3)  Average monthly household consumption → household requirements
+
+Total annual consumption from production -->
+```
+
+### Extrapolation methods
+
+This section presents the comparison of different approaches to a) impute missing data for a given spatial-temporal context and b) extrapolate monthly food consumption to annual food consumption for the population sampled. To maximise the number of data points, this section data from all respondents of the LSMS-ISA survey (not the agricultural sample only) unless any of the exclusion criteria for the household survey listed in the methods section apply. This section is structured as follows, first we show **meaningful descriptive statistics**: average monthly/annual consumption based on method. Then, we attempt to identify the source/location of these differences in the data by showing the difference of means between estimations methods for each zone, food group and month to describe the extent of variation observed. Lastly, we plot the differences **some way of combining multiple**...
+
+<!--# Comparing the different approaches of extrapolating food consumption all shown as percentage difference and per household AFE. (absolute numbers in Appendix, accounting for total household would introduce another level of uncertainty, also not necessary as not compared to total production where total annual AFE is unkown.)   -->
+
+```{r eval=FALSE, echo=FALSE}
+# total consumption for each zone - for what?
+zone.total %>%
+  # group_by(zone) %>%
+  # summarise(across(c(tot.crude:bootTt), ~ sm(.x))) %>%
+  gt()
+
+```
+
+```{r include=FALSE}
+calc.diffs <- function(df, fun){ # add element for function
+  df %>% 
+    # summarise(across(c(tot.crude:bootTt), ~ fun(.x))) %>% 
+    mutate(
+      mean = (tot.spat + tot.temp + bootSt + bootTt)/4,
+      diffccS = tot.crude - tot.spat, # calculate difference between proposed method and given data
+      diffccT = tot.crude - tot.temp,
+      diffcbS = tot.crude - bootSt,
+      diffcbT = tot.crude - bootTt)
+} 
+
+calc.diff.stats <- function(df){
+  df %>% 
+    summarise(
+      across(c(diffccS:diffcbT), ~ sd(.x, na.rm=T), .names = "sd.{.col}"), # sd first as following alters diff vars
+      across(c(diffccS:diffcbT), ~ mn(.x)),
+      n = n()
+      # mnccS = mn(diffccS),
+      # sd.ccS  = sd(diffccS, na.rm=T),
+      # mnccT = mn(diffccT),
+      # sd.ccT = sd(diffccT, na.rm=T),
+      # mncbS = mn(diffcbS),
+      # sd.cbS = sd(diffcbS, na.rm=T),
+      # mncbT = mn(diffcbT),
+      # sd.cbT = sd(diffcbT, na.rm=T)
+      ) %>% 
+    mutate(
+      se.ccS = sd.diffccS/sqrt(n),
+      se.ccT = sd.diffccT/sqrt(n),
+      se.cbS = sd.diffcbS/sqrt(n),
+      se.cbT = sd.diffcbT/sqrt(n),
+    # confidence interval - repeat for all
+      lower.ci.ccS = diffccS - qt(1 - (0.05/2), n -1) * se.ccS,
+      upper.ci.ccS = diffccS + qt(1 - (0.05/2), n -1) * se.ccS,
+      lower.ci.ccT = diffccT - qt(1 - (0.05/2), n -1) * se.ccT,
+      upper.ci.ccT = diffccT + qt(1 - (0.05/2), n -1) * se.ccT,
+      lower.ci.cbS = diffcbS - qt(1 - (0.05/2), n -1) * se.cbS,
+      upper.ci.cbS = diffcbS + qt(1 - (0.05/2), n -1) * se.cbS,
+      lower.ci.cbT = diffcbT - qt(1 - (0.05/2), n -1) * se.cbT,
+      upper.ci.cbT = diffcbT + qt(1 - (0.05/2), n -1) * se.cbT
+  )
+}
+# mean difference: compare average outcomes between distinct groups
+afe_comp_t <- read_csv("2_data/appendix/afe_comp_t.csv")
+
+fig1numst <- afe_comp_t %>% 
+  calc.diffs() %>% 
+  group_by(zone) %>% 
+  calc.diff.stats() %>% 
+  rd()
+
+afe_comp <- read_csv("2_data/appendix/afe_diffs.csv")
+fig1nums <- afe_diffs %>% 
+  group_by(zone) %>% 
+  calc.diff.stats() %>% 
+  rd()
+```
+
+Figure shows the mean difference consumption per household between methods within each zone. There are only minor difference for the Coastal estimates for the bootstrapped estimates (`r fig1nums %>% filter(zone == "Coastal") %>% pull(diffcbT)`g and `r fig1nums %>% filter(zone == "Coastal") %>% pull(diffcbS)` g No difference for Coastal. No difference for crude in Lakes and Southern Highlands but for boot estimates. Differences between methods are larger in Central compared to Northern Highlands, but not clear pattern in terms of size of difference and method used.
+
+```{r eval=FALSE, include=FALSE}
+# mean of differences: typically for within group and to evaluate changes in the same group
+# afe_comp_t %>% 
+#   group_by(zone) %>% 
+#   summarise(across(c(tot.crude:bootTt), ~ mn(.x))) %>% 
+#     mutate(
+#       mean = (tot.spat + tot.temp + bootSt + bootTt)/4,
+#       diffccS = tot.crude - tot.spat, # calculate difference between proposed method and given data
+#       diffccT = tot.crude - tot.temp,
+#       diffcbS = tot.crude - bootSt,
+#       diffcbT = tot.crude - bootTt) %>% # difference total annual per AFE consumption in zone
+#   setDT() %>% 
+#   select(zone, starts_with("diff")) %>% 
+#   melt(id.vars = c("zone"), variable.name = "method") %>% 
+#   ggplot(aes(fill = method, y=value, x=zone)) +
+#     geom_bar(stat="identity", position = "dodge")+ 
+#     scale_x_discrete(guide = guide_axis(angle = 45))+
+#     scale_fill_viridis(discrete = T) +
+#     ggtitle("Zone difference across methods") +
+#     theme_ipsum() 
+```
+
+```{r}
+library(viridis)
+library(hrbrthemes)
+# use as template for all following.
+fig1numst %>%   
+  setDT() %>% 
+  select(zone, starts_with("diff")) %>% 
+  melt(id.vars = c("zone"), variable.name = "method") %>% 
+  # add sd, se or CI for error bars
+  ggplot(aes(fill = method, y=value, x=zone)) +
+    geom_bar(stat="identity", position = "dodge")+ 
+    scale_x_discrete(guide = guide_axis(angle = 45)) +
+    scale_fill_viridis(discrete = T) +
+    ggtitle("Zone difference across methods") +
+    theme_ipsum() 
+
+# figures look pretty much the same but first yields a higher estimate, not sure what one would use
+```
+
+By group, there is no difference for condiments & spices, largest difference to recall is cereal & cereal products, average per month AFE difference is -1.198 kg compared to average monthly per AFE consumption reported in the recall data.
+
+```{r}
+# replace "zone" with "group"
+afe_comp_t %>% 
+  group_by(group) %>% 
+  calc.diffs(mn) %>% 
+  setDT() %>% 
+  select(group, starts_with("diff")) %>% 
+  melt(id.vars = c("group"), variable.name = "method") %>% 
+  ggplot(aes(fill = method, y=value, x=group)) +
+    geom_bar(stat="identity", position = "dodge") + 
+    scale_x_discrete(guide = guide_axis(angle = 45))
+
+```
+
+By month, no difference across methods for January, April, June, July, October and November. Difference just for bootstrap in February, May, and December. December only month were the bootstrap estimate is smaller than the recall data (positive difference of 42 g). Largest difference in September, followed by March and ultimately August. No method consistently ranking in one position or another.
+
+```{r}
+name_months <- function(df){
+  df %>% 
+    mutate(
+      month = fcase(
+      month == 1, "January",
+      month == 2, "February",
+      month == 3, "March",
+      month == 4, "April",
+      month == 5, "May",
+      month == 6, "June",
+      month == 7, "July",
+      month == 8, "August",
+      month == 9, "September",
+      month == 10, "October",
+      month == 11, "November",
+      month == 12, "December"),
+      month = factor(month, 
+                     levels = c("January", "February", "March", "April", "May", "June",
+                                "July", "August", "September", "October", "November", "December")))
+}
+
+# replace "group" with "month"
+afe_comp_t %>% 
+  setDT() %>% 
+  name_months() %>% 
+  group_by(month) %>% 
+  calc.diffs(mn) %>% 
+  setDT() %>% 
+  select(month, starts_with("diff")) %>% 
+  melt(id.vars = c("month"), variable.name = "method") %>% 
+  ggplot(aes(fill = method, y=value, x=month)) +
+    geom_bar(stat="identity", position = "dodge") + 
+    scale_x_discrete(guide = guide_axis(angle = 45))
+
+# calculate difference and display mean (compare to tableau)
+afe_comp_t %>% 
+  name_months() %>% 
+  mutate(
+    diffccS = tot.crude - tot.spat, # calculate difference between proposed method and given data
+    diffccT = tot.crude - tot.temp,
+    diffcbS = tot.crude - bootSt,
+    diffcbT = tot.crude - bootTt
+  ) %>% 
+  group_by(month) %>% 
+  summarise(across(c(diffccS:diffcbT), ~ mn(.x))) %>% 
+  select(month, starts_with("diff")) %>% 
+  setDT() %>% 
+  melt(id.vars = c("month"), variable.name = "method") %>% 
+  ggplot(aes(fill = method, y=value, x=month)) +
+    geom_bar(stat="identity", position = "dodge")+ 
+    scale_x_discrete(guide = guide_axis(angle = 45))
+```
+
+<!--# Two approaches: calculate the difference, take the average OR group, generate sums, calculate the difference // how do they compare? -->
+
+```{r}
+# figure "first" in folder & group.diff
+```
+
+Based on previous it makes sense to zoom into the months (no difference prevails in the months mentioned above when including the group). Sliced differently by zone, the months listed above also retain no difference, further no difference for Coastal as mentioned in the beginning.
+
+Thus differences only in imputed temporal-spatial contexts and they are as follows.
+
+<!--# requires dummy variable so I can select only month, zone, group context for which data has been imputed -->
+
+→ focus on: any clear pattern of methodology placement? food groups particularly affected?
+
+→ what do these differences mean?
+
+### Consumption estimates
+
+The following section is structured as follows. First, we present and contrast per household information as provided by the survey data starting with production for consumption based on the agricultural survey and followed by consumption from production from the household survey. Next, we present the consumption data as a single AFE per household, this allows a direct comparison between the agricultural data, the unaltered recall data and the bootstrapping results. <!-- Only way to include the recall data in comparison. Any "issues" may appear small then, justified based on unknown total AFE for the year? --> Finally and in the subsequent section, we account for all household members in our bootstrapping approach to cross-reference the results with the quantities produced for consumption provided in the agricultural survey.
+
+*Household level*
+
+*Production for consumption - the agricultural questionnaire*
+
+```{r include=FALSE}
+production <- readRDS("2_data/final/production.RDS")
+
+# number of items consumed from production
+left <- production %>%
+  select(y4_hhid, group, n_gr_cons, n_gr_prod) %>%
+  unique() %>%
+  group_by(group) %>%
+  # left side of table
+  summarise(
+    # total
+    n_cons = length(n_gr_cons[n_gr_cons>0]), # number of consuming households
+    items = mean(n_gr_cons), # average number of items in food group consumed from production
+    n_perc = length(n_gr_cons[n_gr_cons>0])*100/length(n_gr_prod[n_gr_prod>0]) # percentage of producers that consume
+  ) %>%
+  rd()
+
+right <- production %>%
+  mutate(p = consumed*100/produced) %>% # household level, percentage of production consumed
+  group_by(group) %>%  
+  summarise(
+    total = sum(consumed), # total quantity consumed
+    perc = sum(consumed)*100/sum(produced), # percentage of total production consumed
+    # household level
+    mean = mean(consumed[consumed>0])/12, # average monthly consumption per household
+    mean_perc = mean(p[consumed>0])
+    # average number of food items consumed per food group
+  ) %>%
+  rd()
+
+tab1 <- merge(left, right)
+
+```
+
+```{r echo=F}
+#| label: tbl-tab1
+#| tbl-cap: "Household consumption based on the agricultural questionnaire"
+
+tab1 %>%
+  mutate(group = str_to_sentence(group)) %>% 
+  arrange(group) %>%
+  gt() %>%
+  # tab_header(
+  #   title = md("Household consumption based on the agricultural questionnaire")) %>%
+  cols_label(
+    # totals
+    total = md("Total annual production for consumption (kg)"),
+    perc = md("Proportion of production for consumption"),
+
+    # household level
+    n_cons = md("Number of households producing food group for consumption"),
+    n_perc = md("Proportion of producing households producing for consumption"),
+    items = md("Average number of items in food group produced for consumption"),
+    mean = md("Average monthly production for consumption per household (kg)"),
+    mean_perc = md("Average proportion of production for consumption (%)"))
+```
+
+Beginning with the perspective of the agricultural survey, almost all households that produce a certain food group consumed at least some of it (Table @tbl-tab1). Half (`r round(tab1 %>% filter(group == "cereals and cereal products") %>% pull(n_cons)/nrow(excl_3b),1)*100`%) of households produce cereals and cereal products, resulting in the largest annual production quantities for this food group. Nuts & seeds and spices are the only food groups that stand out with `r tab1 %>% filter(group == "nuts and seeds") %>% pull(perc)`% and `r tab1 %>% filter(grepl("spice", group)) %>% pull(perc)`% of producing households consuming these items. Average quantities consumed from production vary widely but are highest among cereals (`r tab1 %>% filter(group == "cereals and cereal products") %>% pull(mean_perc)`%), starchy roots (`r tab1 %>% filter(group == "starchy roots, tubers and bananas") %>% pull(mean_perc)`%) and animal products (`r tab1 %>% filter(group == "meat, poultry and eggs") %>% pull(mean_perc)`%).
+
+We divide annual production for consumption by the three total AFE estimates for each household available and by 12 (number of months in a year) to derive three estimates of monthly AFE consumption for each household. Below we show the range of these estimates. We then take the mean across these three estimates.
+
+*Consumption from production - recall data*
+
+```{r recall, echo=FALSE}
+sevendrecall <- readRDS("2_data/final/sevendrecall.RDS") %>% setDT()
+
+# consumption diversity
+sevendrecall[, `:=`(n_cons = ifelse(quant>0, 1, 0),
+                    n_cons_prod = ifelse(produced>0,1,0))]
+sevendrecall[, n_gr_cons := sum(n_cons), by = c("y4_hhid","group")]
+sevendrecall[, n_gr_cons_prod := sum(n_cons_prod), by = c("y4_hhid","group")]
+sevendrecall[, gr_cons_prod := sum(produced)*4.3, by = c("y4_hhid","group")]
+
+left <- sevendrecall %>%
+  select(y4_hhid, group, n_gr_cons_prod, gr_cons_prod) %>%  # extend by overall consumption diversity if necessary
+  unique() %>%
+  group_by(group) %>%
+  # unaltered data household data (compared to left of ag table)
+  summarise(
+    n_cons = length(n_gr_cons_prod[n_gr_cons_prod>0]), # number of households consuming from production
+    items = mean(n_gr_cons_prod), # average number of items in food group consumed from production -> is this useful?
+    perc = n_cons*100/nrow(excl_3b), # proportion of households consuming from production
+    # compare to right of ag table
+    mean_cons = mean(gr_cons_prod), # average food group quantities consumed form production per month
+    ) %>%
+  ungroup() # necessary?
+
+right <- sevendrecall %>%
+  group_by(y4_hhid, group) %>%
+  summarise(
+    # total consumption each food group
+    quant = sum(quant),
+    produced = sum(produced),
+    purch = sum(purch),
+    gifts = sum(gifts),
+    # percentage from production
+    prodp = produced*100/quant,
+    purchp = purch*100/quant,
+    gifsp = gifts*100/quant,
+    # afe consumption
+    quant_afe_mo  = sum(quant_afe_mo),
+    produced_afe_mo = sum(produced_afe_mo)
+  ) %>%
+  ungroup() %>%
+  group_by(group) %>%
+  summarise(
+    cons = mean(quant)*4.3,# monthly household consumption to align with previous
+    pprod = mean(prodp[quant>0]), # percentage from production if consumed
+    ppurch = mean(purchp[quant>0]),
+    pgifts = mean(gifsp[quant>0]),
+    # mean monthly per household (or afe?) consumption, compared to second ag table
+    cons_mo = mean(quant_afe_mo), # not necessary
+    mmo = mean(produced_afe_mo)*1000) %>%
+  ungroup()
+
+tab3 <- left %>%
+  merge(right) %>%
+  rd()
+```
+
+```{r recall-tab, echo=FALSE}
+#| label: tbl-tab3
+#| tbl-cap: "Household consumption based on the household questionnaire"
+tab3 %>%
+  mutate(group = str_to_sentence(group)) %>% 
+  select(!c(cons_mo, mmo, cons)) %>% # use later for direct comparison
+  gt() %>%
+  # tab_header(
+  #   title = md("Household consumption based on the household questionnaire")) %>%
+  cols_label(
+    n_cons = md("Number of households consuming from production"),
+    items = md("Average number of items consumed from food group"),
+    perc = md("Proportion of households consuming from production"),
+    mean_cons = md("Average monthly household consumption from production (kg)"),
+    pprod = md("Average proportion of consumption from production (%)"),
+    ppurch = md("Average proportion of consumption from purchases (%)"),
+    pgifts = md("Average proportion of consumption from gifts (%)"),
+    # cons_mo = md("Average monthly AFE total consumption (kg)"),
+    # mmo = md("Average monthly AFE consumption from production (g)")
+    )
+```
+
+<!-- - relative consumption from production (show total consumption to allow comparison to other studies - they are more likely to report just total intake) -->
+
+Based on the recall data, the number of households reporting to have consumed produce from own production, and the average number of items within given food group are generally lower compared to reports from the agricultural survey (Table @tbl-tab3). Due to the difference in the length of the recall period, this is to be expected. Moreover, the agricultural survey cannot reflect seasonal patterns that can be identified from the household survey. Figure @fig-season shows that the consumption from production for cereals and cereal products, starchy roots, tubers and bananas, and vegetables but also fruits and nuts and seeds in particular are subject to seasonal variation.[^7]
+
+[^7]: Figure extrapolates 7-day recall data to monthly consumption, assuming the weekly patterns reflects consumption in the given month.
+
+```{r seasonfig-prep, echo=FALSE}
+# figure showing average consumption per group across the year
+seasonfig <- sevendrecall %>% 
+  group_by(y4_hhid, month, group) %>% 
+  summarise(
+    quant = sm(quant),
+    produced = sm(produced)
+  ) %>% 
+  ungroup() %>% 
+  group_by(month, group) %>% 
+  summarise(
+    mn.quant = mn(quant)*4.3,
+    mn.prod = mn(produced)*4.3
+  ) %>% 
+  mutate(month = as.factor(fcase(
+    month == 1, "January",
+    month == 2, "February",
+    month == 3, "March",
+    month == 4, "April",
+    month == 5, "May",
+    month == 6, "June",
+    month == 7, "July",
+    month == 8, "August",
+    month == 9, "September",
+    month == 10, "October",
+    month == 11, "November",
+    month == 12, "December"
+  )))
+```
+
+```{r seasonfig, echo=FALSE}
+#| label: fig-season
+#| fig-cap: "Seasonal consumption from production"
+library(hrbrthemes)
+library(viridis)
+
+seasonfig %>% 
+  filter(group != "beverages" & group != "sugar and sweetened products" & group != "fish and sea food" & group != "condiments and spices" & group != "oils and fat") %>% 
+  filter(!grepl("spice", group)) %>% 
+  ggplot( aes(x=month, y=mn.prod, group=group, color=group)) +
+    geom_line()+
+    scale_color_viridis(discrete = TRUE) +
+    theme_ipsum() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))+
+    labs(x = "Month", y = "Average household consumption from production (kg)")
+```
+
+Compared to agricultural data the average monthly consumption from production per household is higher for some food groups. Notably average monthly consumption from production fro cereal & cereal products, milk & dairy products and meat, poultry & eggs is higher, `r tab3 %>% filter(group == "cereals and cereal products") %>% pull(mean_cons)`, `r tab3 %>% filter(group == "milk and dairy products") %>% pull(mean_cons)`, and `r tab3 %>% filter(group == "meat, poultry and eggs") %>% pull(mean_cons)` kg, respectively. Generally however, average monthly household consumption from production is lower than reported quantities from the agricultural survey. For example, reported fruit consumption from production is slightly less than a quarter of what can be derived from the agricultural survey (`r tab3 %>% filter(group == "fruits") %>% pull(mean_cons)` kg vs. `r tab1 %>% filter(group == "fruits") %>% pull(mean)`) and vegetable consumption compares with `r tab3 %>% filter(grepl("veg", group)) %>% pull(mean_cons)` kg against `r tab1 %>% filter(grepl("veg", group)) %>% pull(mean)` kg.
+
+Overall, for most food groups purchases seem more significant for overall household consumption than production, across food groups an average of `r round(mn(tab3$ppurch),1)`% of food consumption is derived from purchases compared to `r round(mn(tab3$pprod),1)` and `r round(mn(tab3$pgifts),1)`% from production and gifts, respectively. For only a few food groups production is on average more relevant to household food sourcing than other sources with nearly half of food consumed sourced from production (see `r tab3 %>% filter(grepl("nut", group)) %>% pull(pprod)`% of nuts & seeds, `r tab3 %>% filter(grepl("root", group)) %>% pull(pprod)`% of starchy roots, tubers & bananas and `r tab3 %>% filter(grepl("cereal", group)) %>% pull(pprod)`% of cereals & cereal products). Except for cereal, production is for an average household the largest food source for these food groups.
+
+*Individual single AFE comparison*
+
+This sections shows a comparison of the single AFE consumption per household derived from the agricultural and household surveys and the bootstrapping approach. This direct comparison highlights the difference in per person consumption based from household production which can be used to estimate individual nutrient and food intake adequacy (or in this case the contribution/relevance of household production to overall intake). By estimating single AFE intake based on the different available data sources and estimation approaches we show the range of food intake estimates and estimate the level of uncertainty. Further, for the purpose of this comparison we assume for the production data that the number of household members consuming during the recall week consumed throughout the year. The range of single AFE consumption is further shown and discussed in the Appendix (@Production data).
+
+```{r echo=FALSE, include=FALSE}
+# per hh AFE estimate from production data
+# estimate range, show range in appendix; add standard error
+prodcons <- readRDS("2_data/final/prodcons.RDS")
+
+tab2 <- prodcons %>%
+  group_by(group) %>%
+  summarise(
+    n = n(),
+    # annual statistics
+    man = mean(mean_afe), # mean annual AFE consumption
+    # monthly statistics - not based on range but on 7-day recall afe
+    mmo = mean(mean_mo)*1000, # mean monthly consumption; mean across afe estimates
+    recafe = mean(mo_afe)*1000, # based on afe from recall
+    max = mean(mo_afemax)*1000, # max number of hh members
+    min = mean(mo_afemin)*1000 # min number of hh members
+  ) %>%
+  arrange(desc(man)) %>%
+  rd()
+
+# calcualte new statistics based on data now being grouped
+tab2$meanmo <- rowMeans(subset(tab2, select = c(recafe, max, min), na.rm = TRUE)) # small differences
+tab2$std <- apply(tab2[,5:7],1,sd)
+tab2$se <- tab2$std/sqrt(3) # n = 3 ways of estimating
+```
+
+-   Somewhere i say I am using the same number of AFE as in recall that is not the case! mmo is the mean estimate across the afe estimates.
+
+```{r echo=FALSE, include=FALSE}
+prod.annual.per.afe <- readRDS("2_data/final/prod.annual.per.afe.RDS")
+
+tab4 <- prod.annual.per.afe %>%
+   pivot_longer(
+     cols= 2:60,
+     names_to = "shortnames",
+     values_to = "cons_a" # average annual consumption for one AFE
+   ) %>%
+  left_join(shortnames, by = "shortnames") %>%
+  select(!shortnames) %>%
+  mutate(itemcode = str_to_sentence(itemcode)) %>%
+  left_join(hh_names) %>%
+  group_by(group, zone) %>% # zone has to be included (treat like hh)
+  summarise(
+    man = sum(cons_a) # total consumption of group by an average zone AFE
+  ) %>%
+  ungroup() %>%
+  group_by(group) %>%
+  summarise(
+    mean_man = mean(man),
+    mmo = mean_man/12*1000
+  ) %>%
+  ungroup() %>%
+  rd()
+
+tab4 %>%
+  arrange(desc(mean_man)) %>%
+  gt() %>%
+  tab_header(
+    title = md("Household AFE consumption based on bootstrap results")) %>%
+  cols_label(
+    mean_man = md("Average annual AFE consumption across zones (kg)"),
+    mmo = md("Average monthly AFE consumption (g)"))
+```
+
+```{r echo=FALSE}
+# create same table with items in appendix - they wouldn't be matched properly though
+mo_ag <- tab2 %>% select(group, mmo_ag = mmo, man) # should this be recafe and not mmo (mmo is the average across -> does that still work with using the se?)
+mo_rec <- tab3 %>% select(group, mmo_rec = mmo)
+mo_bt <- tab4 %>% select(group, mmo_bt = mmo, mean_man)
+
+mmotab <- mo_ag %>%
+  full_join(mo_bt) %>%
+  full_join(mo_rec) %>% 
+  mutate(
+    agrec = mmo_ag/mmo_rec,
+    agbt = mmo_ag/mmo_bt,
+    recag = mmo_rec/mmo_ag
+  )
+
+mmotab$mean <- round(rowMeans(subset(mmotab, select = c(mmo_ag, mmo_rec, mmo_bt), na.rm = TRUE)),1)
+# add sd
+```
+
+In several instances the agricultural estimate is the highest. We identified the largest difference for oils & fat, we find a `r round(mmotab %>% filter(grepl("fat", group)) %>% pull(agrec),1)` and `r round(mmotab %>% filter(grepl("fat", group)) %>% pull(agbt),1)` fold difference compared to recall and bootstrap, respectively. This is followed by condiments & spices with a `r round(mmotab %>% filter(grepl("spice", group)) %>% pull(agrec),1)` and a `r round(mmotab %>% filter(grepl("spice", group)) %>% pull(agbt),1)` time difference. For more major food groups the difference is smaller. For example for nuts and seeds the agricultural estimate represent a four-fold of the other consumption estimates. In fruit, the AFE consumption estimate based on the production data is more than twice (`r round(mmotab %>% filter(grepl("fruit", group)) %>% pull(agrec),1)`) the estimate from recall or bootstrap. The production for consumption of legumes & pulses is nearly twice the value from the recall and bootstrap data. Equally, for vegetable & vegetable products the agricultural estimate is 30% above the other consumption estimates (@tbl-afemo). Notably, the estimate for sugar is more than six times that derived from recall and bootstrap (`r mmotab %>% filter(grepl("sweet", group)) %>% pull(mmo_ag)`g vs. `r mmotab %>% filter(grepl("sweet", group)) %>% pull(mmo_rec)` and `r mmotab %>% filter(grepl("sweet", group)) %>% pull(mmo_bt)`g). It has to be noted however, that no refuse factor was applied to the data which may affect some food groups more than others and result in a higher estimate from the agricultural data. For example, the agricultural data reports on consumption of sugar cane while the recall data reports sugar consumption (see Table @tbl-items in the Appendix). Of one kilogram of sugar cane 10% remain as refined sugar [@waterfootprint]. For other food groups the reverse applies. [^8] Notably, consumption of meat, poultry & eggs is more than 40-fold higher than based on the recall data, and reported consumption from production of milk & dairy products is `r round(mmotab %>% filter(grepl("milk", group)) %>% pull(recag),1)` times higher than reported production for consumption. Lastly, only the average AFE consumption for starchy roots, tubers & bananas matches closely across estimation methods.
+
+[^8]: some of this can and is explained by what AFE is used to divide annual production for consumption
+
+```{r afe tab, echo=FALSE}
+#| label: tbl-afemo
+#| tbl-cap: "Comparison of AFE consumption estimates"
+mmotab %>%
+  select(!c(agrec, agbt, recag)) %>% 
+  filter(group != "beverages" & group != "fish and sea food") %>% 
+  mutate(group = str_to_sentence(group)) %>% 
+  gt() %>%
+  # tab_header(
+  #   title = md("Comparison of AFE consumption estimates")) %>%
+  tab_spanner(
+    label = md("Agricultural questionnaire"),
+    columns = c(mmo_ag, man)
+  ) %>%
+  tab_spanner(
+    label = md("Bootstrap results"),
+    columns = c(mmo_bt, mean_man)
+  ) %>%
+  tab_spanner(
+    label = md("Recall"),
+    columns = c(mmo_rec)
+  ) %>%
+  cols_label(
+    mmo_ag = md("Average monthly consumption (g)"),
+    man = md("Average annual consumption (kg)"),
+    mmo_bt = md("Average monthly consumption (g)"),
+    mean_man = md("Average annual consumption (kg)"),
+    mmo_rec = md("Average monthly consumption (g)"),
+    mean = md("Mean monthly consumption estimate (g)")
+    # sd - capture under spanner
+    )
+# add footnote: fishery and beverages omitted as missing in production survey
+```
+
+```{r echo=FALSE}
+# this needs error bars for agriculture
+# compare average monthly AFE consumption depending on data source
+mmo_ag <- tab2 %>% select(group, mmo, se, std) %>%
+  add_row(
+    group = c("beverages", "fish and sea food"), mmo = NA
+  ) %>%
+  add_column(source = "Agriculture")
+
+mmo_rec <- tab3 %>% select(group, mmo) %>% add_column(source = "Recall")
+mmo_bt <- tab4 %>% select(group, mmo) %>% add_column(source = "Bootstrap")
+
+mmos <- plyr::rbind.fill(mmo_ag, mmo_rec, mmo_bt)
+```
+
+```{r echo=FALSE}
+#| label: fig-afemo
+#| tbl-cap: "Comparison of AFE consumption estimates"
+mmos %>%
+  mutate(group = str_to_sentence(group),
+         se = ifelse(is.na(se), 0, se)) %>% 
+  # filter(source == "Agriculture") %>% 
+  ggplot(aes(fill = source, y = mmo, x = group, ymin=mmo-se, ymax=mmo+se)) +
+  geom_bar(position=position_dodge(), stat="identity") +
+  geom_linerange(colour = "black", alpha=0.9, size=1) +
+  facet_wrap(~ source, ncol=1) + # this or errorbars in wrong position
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  ylab("Average monthly household AFE consumption (g)")
+
+# error bars a bit crazy, either split or don't use
+```
+
+Figure @fig-afemo shows the per household single AFE monthly food consumption comparison visually. For the agricultural data we use the mean AFE estimate and corresponding standard error[^9]. Overall, the average household AFE consumption based on bootstrapping tracks closely along the recall data is situated between the estimates derived from the agricultural questionnaire and the seven day recall data. Except for cereals & cereal products and milk & dairy products monthly AFE estimates are consistently highest when derived from the agricultural questionnaire. <!-- Comment on range and possible overlap. -->
+
+[^9]: error bars tiny might not be worth keeping also forces me to present the data in three figures rather than side-by-side in one; could include se in the table
+
+```{r include=FALSE}
+# necessary?
+# compare to very first table for agricultural data
+boot4comp %>%
+  # mutate(itemcode = str_to_sentence(itemcode)) %>%
+  # left_join(hh_names, by = "itemcode") %>%
+  group_by(group) %>%
+  summarise(
+    # total consumption for food group in zone
+    total = sum(meanafe)
+  ) %>%
+  arrange(desc(total))
+```
+
+### Qualitative alignment between survey sections
+
+This section provides a qualitative comparison between survey sections. We match the reported items produced for consumption with the items reported to have been consumed from production ignoring quantities reported. A table showing the matching of items <!--and the linking to FCTs--> is shown in the Appendix (@tbl-match).
+
+*Item alignment*
+
+```{r echo=FALSE}
+compare_results1 <- readRDS("2_data/final/compare_results1.RDS")
+
+txt2 <- compare_results1 %>%
+  filter(quant > 0) %>%
+  group_by(outcome_cons, outcome_prod) %>%
+  summarise(
+    count = n()
+  )
+
+n_items <- txt2 %>% filter(!grepl("Never", outcome_cons))
+n_items <- sum(n_items$count)
+
+fig2 <- compare_results1 %>%
+  filter(quant > 0) %>%
+  group_by(outcome_cons) %>%
+  summarise(
+    count = n()
+  )
+
+hhonly <- compare_results1 %>% filter(outcome_cons == "Consumed in household survey" & outcome_prod=="Not produced but consumed") %>% select(y4_hhid) %>% unique() %>% nrow()
+```
+
+For half (`r round(txt2 %>% filter(outcome_cons == "Always consumed") %>% pull(count)*100/n_items,1)`%) of all items consumed reporting aligned across agricultural and household survey. This means a given item was reported to have been produced for consumption as well as consumed from production. Just above a quarter of all items (`r round(fig2 %>% filter(grepl("household", outcome_cons)) %>% pull(count)*100/n_items,1)`%, n = `r fig2 %>% filter(grepl("household", outcome_cons)) %>% pull(count)`) were reported to have been consumed from production but consumption was not reported in the agricultural survey. Moreover, of these items `r round(txt2 %>% filter(grepl("Not produced", outcome_prod)) %>% pull(count)*100/fig2 %>% filter(grepl("household", outcome_cons)) %>% pull(count),1)` % (n = `r txt2 %>% filter(grepl("Not produced", outcome_prod)) %>% pull(count)`) items were not reported to have been produced by the household when n = `r txt2 %>% filter(grepl("only", outcome_prod)) %>% pull(count)` items were produced but production was not reported for consumption. About a third `r round(hhonly*100/nrow(excl_3b),1)`% of households report for at least one item consumption from production when not reporting any production of the item in the agricultural survey. On the other hand, (`r round(txt2 %>% filter(grepl("agri", outcome_cons)) %>% pull(count)*100/n_items,1)`%, n = `r fig2 %>% filter(grepl("agri", outcome_cons)) %>% pull(count)`) of items were only reported to have been consumed in the agricultural survey, all of these items were also reported consumed in the recall week but from other sources.[^10] Lastly, `r fig2 %>% filter(grepl("Never", outcome_cons)) %>% pull(count)` items were never reported to have been consumed from production or produced for consumption. However, of these n = `r nrow(compare_results1 %>% filter(grepl("Never", outcome_cons) & produced >0))` items were produced by the household but only n = `r txt2 %>% filter(grepl("available", outcome_prod)) %>% pull(count)` were also reported consumed from any source.
+
+[^10]: Agricultural survey covers longer period, indicates consumption is habitual and also dependent on other sources
+
+```{r echo=FALSE}
+fig2 <- compare_results1 %>%
+  filter(quant > 0) %>%
+  group_by(outcome_cons) %>%
+  summarise(
+    count = n()
+  )
+
+fig2 %>%
+ggplot(aes(x="", y=count, fill=outcome_cons)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar(theta = "y", start = pi / 3) +
+  theme_void() +
+  # theme(legend.position="none") +
+  # geom_text(aes(y = count, label = outcome_cons), color = "white", size=3) +
+  scale_fill_brewer(palette="Set1") +
+  guides(fill=guide_legend(title="Consumption type"))
+```
+
+```{r include=FALSE}
+freqs <- compare_results1 %>%
+  filter(outcome_cons == "Consumed in household survey" & outcome_prod=="Not produced but consumed") %>%
+  group_by(group) %>%
+  summarise(
+    count = n()
+  ) %>%
+  arrange(desc(count))
+
+freqs
+```
+
+In terms of frequency of mismatched items, vegetables and vegetables products are most frequently misaligned (n=`r freqs %>% filter(grepl("veg", group)) %>% pull(count)` items) followed by starchy roots, tubers and bananas (n=`r freqs %>% filter(grepl("root", group)) %>% pull(count)`) and legumes and pulses (n=`r freqs %>% filter(group=="legumes and pulses") %>% pull(count)`).
+
+<!-- Might need to note that eggs for example can never be only consumed in hh survey because I estimated consumption in ag survey based on reports in hh survey, i.e. when eggs are available they are consumed independent of what is reported in the household survey (because most do not report consumption from any source)-->
+
+### Quantitative alignment, reconcile & identify missing
+
+<!-- New heading as now all uses bootstrapping -->
+
+-   extrapolation range for bootstrap results: based on hhafe estimate how large is annual consumption for the zone
+-   link mean of that estimate to agriculture at aggregated item level
+-   calculate group and zone statistics
+-   take that mean and estimate inefficiency (could also be a range)
+
+The following section shows the percentage difference between *annual* production and total annual consumption based on the bootstrapping approach for each zone and across all zones. First, we match the items at the aggregate level[^11] and calculate the percentage difference, we then take the average across items within the food group to show mean percentage difference for each food group and zone. Further, we show the level of uncertainty for this percentage difference based on the various estimates of total household AFE.[^12]
+
+[^11]: similar to @tbl-items but now they will be matched based on @tbl-match
+
+[^12]: Reminder: we do not know with certainty who was present and consuming food throughout the year when extrapolating the bootstrap results to all household members
+
+**Matched items**[^13]
+
+[^13]: possibly to appendix
+
+```{r include=FALSE}
+comp.quant2nat <- read_csv("2_data/results/comp.quant2nat.csv") # why2?
+comp.quant2nat %>% 
+  group_by(group) %>% # had zone but too detailed
+  gt() %>% 
+  cols_label(
+    produced4cons = md("Total production for consumption (agricultural), (t)"),
+    consumedFprod = md("Total consumption from production (bootstrap), (t)"),
+    difference = md("Absolute difference between estimates (t)"),
+    perc_dif = md("Percentage difference between estimates (%)"),
+    mean_value = md("Reconciled consumption quantity (t)"),
+    row_stdev = md("Standard deviation"),
+    mn.diff = md("Average difference across zones (t)"),
+    mn.per.diff = md("Average percentage difference across zones (%)")) 
+
+# total statistics for abstract
+abstract <- comp.quant2nat %>% 
+  group_by(group) %>% 
+  summarise(
+    prod = sum(produced4cons),
+    cons = sum(consumedFprod)
+  ) %>% 
+  mutate(
+    diff = prod-cons,
+    diff_perc = (prod - cons) / ((prod + cons)/2) * 100
+  )
+  abstract
+  
+```
+
+```{r include=FALSE}
+comp.quant2 <- read_csv("2_data/results/comp.quant2.csv") # why2?
+
+num1 <- comp.quant2 %>%
+  filter(produced4cons>0 & consumedFprod==0) %>%
+  nrow()
+
+num2 <- comp.quant2 %>%
+  filter(produced4cons==0 & consumedFprod>0) %>%
+  nrow()
+
+nrow(comp.quant2)
+```
+
+After bootstrapping the misalignment of items consumed persists, with `r round(num1*100/nrow(comp.quant2),1)`% of aggregated items across zones being only consumed in the agricultural survey and `r round(num2*100/nrow(comp.quant2),1)`% consumed in the bootstrapped data. In terms of quantities, we matched the aggregated items (n=36) and corresponding quantities for each zone and calculated the difference between the estimates. Figure x shows the average percentage difference from total agricultural production for consumption for each food group compared to the bootstrapped results across zones.
+
+```{r echo=FALSE}
+fig <- comp.quant2 %>% # keeps it disaggregated
+  filter(new_name_ag != "Milk products") %>%  # do not reliably appear in ag survey
+  filter(!is.nan(perc_dif) & is.finite(perc_dif)) %>% # mostly meat
+  group_by(group, zone) %>%
+  summarise(
+    mean_dif = mn(perc_dif)
+  ) %>%
+  ungroup() %>%
+  group_by(group) %>%
+  summarise(
+    mean = mean(mean_dif)) %>%
+  ungroup()
+
+fig %>%
+  ggplot(aes(y=mean, x=group)) +
+    geom_bar (stat="identity",position = position_dodge(0.9)) +
+    scale_y_continuous(breaks = seq(-150,250,50),limits = c(-150,250)) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+# fig %>%
+#   ggplot(aes(y=mean_dif, x=group, fill=zone)) +
+#     geom_bar (stat="identity",position = position_dodge(0.9)) +
+#     scale_y_continuous(breaks = seq(-150,250,50),limits = c(-150,250)) +
+#     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+#     facet_wrap(~zone)
+
+# comp.quant2 %>%
+#   filter(new_name_ag != "Milk products") %>%  # do not reliably appear in ag survey
+#   filter(!is.nan(perc_dif) & is.finite(perc_dif)) %>% # mostly meat
+#   dplyr::rename(value = perc_dif, text = group) %>%
+#   ggplot( aes(x=value, color=text, fill=text)) +
+#     geom_histogram(alpha=0.6, binwidth = 5) +
+#     # scale_fill_viridis(discrete=TRUE) +
+#     # scale_color_viridis(discrete=TRUE) +
+#     # theme_ipsum() +
+#     # theme(
+#     #   legend.position="none",
+#     #   panel.spacing = unit(0.1, "lines"),
+#     #   strip.text.x = element_text(size = 8)
+#     # ) +
+#     # xlab("") +
+#     # ylab("Assigned Probability (%)") +
+#     facet_wrap(~text)
+
+# comp.quant2 %>%
+#   filter(!is.na(perc_dif)) %>%
+#   mutate(
+#     log = log10(perc_dif)
+#   ) %>%
+#   ggplot(aes(x = log)) + geom_histogram(bins = 15)
+```
+
+-   negative means what?
+
+The figure shows that the quantities consumed for some food groups are higher when using the bootstrap estimates, notably legumes & pulses, meat, starchy roots and sugar. Vegetables have been omitted from the graph as the bootstrap estimate exceeds agricultural consumption by over 2000%. The quantities of other food groups are lower using bootstrapped results (i.e., cereals, fruits, milk, nuts & seeds).
+
+<!-- Initial thoughts: -->
+
+<!-- -   vegetable consumption from production reported far below what seems to happen at household level, but total production can accommodate bootstrap consumption -->
+
+<!-- -   for items where consumption is not reported (meat and eggs) this approach could improve accuracy. -->
+
+**Reconcile**
+
+To reconcile we take the mean across AFE estimates, and mean boot AFE estimate and the reconcile the production and boot estimate (by taking the average), we consider the difference between production allocation and reconciled consumption as unallocated and inefficiency estimate. Lastly, we calculate the percentage of inefficiency estimated based on the production value to compare to the literature.
+
+```{r echo=FALSE}
+# still some matching issues, revise when adding fish
+reconcile <- comp.quant2 %>%
+  filter(!is.na(group)) %>% # should not be in final version
+  select(group, zone, produced4cons, consumedFprod) %>%
+  group_by(group) %>% # ignore zone for now
+  summarise(
+    produced4cons = sm(produced4cons),
+    consumedFprod = sm(consumedFprod)
+  ) %>%
+  setDT()
+
+reconcile <- transform(reconcile, row_stdev=apply(reconcile, 1, sd, na.rm=TRUE))
+reconcile[, mean_value := (produced4cons+consumedFprod)/2]
+
+reconcile %>%
+  rd() %>%
+  select(group, produced4cons, consumedFprod, mean_value, row_stdev) %>%
+  gt() %>%
+  tab_header(
+    title = md("Reconciled values for consumption from production")) %>%
+  cols_label(
+    produced4cons = md("Total production for consumption (agricultural), (t)"),
+    consumedFprod = md("Total consumption from production (bootstrap), (t)"),
+    mean_value = md("Reconciled consumption quantity (t)"),
+    row_stdev = md("Standard deviation"))
+
+saveRDS(reconcile, "2_data/final/reconcile.RDS", compress = T)
+```
+
+<!-- Uncertainty estimates for production info: -->
+
+<!-- -   can I "transfer" the uncertainty allocated to total crop production to consumption as is? Play around with STAN when missing is not included in the model. -->
+
+<!-- -   where consumption is estimated can I distribute the uncertainty from missing? -->
+
+**Sankey**
+
+Overall differences between production for consumption and consumption from production even out when using the mean of both values.
+
+```{r echo=FALSE}
+library(RColorBrewer)
+library(plotly)
+sankey <- function(data){
+  nodes <- data.frame(name=c(as.character(data$source), as.character(data$target)) %>% unique())
+
+  data$IDsource <- match(data$source, nodes$name)-1
+  data$IDtarget <- match(data$target, nodes$name)-1
+
+  data <- data %>%
+    mutate_if(is.character, str_to_sentence)
+
+  nb.cols <- nrow(nodes)
+  mycolors <- colorRampPalette(brewer.pal(11, "PiYG"))(nb.cols)
+
+
+  fig <- plot_ly(
+    type = "sankey",
+    orientation = "h",
+
+    node = list(
+      label = nodes$name,
+      color = mycolors,
+      pad = 15,
+      thickness = 20,
+      line = list(
+        color = "black",
+        width = 0.5
+      )
+    ),
+
+    link = list(
+      source = data$IDsource,
+      target = data$IDtarget,
+      value =  data$value,
+      color = "light grey"
+
+    )
+  )
+  # fig <- fig %>% layout(
+  #   title = "Material Flow LSMS-ISA TZA wave 4",
+  #   font = list(
+  #     size = 10
+  #   )
+  #)
+  fig
+}
+
+mfa <- read_csv("2_data/results/mfa3b.csv")
+
+sankey(mfa)
+```
+
+## Discussion
+
+<!-- Answer main questions -->
+
+In this study we propose a methodology to extrapolate seven day food recall to annual consumption by bootstrapping existing data to create virtual households from temporal-spatially representative data. We show multiple approaches of comparing these results.
+
+### Development of methodology
+
+<!-- Shortcomings of all approaches? -->
+
+None of the approaches are likely to be sensitive enough to allow for taking additional household characteristics that we know are relevant to food consumption into consideration (i.e., income, education etc.). Sample size is just not large enough to split the data further. Smallholder context the only to allow for cross-referencing, therefore unclear what this means for the other food sources and non-food producing households. Would it be sensible and plausible to apply some correction factor based on current results?
+
+-   main interest are the months, zones and food groups for which data has been imputed and the resulting difference in total zone consumption (the value matters because its what gets compared to production info); it further affects our per household monthly estimate (not of interest here - so might not matter)
+
+-   bootstrapping allows to create household level estimates and more detailed statistics in general: crude mean is afe times afe_total in the zone divided by number of households (median can not be estimated)
+
+-   imputing data from adjacent months: depends on the season, for some months this may be very problematic, see Hunger Gap
+
+-   similarly imputing data from other regions ignores cultural differences and also production systems
+
+-   how large the variation in months with data vs. months with imputed data: describe "placement" of approach for both scenarios
+
+### Compare items & quantities
+
+Some of the difference between production for consumption and consumption from production, especially AFE consumption, can be explained by the difference in weight due to inedible parts.
+
+A considerable proportion of items are reported in consumed in the household survey only. Notably, vegetable production is most likely not mentioned in the agricultural survey when reported to have been consumed from production. Importantly, the vegetables listed in the household survey are more aggregated compared to the agricultural survey allowing for a greater chance of matching to some item. This means that where a mismatch in vegetable occurs, it is likely that no production of any vegetable is recorded. A possible explanation for this could be that vegetable production is done on a small scale in a back garden and/or by other household members (most likely females), rather than for economic purposes [@ref]. However, the differences in quantity can be considered substantial and may not support the assumption of "small scale production". This will have implications for targeting households for agricultural extension programmes to improve vegetable production.
+
+The weight of most agricultural items will contain truly inedible highly fibrous portions (e.g., the shell of nuts). Some of the differences in quantities particular for vegetables may require closer attention, especially in the light of the mismatch of produced items.
+
+-   per person food consumption estimates compared to other studies etc., @Mensah.2021
+
+**Proportion of home consumption** <!-- TBD if here or next chapter, show comparison between sources --> - share of purchases @Dzanku.2024
+
+### Align & estimate waste
+
+We estimate waste by determining the difference between production for consumption and consumption from production. There are substantial differences in quantities between the agricultural survey and the bootstrap results, where for example vegetable consumption from the bootsrap far exceeds production information. Overall, however, the over- and underestimates balance out and allow deriving a waste estimate. This waste estimate is the difference between food allocation to the household (from the agricultural questionnaire) and the mean value across allocation and bootstrap outcome.
+
+-   household food waste in Tanzania: Oberlin AS (2013) Characterization of household waste in kinondoni municipality, Dar Es Salaam. Academic Journal of Interdisciplinary Studies 2: 335--346.
+-   compare to UNEP food waste report Excel sheet
+
+### Implications for survey design & policy
+
+By cross-referencing the survey sections from the LSMS-ISA survey we show that an individual section on production or consumption will only provide part of the information. Vegetable producers in particular may be missed in agricultural extension efforts.
+
+## Appendix
+
+### AFE comparison results method development
+
+We begin the comparison of methods by examining per AFE mean monthly consumption across food groups. This is the sum of the mean estimates for each food item. All approaches for imputing data for missing temporal-spatial contexts are conducted on a one AFE basis for each month and compared to the original data with missing data.
+
+Structure:
+
+1)  Absolute difference across methods
+
+```{r eval=FALSE}
+afe_diffs
+# display simple average difference
+```
+
+The overall per AFE difference between the extrapolation methods is small between methods, but relative large compared to the original data. This is to be expected as it contains missing months. The difference between the original data and any other estimate ranges from negative 180 and negative 195g across the year.
+
+2)  Difference for months and zones
+
+```{r eval=FALSE}
+afe_diffs
+# average differences by month
+# diffmoap image
+```
+
+For complete months (January, April, June, July, October, November) - for these it does not matter all approaches will result in the same AFE mean
+
+-   March Central was missing biggest difference boot temporal (-2.691 kg), then crude spatial (-2.5kg), crude temporal (-2.4) and last boot spatial (-2.1 kg). Northern Highlands also imputed but different order and magnitude of difference: crude spatial (-2.9 kg), boot spatial, crude temporal and boot temporal (-2.1 kg). Southern Highlands only differs for boot approaches (-440g)
+
+-   August Central was missing, this time differences somewhat closer to another between -2.5 and -2.8
+
+-   September Central and Northern Highlands imputed, Lakes and Southern Highlands differ for boot
+
+-   February on Southern Highlands boot temporal -0.332
+
+-   May on Central boot spatial -0.369 and boot temporal -0.017
+
+-   December Northern Highlands
+
+3)  Difference for food groups and months
+
+```{r}
+
+```
+
+### Household statistics based on bootstrapping results
+
+**Consumption from production at the household level based on bootstrapping results**
+
+Comparing per household consumption from production based on bootstrapping to create a direct comparison to Tables @tbl-tab1 and @tbl-tab3.
+
+Observations as of now:
+
+-   number of consumers larger than in agricultural (should not be the case, but can be as we will see later when matching items)
+-   average monthly consumption aligns with recall data
+-   seasonality still exists but not as markedly and patterns slightly different -\> not the purpose here and also we decided to prioritise the geographical context over temporal, mixing the data will interfere with seasonality
+-   in appendix because single AFE approach better to account for uncertainty of total AFE in household and show uncertainty around that
+
+```{r}
+# to be moved to Descriptives or results file
+prod_boot_total <- readRDS("2_data/final/prod_boot_total.RDS")
+hh_grps <- read_csv("2_data/final/hh_grps.csv")
+
+# keeps name of list as col
+bt_cons <- do.call("rbind", lapply(names(prod_boot_total), function(x) cbind(zone = x, prod_boot_total[[x]])))
+
+# total annual consumption
+bt_cons_annual <- bt_cons[, lapply(.SD, sm), .SDcols = is.numeric, by=.(y4_hhid)]
+
+# flip data
+bt_cons_food_groups <- bt_cons %>% 
+  melt(id.vars = c("y4_hhid", "month", "zone"), variable.name = "shortnames") %>% 
+  left_join(hh_grps, by = "shortnames") 
+  
+bt.cons.groups <- bt_cons_food_groups %>% 
+  mutate(item = ifelse(value > 0, 1, 0)) %>% 
+  group_by(y4_hhid, group, month) %>% # keep zone?
+  summarise(
+    quant = sum(value),
+    items = sum(item) 
+  ) %>% 
+  ungroup() %>% 
+  group_by(group, month) %>% 
+  summarise(
+    mn.quant = mn(quant),
+    mn.items = mn(items)
+  )
+
+n.cons <- bt_cons_food_groups %>% 
+  group_by(y4_hhid, group) %>% 
+  summarise(
+    tot.quant = sum(value)
+  ) %>% 
+  mutate(
+    consumer = ifelse(tot.quant>0, 1, 0) 
+  )
+
+n.cons %>% 
+  group_by(group) %>% 
+  summarise(
+    mn.annual = mn(tot.quant),
+    n.cons = sum(consumer)
+  )
+# looks like an overestimation of the number of consumers. 0 included in bootstrap input?
+```
+
+```{r boot tab, echo=FALSE}
+#| label: tbl-tab2
+#| tbl-cap: "Household consumption from production based on bootstrapping"
+# table comparable to tab1 and tab3
+bt.cons.tab <- bt.cons.groups %>% 
+  group_by(group) %>% 
+  summarise(
+    quant = mn(mn.quant),
+    items = mn(mn.items),
+    n.cons = round(mn(n.cons),0) # average number of consumers per month
+  ) %>% 
+  rd() 
+
+n.cons <- bt.cons.groups %>% 
+  group_by(group) %>% 
+  summarise(
+    quant = mn(mn.quant),
+    items = mn(mn.items),
+    n.cons = round(mn(n.cons),0) # average number of consumers per month
+  ) %>% 
+  rd() 
+
+bt.cons.tab %>% 
+  mutate(group = str_to_sentence(group)) %>% 
+  gt() %>% 
+  cols_label(
+    items = md("Average number of items consumed from food group"),
+    quant = md("Average monthly household consumption from production (kg)")
+    )
+```
+
+```{r boot season, echo=FALSE}
+# season fig boot
+bt.seasonfig <- bt.cons.groups %>% 
+  mutate(month = as.factor(fcase(
+    month == 1, "January",
+    month == 2, "February",
+    month == 3, "March",
+    month == 4, "April",
+    month == 5, "May",
+    month == 6, "June",
+    month == 7, "July",
+    month == 8, "August",
+    month == 9, "September",
+    month == 10, "October",
+    month == 11, "November",
+    month == 12, "December"
+  )))
+
+bt.cons.groups %>% 
+    ggplot( aes(x=month, y=mn.quant, group=group, color=group)) +
+    geom_line()+
+    scale_color_viridis(discrete = TRUE) +
+    theme_ipsum() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))+
+    labs(x = "Month", y = "Average household consumption from production (kg)")
+```
+
+<!-- Figure currently shows overestimation of consumption, possibly an extrapolation and total AFE issue. Run bootstrap multiple times with different AFE estimates? -->
+
+### Production data
+
+**Range of AFE estimates for production data**\*
+
+```{r echo=FALSE}
+#| label: tbl-tab2ap
+#| tbl-cap: "Household AFE consumption based on the agriculutral questionnaire"
+tab2 %>%
+  gt() %>%
+  # tab_header(
+  #   title = md("Household AFE consumption based on the agriculutral questionnaire")) %>%
+  cols_label(
+    man = md("Average annual AFE consumption (kg)"),
+    min = md("Average annual AFE consumption based on minimum number of consumers (g)"),
+    mmo = md("Average monthly AFE consumption (g)"),
+    max = md("Average annual AFE consumption based on maximum number of consumers (g)"))
+
+```
+
+### Per AFE consumption by single items
+
+```{r}
+# production data
+tab2d <- prodcons %>%
+  group_by(group, item) %>%
+  summarise(
+    # monthly statistics - not based on range but on 7-day recall afe
+    mmo = mean(mean_mo)*1000 # mean monthly consumption
+  ) %>%
+  rd()
+
+tab4d <- prod.annual.per.afe %>%
+   pivot_longer(
+     cols= 2:60,
+     names_to = "shortnames",
+     values_to = "cons_a" # average annual consumption for one AFE
+   ) %>%
+  left_join(shortnames, by = "shortnames") %>%
+  select(!shortnames) %>%
+  mutate(itemcode = str_to_sentence(itemcode)) %>%
+  left_join(hh_names) %>%
+  group_by(group, itemcode, zone) %>% # zone has to be included (treat like hh)
+  summarise(
+    man = sum(cons_a) # total consumption of group by an average zone AFE
+  ) %>%
+  ungroup() %>%
+  group_by(group, itemcode) %>%
+  summarise(
+    mean_man = mean(man),
+    mmo = mean_man/12*1000
+  ) %>%
+  ungroup() %>%
+  rd()
+
+tab3d <- sevendrecall %>%
+  group_by(y4_hhid, group, itemcode) %>%
+  summarise(
+    produced_afe_mo = sum(produced_afe_mo)
+  ) %>%
+  ungroup() %>%
+  group_by(group, itemcode) %>%
+  summarise(
+    mmo = mean(produced_afe_mo)*1000) %>%
+  ungroup() %>% 
+  rd()
+
+mo_agd <- tab2d %>% select(group, item, mmo_ag = mmo)
+mo_recd <- tab3d %>% select(group, itemcode, mmo_rec = mmo)
+mo_btd <- tab4d %>% select(group, itemcode, mmo_bt = mmo)
+
+write_csv(mo_agd, "2_data/results/mo_agd.csv")
+write_csv(mo_recd, "2_data/results/mo_recd.csv")
+write_csv(mo_btd, "2_data/results/mo_btd.csv")
+```
+
+```{r}
+#| label: tbl-items
+#| tbl-cap: "Single AFE monthly consumption across estimation approaches by food group and item"
+# create table manually
+# tbl-items
+tbl_items <- read_excel("2_data/appendix/tbl-items.xlsx") %>% 
+  mutate( # not ideal
+    Agricultural = ifelse(is.na(Agricultural), " ", Agricultural),
+    ag_quant = ifelse(is.na(ag_quant), " ", ag_quant),
+    Recall = ifelse(is.na(Recall), " ", Recall),
+    rec_quant = ifelse(is.na(rec_quant), " ", rec_quant),
+    Boot = ifelse(is.na(Boot), " ", Boot),
+    bt_quant = ifelse(is.na(bt_quant), " ", bt_quant),
+    )
+
+tbl_items %>% 
+  group_by(Group) %>% 
+  gt() %>% 
+  tab_spanner(
+    label = md("Agriculutral survey"),
+    columns = c(Agricultural, ag_quant)) %>% 
+  tab_spanner(
+    label = md("Recall survey"),
+    columns = c(Recall, rec_quant)) %>% 
+  tab_spanner(
+    label = md("Bootstrap results"),
+    columns = c(Boot, bt_quant)) %>%
+  cols_label(
+    Agricultural = md("Item"),
+    ag_quant = md("Quantity (g)"),
+    Recall = md("Item"),
+    rec_quant = md("Quantity (g)"),
+    Boot = md("Item"),
+    bt_quant = md("Quantity (g)")
+    )
+```
+
+Present in table with each column listing the items of the food group with quantity, but not matched.
+
+### Misc
+
+-   Table listing food items from both sections and how I aligned them
+
+```{r}
+#| label: tbl-match
+#| tbl-cap: "Matched items from agricultural and household survey"
+# tbl-match
+match <- readRDS("2_data/final/LSMS_items_match_fin.RDS") %>%
+  # clean missing, check other script
+  filter(!is.na(group) & group != "slaughter") %>% # non-food, not sure why slaughter..., possibly remove cashcrops too
+  mutate(
+    new_name_ag = ifelse(is.na(new_name_ag), new_name_hh, new_name_ag),
+    new_name_ag = ifelse(is.na(new_name_ag),"No match", new_name_ag),
+    group = str_to_sentence(group)) %>%
+  # keep NA or replace with " " or "no match"?
+  select(`Production item` = item, `Household item` = itemcode, `Matched name` = new_name_ag,`Food group` = group)
+  # include match to FCT - TBD, ag and hh match to different items...
+
+match %>% 
+  group_by(`Food group`) %>%
+  gt()
+  
+```
+
+## References

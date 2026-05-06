@@ -1,0 +1,324 @@
+
+
+From aFME.RMD:
+afe_detailed.csv
+afe_mopres_hh.csv
+
+```{r}
+# merge exclusions from both chapters
+write_csv(excl_list_recall, "2_data/files/excl_list_recall.csv")
+```
+
+```{r}
+write_csv(recall_3b_appendix, "2_data/results/recall_3b_appendix.csv")
+```
+
+```{r}
+full_overview_hh4 <- read_csv("2_data/results/full_overview_hh4.csv")
+incl <- full_overview_hh4 %>% 
+  filter(hh_type == "agricultural" & is.na(final_status4)) %>% select(y4_hhid) %>% unique()
+
+rm_excl <- function(df){
+  df %>% 
+    inner_join(incl, by = "y4_hhid")
+}
+
+ag_hhs <- full_overview_hh4 %>% 
+  filter(hh_type == "agricultural" & is.na(final_status4)) %>% 
+  select(y4_hhid, zone, month)
+```
+
+```{r}
+afe_mopres_hh <- read_csv("2_data/results/afe_mopres_hh.csv")
+
+afe_zone <- afe_mopres_hh %>% 
+  inner_join(ag_hhs) %>% 
+  group_by(zone) %>% 
+  summarise(
+    afe_7d_preszone = sum(afe_7d_mo)/12, # average number of members per month
+    afe_7d_zone = sum(afe_7d),
+    afe_all_prezzone = sum(afe_all_mo)/12,
+    persons = sum(hh_person),
+    n = n()
+  )
+```
+
+# Naming keys
+```{r}
+shortnames <- read_excel("2_data/reference/shortnames.xlsx")
+
+LSMS_items_match <- read_csv("2_data/reference/LSMS_items_match2.csv") %>% 
+  mutate(across(c(1:5), ~str_to_sentence(.x))) %>% 
+  dplyr::rename(group = comment, itemcode = hh_product) 
+
+# carrots are vegetables rather than starchy roots (conflict in matching)
+  
+# beverages may not be the most appropriate food group for agriculture
+# animals are not identified as duplicates
+
+saveRDS(LSMS_items_match, "2_data/final/LSMS_items_match_fin.RDS", compress = T)
+
+ag_names <- LSMS_items_match %>% 
+  select(item, group) %>% # to match on new name hh with hh file
+  filter(!is.na(item)) %>% 
+  unique() # no remaining duplicates
+
+
+LSMS_items_match %>% select(itemcode) %>% unique() %>% filter(!is.na(itemcode)) # one missing?
+
+hh_names <- LSMS_items_match %>% 
+  select(itemcode, group) %>% # to match on new name ag with ag file
+  filter(!is.na(itemcode)) %>% 
+  filter(group!="slaughter") %>% 
+  unique() %>%  # this should be 61 not 48
+  arrange(itemcode)
+
+# duplicates in vegetable and "other spices"
+hh_names <- hh_names[-c(54),] # sweet potatoe cover
+
+LSMS_key <- LSMS_items_match %>% # comes from 03_Descriptives
+  mutate(
+    new_name_ag = ifelse(is.na(new_name_ag), item, new_name_ag),
+    new_name_hh = ifelse(is.na(new_name_hh), itemcode, new_name_hh)
+  ) %>% 
+  filter(group != "cashcrops" | is.na(group))
+
+# key for agricultural items
+key_ag <- LSMS_key %>% 
+  select(item, new_name_ag, new_name_hh) %>% 
+  unique() # add fish: "fresh fish" and "processed fish"
+
+# key for household items
+key_hh <- LSMS_key %>% 
+  select(itemcode, new_name_ag, new_name_hh) %>% 
+  unique() %>% 
+  mutate(new_name_ag = ifelse(is.na(new_name_ag), "not matched", new_name_ag))
+
+
+key_items <- LSMS_key %>% 
+  select(new_name_ag, new_name_hh) %>% 
+  unique()
+```
+
+# Production data
+
+```{r}
+produce_long <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/03a_simpleMFA/2_data/final/produce_long.RDS") # from c3a
+
+production <- produce_long %>% 
+  filter(type != "Cashcrops" & subtype != "Other") %>% # not needed for this chapter; filters slaughtered animals..TBD
+  select(!c(category:subtype)) %>% # just makes it more confusing, they should not be used for this chapter unless a clear plan emerges
+  inner_join(ag_hhs, by = "y4_hhid") %>%  # add zones
+  left_join(ag_names, by = "item") %>% 
+  filter(!is.na(group)) %>%  # dogs etc.
+  setDT()
+
+# missing groups
+production %>% filter(is.na(group)) %>% select(item) %>% unique() # fix manually not clear why group disappears
+
+# count of items produced and consumed by group
+production[, `:=` (n_cons = ifelse(consumed>0, 1, 0),
+                   n_prod = ifelse(produced>0, 1, 0))]
+production[, n_gr_cons := sum(n_cons), by = c("y4_hhid","group")]
+production[, n_gr_prod := sum(n_prod), by = c("y4_hhid","group")]
+```
+
+```{r}
+fish_match <- fread("2_data/final/fish_match.csv") %>% 
+  rm_excl() %>%
+  setDT()
+
+# total production/consumption household level
+comp_agri <- production %>%
+  # add fish 
+  plyr::rbind.fill(fish_match) %>% 
+  # fish_consumption, tot.consumed, unit.cons, item1, item2
+  ungroup() %>% 
+  # change item names for different aggregation level
+  left_join(key_ag) %>% 
+  group_by(y4_hhid, new_name_ag, new_name_hh, group, zone) %>% # added group and zone to derive comp.quant2, all matched?
+  summarise(
+    produced = sum(produced),
+    consumed = sum(consumed)
+  ) %>% 
+  ungroup() %>% 
+  filter(!is.na(new_name_ag))
+
+# MCS, estimate uncertainty 
+
+# total production/consumption aggregated to zone
+comp.agri2 <- comp_agri %>% 
+  group_by(zone, new_name_ag, new_name_hh, group) %>% 
+  summarise(
+    producedtots = sum(produced),
+    produced4cons = sum(consumed)
+  ) %>% 
+  ungroup()
+
+agdata_zones <- comp.agri2 
+```
+
+# Boot data
+```{r}
+# prod_boot <- readRDS("2_data/final/prod_boot.RDS")
+boot_results <- readRDS("2_data/results/boot_results.RDS")
+
+bootdata_zones <- boot_results %>% 
+  rename(shortnames = item) %>% 
+  left_join(shortnames, by = "shortnames") %>%
+  mutate(itemcode = str_to_sentence(itemcode)) %>% 
+  left_join(hh_names, by = "itemcode") %>% 
+  left_join(key_hh) %>% 
+  group_by(zone, new_name_hh, new_name_ag) %>% 
+  summarise(
+    consumedFprod = sum(value),
+    sd = sqrt(sum(sd^2))
+  ) %>% 
+  ungroup() %>% 
+  left_join(afe_zone, by = "zone") %>%
+  mutate(
+    consumedFprod = consumedFprod/n, #per afe annual
+    sd = sd/n, #per afe annual
+    consumedFprod_7dpres = consumedFprod*afe_7d_preszone, # average consumption per AFE
+    consumedFprod_7d = consumedFprod*afe_7d_zone, # average consumption per AFE
+    consumedFprod_all = consumedFprod*afe_all_prezzone, # average consumption per AFE
+    sd1 = sd*afe_7d_preszone, # average consumption per AFE
+    sd2 = sd*afe_7d_zone, # average consumption per AFE
+    sd3 = sd*afe_all_prezzone # average consumption per AFE
+  ) %>% 
+  ungroup() %>% 
+  rowwise() %>% 
+  mutate(
+    mean_annual = (consumedFprod_7dpres+consumedFprod_7d+consumedFprod_all)/3,
+    sd_annual = sqrt((sd1^2 + sd2^2 + sd3^2) / 9)
+  )
+  
+bootdata_zones_final <- bootdata_zones %>% 
+  select(zone, new_name_ag, new_name_hh, consumedFprod, sd, mean_annual, sd_annual) %>% 
+  mutate(consumedFprod_mo = consumedFprod/12) 
+```
+
+```{r}
+zone_comparison <- bootdata_zones_final %>% 
+  full_join(agdata_zones, by = c("zone", "new_name_ag", "new_name_hh")) 
+
+missing <- zone_comparison %>% filter(is.na(group)) %>% select(new_name_hh, new_name_ag) %>% unique()
+missing <- missing %>% inner_join(select(LSMS_key, new_name_hh, group), by ="new_name_hh") %>% unique() %>% 
+  select(new_name_hh, group_miss = group) %>% arrange(new_name_hh) %>% setDT()
+missing <- missing[-5] # cereal duplicated
+
+# figure 7 data
+zone_comparison <- zone_comparison %>%
+  left_join(missing, by = "new_name_hh") %>% 
+  mutate(
+    group = ifelse(is.na(group), group_miss, group),
+    producedtots = replace_na(producedtots, 0),
+    produced4cons = replace_na(produced4cons, 0), # no match
+    difference = mean_annual - produced4cons
+    ) %>% 
+  setDT() %>% 
+  select(zone, group, consumedFprod = mean_annual, sd_boot = sd_annual, producedtots, produced4cons, difference) %>% 
+  rd()
+
+comp.quant2[, perc_dif := (consumedFprod - produced4cons) / ((consumedFprod + produced4cons)/2) * 100]
+comp.quant2[, perc_dif := ifelse(produced4cons>0 & consumedFprod==0, 100, perc_dif)]
+comp.quant2[, perc_dif := ifelse(produced4cons==0 & consumedFprod==0, 0, perc_dif)]
+
+
+comp.quant2[, mean_value := (produced4cons+consumedFprod)/2]
+comp.quant2$row_stdev <- apply(comp.quant2[,6:7],1,sd)
+
+comp.agri2
+comp.boot2
+comp.quant2
+
+write_csv(comp.quant2, "2_data/results/comp.quant2.csv")
+```
+
+
+```{r old, eval=FALSE}
+# standard deviation separately
+prod.annual.sd <- lapply(prod_boot, function(df){
+  dfl <- df %>% 
+    select(!c(month, .n)) %>% # meaningless
+    summarise(across(1:60, stats::sd)) # sd of all years sampled
+  })
+
+# "final" estimate of annual afe consumption for each zone
+prod.annual.sd <- do.call("rbind", lapply(names(prod.annual.sd), function(x) cbind(zone = x, prod.annual.sd[[x]])))
+
+n <- readRDS("2_data/final/n.RDS")
+# each zone now contains number of household AFEs, estimate one AFE/average AFE consumption in zone
+prod.annual.per.afe <- prod.annual.mean %>% 
+  left_join(n) %>% 
+  mutate(across(alocohol:yams, ~./n)) 
+
+saveRDS(prod.annual.per.afe, "2_data/final/prod.annual.per.afe.RDS", compress = T)
+
+prod.afe.range <- prod.annual.per.afe %>% 
+  pivot_longer(
+    cols= 2:61,
+    names_to = "shortnames",
+    values_to = "cons_a" # annual consumption for the zone if each household was one AFE
+  ) %>% 
+  left_join(shortnames, by = "shortnames") %>% 
+  select(!shortnames) %>% 
+  left_join(afe_zone, by = "zone") %>% 
+  mutate(across(afe_7d_presanzone:meanafe, ~.*cons_a, .names = "cons_{.col}")) %>% 
+  select(!c(afe_7d_presanzone:meanafe)) 
+
+# standard deviation across estimates
+prod.afe.range <- transform(prod.afe.range, row_stdev=apply(prod.afe.range, 1, sd, na.rm=TRUE))
+
+# mean across annual consumption estimates based on range of afe estiamtes (inlcude meanafe?)
+prod.afe.range$meanafe <- rowMeans(prod.afe.range[,5:8]) # mean annual total zone consumption across afe estimates
+# prod.afe.range$annual_meanafe <- prod.afe.range$meanafe * prod.afe.range$cons_a
+prod.afe.range
+
+boot4comp <- prod.afe.range %>%
+  mutate(
+    annual_meanafe = cons_a * meanafe,
+    itemcode = str_to_sentence(itemcode)) %>% 
+  select(zone, itemcode, meanafe, row_stdev) %>% # 
+  left_join(hh_names)
+
+saveRDS(boot4comp, "2_data/final/boot4comp.RDS", compress = T)
+```
+
+# Joint data
+
+```{r}
+comp.boot2 <- readRDS("2_data/final/boot4comp.RDS") %>% 
+  left_join(key_hh) %>% 
+  group_by(zone, new_name_hh, new_name_ag) %>% 
+  summarise(
+    consumedFprod = sum(meanafe) # consumption estimate based on the mean AFE value
+  ) %>% 
+  ungroup()
+
+comp.quant2 <- comp.agri2 %>% 
+  full_join(comp.boot2, by = c("zone", "new_name_ag", "new_name_hh")) %>% 
+  mutate(
+    # data in tonne
+    produced4cons = produced4cons/t, # ag data
+    consumedFprod = consumedFprod/t, # hh data
+    # percentage difference consumed - produced
+    difference = consumedFprod - produced4cons) %>% 
+  setDT() %>% 
+  rd()
+
+comp.quant2[, perc_dif := (consumedFprod - produced4cons) / ((consumedFprod + produced4cons)/2) * 100]
+comp.quant2[, perc_dif := ifelse(produced4cons>0 & consumedFprod==0, 100, perc_dif)]
+comp.quant2[, perc_dif := ifelse(produced4cons==0 & consumedFprod==0, 0, perc_dif)]
+
+
+comp.quant2[, mean_value := (produced4cons+consumedFprod)/2]
+comp.quant2$row_stdev <- apply(comp.quant2[,6:7],1,sd)
+
+comp.agri2
+comp.boot2
+comp.quant2
+
+write_csv(comp.quant2, "2_data/results/comp.quant2.csv")
+```
+

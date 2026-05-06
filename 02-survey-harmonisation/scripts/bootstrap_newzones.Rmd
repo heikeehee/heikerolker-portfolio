@@ -1,0 +1,1203 @@
+---
+title: "Bootstrap4"
+author: "Heike Rolker"
+date: "2024-06-09"
+output: html_document
+---
+```{r}
+# 3b Boot analysis
+library(data.table)
+library(Hmisc)
+library(tidyverse)
+```
+
+Bootstrap version 4, taking sample randomly from each column.
+
+```{r}
+# random functions
+clear.labels <- function(x) {
+  if(is.list(x)) {
+    for(i in seq_along(x)) {
+      class(x[[i]]) <- setdiff(class(x[[i]]), 'labelled') 
+      attr(x[[i]],"label") <- NULL
+    } 
+  } else {
+    class(x) <- setdiff(class(x), "labelled")
+    attr(x, "label") <- NULL
+    
+  }
+  return(x)
+}  
+```
+
+Prepare input data.
+
+```{r}
+# Load data
+recall_3b <- readRDS("2_data/final/recall_3b.RDS") %>% 
+  clear.labels() %>% 
+  dplyr::rename(
+    quant = quant_afe_mo,
+    purch = purch_afe_mo,
+    produced = produced_afe_mo,
+    gifts = gifts_afe_mo
+  )
+
+```
+
+Overview of zones and meta-data parameters.
+
+```{r}
+# Zone overview df
+n <- recall_3b %>% 
+  select(y4_hhid, zone) %>% 
+  group_by(zone) %>% 
+  unique() %>% 
+  dplyr::summarise(n = n())
+
+# Overview of missing -> check after 3a revision!
+miss_mo <- recall_3b %>% 
+  select(zone, month, y4_hhid) %>% 
+  unique() %>% 
+  group_by(zone, month) %>% 
+  summarise(
+    n = n()
+  ) %>% 
+  pivot_wider(names_from = zone, values_from = n) %>% 
+  mutate(across(2:7, ~replace_na(.,0))) %>% 
+  arrange(month)
+
+miss_mo
+n
+
+# saveRDS(miss_mo, "2_data/final/miss_mo.RDS", compress = T)
+# saveRDS(n, "2_data/final/n.RDS", compress = T)
+```
+
+Extract sources.
+
+
+```{r}
+# Split data into sources & change shape----
+boot_in <- copy(recall_3b)
+
+zones <- boot_in %>% select(y4_hhid, zone, month) %>% unique() %>% setDT()
+
+# length is number of households
+miss_prod <- boot_in %>% 
+  arrange(shortnames) %>% 
+  select(y4_hhid, zone, month, shortnames, var = produced) %>% 
+  pivot_wider(names_from = shortnames, values_from = var) %>% 
+  setDT() %>% 
+  mutate(across(5:63, ~replace_na(.x,0)))
+```
+
+Fill empty months by sampling.
+
+## Bootstrap months
+
+```{r}
+# Impute missing----
+sl <- function(df) slice_sample(df, n = num, replace = TRUE)
+sl2 <- function(df) slice_sample(df, n = num2, replace = TRUE)
+num <- 10
+df <- miss_prod
+# replace with pluck
+set.seed(1234)
+
+# sample_months <- function(df){
+  # alluvial
+  num2 <- 10-pull(miss_mo[1,2])
+  a1 <- df %>% 
+  filter(zone == "Alluvial" & (month == 12 | month == 2)) %>%
+  slice_sample(n = num2, replace = TRUE) %>% 
+  mutate(
+    month = 1,
+    y4_hhid = "99-99"
+  )
+  
+    a2 <- df %>% 
+  filter(zone == "Alluvial" & (month == 2 | month == 4)) %>%
+  sl() %>% 
+  mutate(
+    month = 3,
+    y4_hhid = "99-99"
+  )
+  
+      a3 <- df %>% 
+  filter(zone == "Alluvial" & (month == 4 | month == 7)) %>%
+  sl() %>% 
+  mutate(
+    month = 5,
+    y4_hhid = "99-99"
+  )
+
+      a4 <- df %>% 
+  filter(zone == "Alluvial" & (month == 4 | month == 7)) %>%
+  sl() %>% 
+  mutate(
+    month = 6,
+    y4_hhid = "99-99"
+  )
+  num2 <- 10-pull(miss_mo[7, 2])  
+     a5 <- df %>% 
+  filter(zone == "Alluvial" & (month == 6 | month == 8)) %>%
+  slice_sample(n = num2, replace = TRUE) %>% 
+  mutate(
+    month = 7,
+    y4_hhid = "99-99"
+  )
+
+  num2 <- 10-pull(miss_mo[8, 2])
+     a6 <- df %>% 
+  filter(zone == "Alluvial" & (month == 7 | month == 9)) %>%
+  slice_sample(n = num2, replace = TRUE) %>% 
+  mutate(
+    month = 8,
+    y4_hhid = "99-99"
+  )
+     
+          a7 <- df %>% 
+  filter(zone == "Alluvial" & (month == 8 | month == 10)) %>%
+  sl() %>% 
+  mutate(
+    month = 9,
+    y4_hhid = "99-99"
+  )
+    
+num2 <- 10-pull(miss_mo[10, 2])
+a8 <- df %>% 
+  filter(zone == "Alluvial" & (month == 9 | month == 11)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 10,
+    y4_hhid = "99-99"
+  )
+     
+# central: 
+num2 <- 10-pull(miss_mo[3,3])
+c1 <- df %>% 
+  filter(zone == "Central" & (month == 2 | month == 4)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 3,
+    y4_hhid = "99-99"
+  )
+
+num2 <- 10-pull(miss_mo[5, 3])
+c2 <- df %>% 
+  filter(zone == "Central" & (month == 4 | month == 6)) %>%
+  slice_sample(n = num2, replace = TRUE) %>% 
+  mutate(
+    month = 5,
+    y4_hhid = "99-99"
+  )
+
+c3 <- df %>% 
+  filter(zone == "Central" & (month == 8 | month == 10)) %>%
+  sl() %>% 
+  mutate(
+    month = 9,
+    y4_hhid = "99-99"
+  )
+
+num2 <- 10-pull(miss_mo[11, 3])
+c4 <- df %>% 
+  filter(zone == "Central" & (month == 10 | month == 12)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 11,
+    y4_hhid = "99-99"
+  )
+
+# coastal
+num2 <- 10-pull(miss_mo[9, 4])
+co1 <- df %>% 
+  filter(zone == "Coastal" & (month == 8 | month == 10)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 9,
+    y4_hhid = "99-99"
+  )
+
+# Highlands
+hi1 <- df %>% 
+  filter(zone == "Highlands" & (month == 2 | month == 4)) %>%
+  sl() %>% 
+  mutate(
+    month = 3,
+    y4_hhid = "99-99"
+  )
+
+hi2 <- df %>% 
+  filter(zone == "Highlands" & (month == 8 | month == 10)) %>%
+  sl() %>% 
+  mutate(
+    month = 9,
+    y4_hhid = "99-99"
+  )
+
+num2 <- 10-pull(miss_mo[9, 6])
+# lakes
+l <- df %>% 
+  filter(zone == "Lake" & (month == 8 | month == 10)) %>%
+  slice_sample(n = num2, replace = TRUE) %>% 
+  mutate(
+    month = 9,
+    y4_hhid = "99-99"
+  )
+
+# Western
+w1 <- df %>% 
+  filter(zone == "Western" & (month == 1 | month == 3)) %>%
+  sl() %>% 
+  mutate(
+    month = 2,
+    y4_hhid = "99-99"
+  )
+
+num2 <- 10-pull(miss_mo[4, 7])
+w2 <- df %>% 
+  filter(zone == "Western" & (month == 3 | month == 5)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 4,
+    y4_hhid = "99-99"
+  )
+
+num2 <- 10-pull(miss_mo[7,7])
+w3 <- df %>% 
+  filter(zone == "Western" & (month == 6 | month == 8)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 7,
+    y4_hhid = "99-99"
+  )
+
+w5 <- df %>% 
+  filter(zone == "Western" & (month == 8 | month == 11)) %>%
+  sl() %>% 
+  mutate(
+    month = 9,
+    y4_hhid = "99-99"
+  )
+
+w6 <- df %>% 
+  filter(zone == "Western" & (month == 8 | month == 11)) %>%
+  sl() %>% 
+  mutate(
+    month = 10,
+    y4_hhid = "99-99"
+  )
+
+num2 <- 10-pull(miss_mo[8, 7])
+w4 <- df %>% 
+  filter(zone == "Western" & (month == 7 | month == 9)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 8,
+    y4_hhid = "99-99"
+  )
+
+num2 <- 10-pull(miss_mo[12, 7])
+w7 <- df %>% 
+  filter(zone == "Western" & (month == 11 | month == 1)) %>%
+  slice_sample(n = num2, replace = TRUE) %>%
+  mutate(
+    month = 12,
+    y4_hhid = "99-99"
+  )
+
+
+df1 <- rbind(a1, a2, a3, a4, a5, a6, a7, c1, c2, c3, c4, co1, hi1, hi2, l, w1, w2, w3, w4, w5, w6, w7)
+# rbind(df1, df)}
+
+prod <- rbind(df1,df)
+# length is extended as sampled households are added
+# prod <- sample_months(miss_prod)
+boot_df <- prod # input dataframe
+```
+
+
+## Bootstrap consumption
+
+
+```{r}
+boot_df <- prod
+#initial steps
+zone_name <- "Coastal" # define zone name, change here
+
+def_n <- function(name = "name"){
+  return(pluck( n, 'n', which(n$zone == name))) 
+}
+
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+
+food_items <- colnames(boot_df)[4:63]
+n_reps <- 1000
+```
+
+# Build up
+
+```{r}
+library(data.table)
+
+# Create the original data frame
+data <- data.frame(matrix(NA, nrow = 120, ncol = 5))
+names(data) <- c("ID", "Month", "Apple", "Maize", "Bread")
+data$zone <- c(rep("Central", 40), rep("Western", 30), rep("Northern", 20), rep("Southern", 30))
+data$ID <- 1:120
+data$Month <- sample(1:12, size = 120, replace = TRUE)
+data$Apple <- data$Month + 2 * runif(12) - 1
+data$Maize <- data$Month + 2 * runif(12) - 1
+data$Bread <- data$Month + 2 * runif(12) - 1
+
+# Convert to data.table for efficient manipulation
+data_dt <- as.data.table(data)
+
+data_dt %>% 
+  group_by(zone, Month) %>% 
+  summarise(
+    n = n()
+  ) %>% 
+  pivot_wider(names_from = zone, values_from = n) %>% 
+  arrange(Month)
+```
+
+
+```{r define first boot: spatial}
+# Convert the 'Month' column to integers (if necessary)
+data_dt[, Month := as.integer(Month)]
+
+# Step 1: Upsample each month within each zone to ensure at least 10 rows
+upsampled_data <- data_dt[, {
+  if (.N < 3) {
+    .SD[sample(.N, size = 3, replace = TRUE)]  # Upsample to 10 rows
+  } else {
+    .SD  # Keep original data if already 10 or more rows
+  }
+}, by = .(zone, Month)]
+
+library(data.table)
+
+# Step 1: Identify zones with missing months
+all_months <- 1:12
+missing_data <- data_dt[, {
+  missing_months <- setdiff(all_months, unique(Month))
+  list(missing_months = list(missing_months))
+}, by = zone]
+
+# Function to find the nearest previous and following months that are not missing
+find_nearest_months <- function(zone_data, month) {
+  available_months <- unique(zone_data$Month)
+  
+  # Find the nearest previous month
+  prev_months <- available_months[available_months < month]
+  if (length(prev_months) == 0) {
+    prev_month <- max(available_months)  # Wrap around to the last month of the year
+  } else {
+    prev_month <- max(prev_months)
+  }
+  
+  # Find the nearest following month
+  next_months <- available_months[available_months > month]
+  if (length(next_months) == 0) {
+    next_month <- min(available_months)  # Wrap around to the first month of the year
+  } else {
+    next_month <- min(next_months)
+  }
+  
+  return(c(prev_month, next_month))
+}
+
+# Step 2: For each missing month, select rows from the nearest previous and following months
+data_filled <- rbindlist(lapply(1:nrow(missing_data), function(i) {
+  zone_name <- missing_data$zone[i]
+  missing_months <- missing_data$missing_months[[i]]
+  
+  # Filter data for the current zone
+  zone_data <- data_dt[zone == zone_name]
+  
+  # For each missing month, select rows from the nearest previous and following months
+  rbindlist(lapply(missing_months, function(month) {
+    # Find the nearest previous and following months that are not missing
+    nearest_months <- find_nearest_months(zone_data, month)
+    
+    # Select rows from those nearest months
+    sampled_data <- zone_data[Month %in% nearest_months]
+    
+    # Sample with replacement up to 10 rows
+    if (nrow(sampled_data) > 0) {
+      sampled_data <- sampled_data[sample(.N, size = 10, replace = TRUE)]
+    }
+    sampled_data[, missing_month := month]  # Add column to indicate the missing month
+    sampled_data
+  }))
+}))
+
+# Step 3: Final data with rows selected for missing months
+data_filled
+
+# Combine upsampled data and filled data
+final_data <- rbind(upsampled_data, data_filled, fill = TRUE)
+
+# View final data
+final_data %>% 
+  group_by(zone, Month) %>% 
+  summarise(
+    n = n()
+  ) %>% 
+  pivot_wider(names_from = zone, values_from = n) %>% 
+  arrange(Month)
+
+
+```
+```{r first boot temporal}
+library(data.table)
+
+# Convert the 'Month' column to integers (if necessary)
+data_dt[, Month := as.integer(Month)]
+
+# Step 1: Upsample each month within each zone to ensure at least 10 rows
+upsampled_data <- data_dt[, {
+  if (.N < 10) {
+    .SD[sample(.N, size = 10, replace = TRUE)]  # Upsample to 10 rows
+  } else {
+    .SD  # Keep original data if already 10 or more rows
+  }
+}, by = .(zone, Month)]
+
+# Step 2: Identify zones with missing months
+all_months <- 1:12
+missing_data <- upsampled_data[, {
+  missing_months <- setdiff(all_months, unique(Month))
+  list(missing_months = list(missing_months))
+}, by = zone]
+
+# Step 3: Fill missing months by sampling from the same month across all zones
+filled_data <- rbindlist(lapply(1:nrow(missing_data), function(i) {
+  zone_name <- missing_data$zone[i]
+  missing_months <- missing_data$missing_months[[i]]
+  
+  # For each missing month, sample from the same month across all zones
+  rbindlist(lapply(missing_months, function(month) {
+    # Find rows from the same month across all zones
+    sampled_data <- upsampled_data[Month == month]
+    
+    # Sample with replacement up to 10 rows
+    if (nrow(sampled_data) > 0) {
+      sampled_data <- sampled_data[sample(.N, size = 10, replace = TRUE)]
+    }
+    sampled_data[, missing_month := month]  # Add column to indicate the missing month
+    sampled_data[, zone := zone_name]       # Assign the current zone to the sampled rows
+    sampled_data
+  }))
+}))
+
+# Combine upsampled data and filled data
+final_data <- rbind(upsampled_data, filled_data, fill = TRUE)
+
+# View final data
+print(final_data)
+```
+
+
+```{r define second boot}
+# Define the sampling function
+generate_sampled_data <- function(data, n_samples) {
+  # Group data by Month
+  sampled_data <- data[, lapply(.SD, function(col) sample(col, size = n_samples, replace = TRUE)), 
+                       by = Month, 
+                       .SDcols = c("Apple", "Maize", "Bread")]
+  
+  # Add sampled ID for identification
+  sampled_data[, ID := rep(1:n_samples, times = uniqueN(Month))]
+  sampled_data
+}
+
+# Repeat the sampling process 10,000 times
+n_samples <- length(unique(data$ID)) # 120 unique IDs
+n_reps <- 10000
+
+# Use lapply to repeat sampling and calculate means
+bootstrap_means <- function(data, n_samples, n_reps) {
+  # Perform bootstrap sampling
+  sampled_list <- replicate(n_reps, generate_sampled_data(data, n_samples), simplify = FALSE)
+  
+  # Combine all bootstrap results
+  combined_data <- rbindlist(sampled_list, use.names = TRUE, fill = TRUE, idcol = "iteration")
+  
+  # Calculate mean for each month and household across iterations
+  summary_data <- combined_data[, lapply(.SD, mean), .SDcols = c("Apple", "Maize", "Bread"), by = .(Month, ID)]
+  
+  return(summary_data)
+}
+
+# Generate the final data table
+final_data <- bootstrap_means(data_dt, n_samples, n_reps)
+
+# View the final result
+print(final_data)
+```
+
+## THIS ONE
+
+```{r function first boot}
+data_dt <- miss_prod %>% rename(Month = month)
+# replace with pluck
+set.seed(1234)
+
+# Convert the 'Month' column to integers (if necessary)
+data_dt[, Month := as.integer(Month)]
+
+# Step 1: Upsample each month within each zone to ensure at least 10 rows
+upsampled_data <- data_dt[, {
+  if (.N < 10) {
+    .SD[sample(.N, size = 10, replace = TRUE)]  # Upsample to 10 rows
+  } else {
+    .SD  # Keep original data if already 10 or more rows
+  }
+}, by = .(zone, Month)]
+
+## Step 1: Identify zones with missing months
+all_months <- 1:12
+missing_data <- data_dt[, {
+  missing_months <- setdiff(all_months, unique(Month))
+  list(missing_months = list(missing_months))
+}, by = zone]
+
+# Function to find the nearest previous and following months that are not missing
+find_nearest_months <- function(zone_data, month) {
+  available_months <- unique(zone_data$Month)
+  
+  # Find the nearest previous month
+  prev_months <- available_months[available_months < month]
+  if (length(prev_months) == 0) {
+    prev_month <- max(available_months)  # Wrap around to the last month of the year
+  } else {
+    prev_month <- max(prev_months)
+  }
+  
+  # Find the nearest following month
+  next_months <- available_months[available_months > month]
+  if (length(next_months) == 0) {
+    next_month <- min(available_months)  # Wrap around to the first month of the year
+  } else {
+    next_month <- min(next_months)
+  }
+  
+  return(c(prev_month, next_month))
+}
+
+# Step 2: For each missing month, select rows from the nearest previous and following months
+data_filled <- rbindlist(lapply(1:nrow(missing_data), function(i) {
+  zone_name <- missing_data$zone[i]
+  missing_months <- missing_data$missing_months[[i]]
+  
+  # Filter data for the current zone
+  zone_data <- data_dt[zone == zone_name]
+  
+  # For each missing month, select rows from the nearest previous and following months
+  rbindlist(lapply(missing_months, function(month) {
+    # Find the nearest previous and following months that are not missing
+    nearest_months <- find_nearest_months(zone_data, month)
+    
+    # Select rows from those nearest months
+    sampled_data <- zone_data[Month %in% nearest_months]
+    
+    # Sample with replacement up to 10 rows
+    if (nrow(sampled_data) > 0) {
+      sampled_data <- sampled_data[sample(.N, size = 10, replace = TRUE)]
+    }
+    sampled_data[, missing_month := month]  # Add column to indicate the missing month
+    sampled_data
+  }))
+}))
+
+# Step 3: Final data with rows selected for missing months
+# Combine upsampled data and filled data
+final_data <- rbind(upsampled_data, data_filled, fill = TRUE)
+
+```
+
+
+```{r data first boot}
+miss_prod %>% 
+  group_by(zone, month) %>% 
+  summarise(
+    n = n()
+  ) %>% 
+  pivot_wider(names_from = zone, values_from = n) %>% 
+  mutate(across(2:7, ~replace_na(.,0))) %>% 
+  arrange(month)
+
+final_data %>% 
+  group_by(zone, Month) %>% 
+  summarise(
+    n = n()
+  ) %>% 
+  pivot_wider(names_from = zone, values_from = n) %>% 
+  arrange(Month)
+# some months are still missing and others are much larger than they should be
+
+```
+
+
+
+```{r functions second boot}
+boot_df <- prod
+
+# Data preparation
+zone_name <- "Coastal" # define zone name, change here
+
+def_n <- function(name = "name"){
+  return(pluck( n, 'n', which(n$zone == name))) 
+}
+
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+
+
+# Bootstrapping
+food_items <- colnames(boot_df)[4:63]
+
+# generate_sampled_data <- function(data, n_samples) {
+#   # Group data by Month
+#   sampled_data <- data[, lapply(.SD, function(col) sample(col, size = n_samples, replace = TRUE)), 
+#                        by = month, 
+#                        .SDcols = food_items]
+#   
+#   # Add sampled ID for identification
+#   sampled_data[, ID := rep(1:n_samples, times = uniqueN(month))]
+#   sampled_data
+# }
+
+generate_sampled_data <- function(data, n_samples) {
+  data[, lapply(.SD, sample, size = n_samples, replace = TRUE), by = month, .SDcols = food_items][
+    , ID := rep(1:n_samples, times = uniqueN(month))]
+}
+
+# Repeat the sampling process 10,000 times
+# n_samples <- length(unique(data$ID)) # 120 unique IDs
+
+# Use a function to repeat sampling and calculate means
+bootstrap_means <- function(data, n_samples, n_reps) {
+  # Perform bootstrap sampling
+  sampled_list <- replicate(n_reps, generate_sampled_data(data, n_samples), simplify = FALSE)
+
+  # Combine all bootstrap results
+  combined_data <- rbindlist(sampled_list, use.names = TRUE, fill = TRUE, idcol = "iteration")
+  # Ensure numeric data and handle NA values
+
+  # Calculate mean for each month and household across iterations
+  # summary_data <- 
+    combined_data[, lapply(.SD, function(x) mean(as.numeric(x), na.rm = TRUE)),
+              .SDcols = food_items,
+              by = .(month, ID)]
+
+  # return(summary_data)
+}
+
+# bootstrap_means <- function(data, n_samples, n_reps) {
+#   plan(multisession)  # Use multiple cores
+#   sampled_list <- future_lapply(1:n_reps, function(i) generate_sampled_data(data, n_samples))
+#   combined_data <- rbindlist(sampled_list, use.names = TRUE, fill = TRUE, idcol = "iteration")
+#   combined_data[, lapply(.SD, mean, na.rm = TRUE), .SDcols = food_items, by = .(month, ID)]
+# }
+
+# define once 
+n_reps <- 100
+
+# Test run - workflow
+start <- Sys.time()
+zone_name <- "Coastal" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+finish <- Sys.time()
+
+dur <- finish-start
+# View the final result
+print(final_data)
+```
+
+```{r data second boot}
+n_reps <- 5000
+
+start <- Sys.time()
+# Coastal
+zone_name <- "Coastal" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+coast <- final_data[, zone := zone_name]
+
+# Alluvial
+zone_name <- "Alluvial" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+alluvial <- final_data[, zone := zone_name]
+
+# Central
+zone_name <- "Central" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+central <- final_data[, zone := zone_name]
+
+# Highlands
+zone_name <- "Highlands" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+highlands <- final_data[, zone := zone_name]
+
+# Lake
+zone_name <- "Lake" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+lake <- final_data[, zone := zone_name]
+
+# Western
+zone_name <- "Western" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+western <- final_data[, zone := zone_name]
+
+finish <- Sys.time()
+
+boot_results <- rbind(alluvial, central, coastal, highlands, lake, western)
+```
+
+
+
+
+```{r}
+library(data.table)
+library(future.apply)
+
+
+# Sampling function
+generate_sampled_data <- function(data, n_samples) {
+  data[, lapply(.SD, function(col) col[sample(.N, size = n_samples, replace = TRUE)]), 
+       by = month, .SDcols = food_items][
+    , ID := rep(1:n_samples, times = uniqueN(month))]
+}
+
+# Bootstrap with parallelization
+bootstrap_means <- function(data, n_samples, n_reps, chunk_size = 100) {
+  plan(multisession)  # Use multiple cores
+  
+  # Split iterations into chunks
+  chunked_results <- future_lapply(seq(1, n_reps, by = chunk_size), function(start) {
+    end <- min(start + chunk_size - 1, n_reps)
+    results <- lapply(start:end, function(i) {
+      sampled_data <- generate_sampled_data(data, n_samples)
+      sampled_data[, lapply(.SD, function(x) base::mean(x, na.rm = TRUE)), 
+                   .SDcols = food_items, 
+                   by = .(month, ID)]
+    })
+    rbindlist(results, use.names = TRUE, fill = TRUE)
+  })
+  
+  # Combine all chunks
+  final_data <- rbindlist(chunked_results, use.names = TRUE, fill = TRUE)
+  return(final_data)
+}
+
+# Run optimized workflow
+# n_samples <- 340
+# n_reps <- 10000
+start2 <- Sys.time()
+final_data <- bootstrap_means(data, n_samples, n_reps)
+finish2 <- Sys.time()
+
+# Print a summary of the results
+print(head(final_data))
+```
+
+```{r}
+start <- Sys.time()
+zone_name <- "Coastal" # define zone name, change here
+data <- boot_df[zone == zone_name]
+n_samples <- def_n(zone_name)
+final_data <- bootstrap_means(data, n_samples, n_reps)
+finish <- Sys.time()
+
+```
+
+
+# Old function
+
+```{r}
+rd <- function(x) sample(x, size = N, replace =TRUE) # sampling function
+
+# Prep to prepare nested list, each list represents a month with each row representing the original data
+prep <- function(df, name = "name"){
+  df_boot <- df[zone == name] # change here
+  df_boot <- df_boot %>% 
+    select(!c(zone, y4_hhid)) %>%       # not needed
+    group_by(month)                     # group by month
+  
+  return(group_split(df_boot))          # split into nested list
+}
+# results in zone where each nested list is a month and contains the data from the households surveyed in that 
+
+# Bootstrap functions
+# specify sample size based on number of household surveyed in the zone across all months
+def_n <- function(name = "name"){
+  return(pluck( n, 'n', which(n$zone == name))) 
+}
+
+bootfun2 <- function(list){
+  df_l2 <- lapply(list, function(df){
+    df <- apply(df, 2, rd)              # random sample from each column of each month, row count equals n from def_n
+  })
+  # add month id and for each row a household id that repeats for every month
+  dfl<- do.call(rbind.data.frame, df_l2) # all samples for each month in one df
+  setDT(dfl)
+}
+
+# repeat workflow 10,000 times
+# calculate the mean for each month-household across iterations
+```
+
+
+```{r}
+boot_df <- prod # input dataframe
+# Prep & bootstrap functions----
+rd <- function(x) sample(x, size = N, replace =TRUE) # sampling function
+
+# Prep to prepare nested list with months
+prep <- function(df, name = "name"){
+  df_boot <- df[zone == name] # change here
+  df_boot <- df_boot %>% 
+    select(!c(zone, y4_hhid)) %>%       # vars not needed
+    group_by(month)                     # group by month
+  
+  return(group_split(df_boot))          # split into nested list
+}
+# results in zone where each nested list is a month and contains the data from the households surveyed in that month
+# 
+
+# Bootstrap functions
+# specify sample size based on original number of households in sample
+def_n <- function(name = "name"){
+  return(pluck( n, 'n', which(n$zone == name))) 
+}
+
+bootfun2 <- function(list){
+  df_l2 <- lapply(list, function(df){
+    df <- apply(df, 2, rd)              # random sample from each column in the list, number of 'real' households
+  })
+  
+  dfl<- do.call(rbind.data.frame, df_l2) # all samples for each month in one df
+  setDT(dfl)
+}
+
+bootclean <- function(df){
+  setDT(df)
+  dfl6 <- df[, lapply(.SD, mn), .SDcols=vars, by=.(month, y4_hhid)] # calculate average per month for each household
+}
+
+reps <- 10 # will be 10,000 when certain all exclusions are final
+
+df <- prep(boot_df, "Coastal")
+N <- def_n("Coastal")
+boot_coastal <- plyr::rdply(reps, bootfun2(df))
+pc.coastal <- bootclean(boot_coastal)
+```
+
+
+
+# New function
+
+```{r}
+library(data.table)
+library(dplyr)
+
+# 1. Sampling function
+rd <- function(x, size) sample(x, size = size, replace = TRUE)
+
+# 2. Prep function to prepare nested list
+prep <- function(df, name = "name") {
+  # Filter data for the specified zone
+  df_boot <- df[zone == name]
+  
+  # Remove unnecessary columns and group by month
+  df_boot <- df_boot %>%
+    select(-c(zone, y4_hhid)) %>%
+    group_by(month)
+  
+  # Split grouped data into a list of data.tables (one per month)
+  group_split(df_boot, keep = TRUE)
+}
+
+# 3. Specify sample size based on the number of households surveyed
+def_n <- function(name = "name") {
+  # Return the sample size (assumes `n` is a pre-defined data.frame)
+  n %>% 
+    filter(zone == name) %>%
+    pull(n)
+}
+
+# 4. Bootstrap function for a single iteration
+bootfun2 <- function(lst, size) {
+  # Sample from each month's data
+  df_l2 <- lapply(lst, function(df) {
+    # Apply sampling to each column
+    as.data.table(lapply(df, rd, size = size))
+  })
+  
+  # Combine all month-level samples into one data.table
+  dfl <- rbindlist(df_l2, use.names = TRUE, fill = TRUE)
+  
+  # Add month ID and household ID
+  dfl[, month := rep(1:length(lst), each = size)]
+  dfl[, y4_hhid := rep(1:size, times = length(lst))]
+  
+  return(dfl)
+}
+
+# 5. Workflow to repeat the bootstrap process and calculate mean
+bootstrap_workflow <- function(df, zone_name, reps = 10) {
+  # Get sample size (N) per month for the specified zone
+  N <- def_n(zone_name)
+  
+  # Prepare nested list by month
+  df_list <- prep(df, name = zone_name)
+  
+  # Perform bootstrap sampling
+  boot_list <- replicate(reps, bootfun2(df_list, size = N), simplify = FALSE)
+  
+  # Combine results from all iterations
+  boot_df <- rbindlist(boot_list, use.names = TRUE, fill = TRUE, idcol = "iteration")
+  
+  # Calculate the mean for each month-household combination across iterations
+  summary_df <- boot_df[, lapply(.SD, mean), .SDcols = names(df)[!names(df) %in% c("month", "y4_hhid")], by = .(month, y4_hhid)]
+  
+  return(summary_df)
+}
+
+# Example Usage
+# Assuming `boot_df` is your input data and `n` is a data.frame with zone and sample size info
+reps <- 10
+zone_name <- "Coastal"
+result <- bootstrap_workflow(boot_df, zone_name, reps)
+
+df <- boot_df
+#
+  N <- def_n(zone_name)
+  
+  # Prepare nested list by month
+  df_list <- prep(df, name = zone_name)
+  
+  # Perform bootstrap sampling
+  boot_list <- replicate(reps, bootfun2(df_list, size = N), simplify = FALSE)
+  
+  # Combine results from all iterations
+  boot_df <- rbindlist(boot_list, use.names = TRUE, fill = TRUE, idcol = "iteration")
+  
+  # Calculate the mean for each month-household combination across iterations
+  summary_df <- boot_df[, lapply(.SD, mean), .SDcols = names(df)[!names(df) %in% c("month", "y4_hhid")], by = .(month, y4_hhid)]
+  
+  return(summary_df)
+```
+
+
+```{r}
+library(data.table)
+library(future.apply) # For parallelization (optional, but recommended for large reps)
+library(vctrs)
+library(tidyverse)
+
+# 1. Sampling function (N must be defined before running bootfun2)
+rd <- function(x) sample(x, size = N, replace = TRUE)
+
+# 2. Prepare nested list by month for a given zone
+prep <- function(df, name = "name") {
+  dt <- as.data.table(df)
+  dt <- dt[zone == name]
+  dt <- dt[, !c("zone", "y4_hhid"), with = FALSE]
+  dt <- dt %>% arrange(month)
+  split(dt, by = "month", keep.by = FALSE)
+}
+
+# 3. Get sample size for zone
+def_n <- function(name = "name") {
+  # 'n' must be a data.frame or data.table with columns 'zone' and 'n'
+  n$n[n$zone == name]
+}
+
+# 4. Bootstrap one sample (per repetition)
+bootfun2 <- function(lst) {
+  sampled_list <- lapply(lst, function(dt) as.data.table(lapply(dt, rd)))
+  dfl <- rbindlist(sampled_list, use.names = TRUE, fill = TRUE, idcol = "month") # retain month
+  dfl[, row_id := rowidv(month)] # add virtual household id
+  return(dfl)
+}
+
+# --- MAIN SCRIPT ---
+
+# Set parameters
+reps <- 100
+zone_name <- "Coastal" # Change as needed
+
+# Prepare data
+N <- def_n(zone_name)
+df_list <- prep(boot_df, zone_name)
+
+# Parallelize for speed (optional, but highly recommended for 10,000 reps)
+future::plan(future::multisession) # Or multicore on Linux/Mac
+
+# Run bootstrap
+boot_list <- future_lapply(seq_len(reps), function(i) bootfun2(df_list))
+
+# Combine all results efficiently
+coast <- rbindlist(boot_list, idcol = "replicate")[
+  , lapply(.SD, mean), .SDcols = vars, by = .(month, row_id)
+]
+
+
+
+# pc.coastal now contains your final aggregated bootstrap results
+
+  sampled_list2 <- lapply(df_list, function(dt) as.data.table(lapply(dt, rd)))
+  dfl2 <- rbindlist(sampled_list2, use.names = TRUE, fill = TRUE, idcol = "month")
+  dfl2[, row_id := rowidv(month)] 
+  return(dfl2)
+
+
+
+
+```
+```{r}
+library(data.table)
+library(future.apply)
+
+# 1. Sampling function (N = households per month)
+rd <- function(x) sample(x, size = N, replace = TRUE)
+
+# 2. Prepare nested list by month (ensure 12 months)
+prep <- function(df, name = "name") {
+  dt <- as.data.table(df)
+  dt <- dt[zone == name]
+  dt <- dt[, !c("zone", "y4_hhid"), with = FALSE]
+  split_dt <- split(dt, by = "month", keep.by = FALSE)
+  
+  # Ensure 12 months exist (error if not)
+  if (length(split_dt) != 12) {
+    stop("Data does not contain all 12 months for zone: ", name)
+  }
+  
+  return(split_dt)
+}
+
+# 3. Get sample size per month (modify def_n if needed)
+def_n <- function(name = "name") {
+  # Replace with logic to get N per month if needed
+  # Example: mean(n$n[n$zone == name]) / 12 (if n is annual)
+  n$n[n$zone == name]  # Current logic (assumes N is per month)
+}
+
+# 4. Bootstrap one sample (per repetition)
+bootfun2 <- function(lst) {
+  sampled_list <- lapply(lst, function(dt) {
+    dt_sampled <- as.data.table(lapply(dt, rd))
+    # Add check for N rows
+    if (nrow(dt_sampled) != N) {
+      warning("Sampled rows (", nrow(dt_sampled), ") != N (", N, ") for a month")
+    }
+    return(dt_sampled)
+  })
+  rbindlist(sampled_list, use.names = TRUE, fill = TRUE)
+}
+
+# 5. Clean/aggregate result
+bootclean <- function(df) {
+  setDT(df)
+  df[, lapply(.SD, mn), .SDcols = vars, by = .(month, y4_hhid)]
+}
+
+# --- MAIN SCRIPT ---
+reps <- 10
+zone_name <- "Coastal"
+
+# Prepare data
+N <- def_n(zone_name)  # Must return N per month
+boot_df <- as.data.table(boot_df)  # Ensure input is data.table
+df_list <- prep(boot_df, zone_name)
+
+# Verify df_list has 12 elements (months)
+stopifnot(length(df_list) == 12)
+
+# Parallel bootstrap
+future::plan(future::multisession)
+boot_list <- future_lapply(seq_len(reps), function(i) bootfun2(df_list))
+
+# Verify boot_list elements have N*12 rows (N per month × 12 months)
+stopifnot(all(sapply(boot_list, nrow) == N * 12))
+
+# Combine results
+boot_coastal <- rbindlist(boot_list, idcol = "replicate")
+pc.coastal <- bootclean(boot_coastal)
+
+```
+
+
+
+# Full run of boot
+
+```{r eval=FALSE}
+set.seed(2828)
+# Total consumption quantity files----
+start <- Sys.time()
+
+# Coastal
+df <- prep(boot_df, "Coastal")
+N <- def_n("Coastal")
+boot_coastal <- plyr::rdply(reps, bootfun2(df))
+pc.coastal <- bootclean(boot_coastal)
+
+# Alluvial
+df <- prep(boot_df, "Alluvial")
+N <- def_n("Alluvial")
+boot_alluvial <- plyr::rdply(reps, bootfun2(df))
+pc.alluvial <- bootclean(boot_alluvial)
+
+# Highlands
+df <- prep(boot_df, "Highlands")
+N <- def_n("Highlands")
+boot_highlands <- plyr::rdply(reps, bootfun2(df))
+pc.highlands <- bootclean(boot_highlands)
+
+# central
+df <- prep(boot_df, "Central")
+N <- def_n("Central")
+boot_central <- plyr::rdply(reps, bootfun2(df))
+pc.central <- bootclean(boot_central)
+
+# Lakes
+df <- prep(boot_df, "Lake")
+N <- def_n("Lake")
+boot_lake <- plyr::rdply(reps, bootfun2(df))
+pc.lake <- bootclean(boot_lake)
+
+# Western
+df <- prep(boot_df, "Western")
+N <- def_n("Western")
+boot_western <- plyr::rdply(reps, bootfun2(df))
+pc.western <- bootclean(boot_western)
+
+# save results in list 
+boot_quant <- list(boot_alluvial, boot_central, boot_coastal, boot_lake, boot_highlands, boot_western)
+names(boot_quant) <- c("Alluvial","Central", "Coastal", "Lake", "Highlands", "Western")
+
+finish <- Sys.time()
+dur1 <- difftime(start,finish)
+saveRDS(boot_quant, "2_data/final/boot_quant_new.RDS", compress = T)
+```
