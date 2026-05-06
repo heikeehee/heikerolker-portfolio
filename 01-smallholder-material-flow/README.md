@@ -57,6 +57,10 @@ Interactive Sankey diagrams are available at: <!-- TABLEAU LINK -->
 
 ---
 
+**GitHub Copilot** — Copilot Agents used for structural refactoring passes 
+(path cleanup, script restructuring, flag insertion); all analytical decisions, 
+assumptions, and exclusions are the author's own (see FLAGS_REVIEW.md)
+
 ## How This Builds on Other Projects
 
 This is the first project in the sequence and provides the production-side data used in:
