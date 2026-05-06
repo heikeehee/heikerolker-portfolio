@@ -21,3 +21,6 @@ outputs/tables/*
 __pycache__/
 *.pyc
 .venv/
+
+session-notes.md
+_internal/
