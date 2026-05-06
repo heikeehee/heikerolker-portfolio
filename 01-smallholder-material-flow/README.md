@@ -45,7 +45,15 @@ Because many of the conversion factors used in this pipeline (processing yields,
 
 ## Project Status
 
-**In progress.** Scripts are being restructured from original PhD analysis into a documented, reproducible pipeline.
+**Complete.** R pipeline is fully documented and reproducible. Python translation of core analytical steps and SQL translation of key data wrangling steps are included. See `backlog.md` for known limitations and planned improvements.
+
+---
+
+## Outputs
+
+Generated figures and tables are not stored in this repository.
+Run `00_run_pipeline.R` to reproduce all outputs in `outputs/`.
+Interactive Sankey diagrams are available at: <!-- TABLEAU LINK -->
 
 ---
 
