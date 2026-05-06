@@ -159,7 +159,7 @@ saveRDS(yieldgaps, here::here("data", "processed", "01", "impute", "yieldgaps.rd
 # CSV for QA / external review
 readr::write_csv(
   yieldgaps %>% clear.labels(),
-  here::here("data", "processed", "impute", "yieldgaps.csv")
+  here::here("data", "processed", "01", "impute", "yieldgaps.csv")
 )
 
 message("impute/yield_gap.R: yield gaps estimated and saved.")

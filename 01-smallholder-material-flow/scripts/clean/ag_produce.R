@@ -148,7 +148,7 @@ inputlong <- input %>%
   select(y4_hhid, cropid, product, item, produced = quant, sold, consumed)
 
 saveRDS(inputlong,
-        here::here("data", "processed", "clean", "mass_agprod_long.rds"),
+        here::here("data", "processed", "01", "clean", "mass_agprod_long.rds"),
         compress = TRUE)
 
 # Collapse to household-crop level to assign inputs across products/by-products
