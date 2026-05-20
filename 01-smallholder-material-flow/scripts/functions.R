@@ -589,49 +589,77 @@ top2 <- function(x) quantile(x, probs = .99, na.rm = TRUE)
 # NOTE (backlog): crops_list should be externalised to data/reference/crops_list.csv
 # for auditability and easier maintenance outside R.
 crops_list <- data.frame(
-  cropid = c(
-    # Cereals
-    "maize", "paddy", "sorghum", "bulrush millet", "finger millet",
-    "wheat", "barley",
-    # Roots and tubers
-    "cassava", "sweet potatoes", "irish potatoes", "yams",
-    # Pulses
-    "beans", "cowpeas", "groundnuts", "pigeon peas", "soybeans",
-    "bambara nuts", "lentils",
-    # Oil crops
-    "sunflower", "sesame", "palm oil",
-    # Cash crops
-    "coffee", "tea", "tobacco", "cotton", "cashewnuts", "coconuts",
-    "sisal", "cocoa", "vanilla", "pyrethrum",
-    # Fruits and vegetables
-    "banana", "plantain", "mango", "avocado", "pineapple", "passion fruit",
-    "citrus", "tomatoes", "onions", "cabbage", "amaranths", "watermelon",
-    # Other
-    "other crops", "other vegetables", "other fruits",
-    "other permanent crops", "sugar cane"
-  ),
-  type = c(
-    # Cereals
-    "cereals", "cereals", "cereals", "cereals", "cereals",
-    "cereals", "cereals",
-    # Roots and tubers
-    "roots and tubers", "roots and tubers", "roots and tubers", "roots and tubers",
-    # Pulses
-    "pulses", "pulses", "pulses", "pulses", "pulses",
-    "pulses", "pulses",
-    # Oil crops
-    "oilcrops", "oilcrops", "oilcrops",
-    # Cash crops
-    "cashcrops", "cashcrops", "cashcrops", "cashcrops", "cashcrops", "cashcrops",
-    "cashcrops", "cashcrops", "cashcrops", "cashcrops",
-    # Fruits and vegetables
-    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
-    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
-    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
-    "fruits and vegetables", "fruits and vegetables", "fruits and vegetables",
-    # Other
-    "other crops", "fruits and vegetables", "fruits and vegetables",
-    "other crops", "cashcrops"
-  ),
-  stringsAsFactors = FALSE
-)
+    cropid = c(
+      # Cereals
+      "maize", "paddy", "sorghum", "bulrush millet", "finger millet",
+      "wheat", "barley",
+      
+      # Roots and tubers
+      "cassava", "sweet potatoes", "irish potatoes", "yams", "cocoyams", 
+      "ginger",
+      
+      # Pulses
+      "beans", "cowpeas", "groundnut", "pigeon pea", "soybeans",
+      "bambara nuts", "lentils", "green gram", "field peas", "chick peas", 
+      "fiwi","soyabeans",
+      
+      # Oil crops
+      "sunflower", "sesame", "cashewnuts", "cashew nut",
+      
+      # Cash crops
+      "coffee", "tea", "tobacco", "cotton", "palm oil", 
+      "sisal", "cocoa",  "pyrethrum", "sugar cane", "timber", 
+      "firewood/fodder", "medicinal plant", "fence tree", "bamboo", "rubber", 
+      "kapok",
+      
+      # Spices
+      "vanilla", "clove", "cinnemon", "cardamom", "black pepper",
+      
+      # Fruits
+      "banana", "plantain", "mango", "avocado", "pineapple", 
+      "passion fruit", "watermelon", "coconuts", "water mellon", "lime",
+      "plum", "pawpaw", "orange", "mandarin", "guava", 
+      "pomegranate", "custard apple", "peaces", "malay apple", "jack fruit",
+      "date", "lemon", "bread fruit", "plums", "bilimbi",
+      "pears", "rambutan", "grapes", "apples", "coconut", 
+      "monkeybread", "tungamaa", "star fruit", "grapefruit", "god fruit",
+      "tamarind",
+      
+      # Vegetables
+      "tomatoes", "onions", "cabbage", "amaranths", "egg plant", 
+      "okra", "spinach", "cucumber", "chilies", "carrot", 
+      "pumpkins", "seaweed",
+      
+      # Other / unspecified
+      "other crops", "other vegetables", "other fruits", "other permanent crops", "other (specify)"
+    ),
+    type = c(
+      # Cereals
+      rep("cereals", 7),
+      
+      # Roots and tubers
+      rep("roots and tubers", 6),
+      
+      # Pulses
+      rep("pulses", 12),
+      
+      # Oil crops
+      rep("oil crops", 4),
+      
+      # Cash crops
+      rep("cash crops", 16),
+      
+      # Spices
+      rep("spices", 5),
+      
+      # Fruits
+      rep("fruits", 36),
+      
+      # Vegetables
+      rep("vegetables", 12),
+      
+      # Other / unspecified
+      rep("other crops", 5)
+    ),
+    stringsAsFactors = FALSE
+  )
