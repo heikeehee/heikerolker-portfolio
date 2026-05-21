@@ -6,14 +6,12 @@
 #          data/processed/01/clean/plots_stats.rds
 #          data/processed/01/clean/crops.rds
 #          data/processed/01/clean/trees.rds
-#          data/processed/01/clean/pc.rds        (crops merged with plots)
-#          data/processed/01/clean/pt.rds        (trees merged with plots)
-#          data/processed/01/clean/prelost.rds   (pre-harvest losses)
-#          data/processed/01/clean/plot_details.rds (soil/irrigation, for yield gap)
+#          data/processed/01/clean/pc.rds
+#          data/processed/01/clean/pt.rds
+#          data/processed/01/clean/prelost.rds
+#          data/processed/01/clean/plot_details.rds
 #          data/processed/01/clean/crops_prelost.rds
-# SECTION: ag_sec_2a/2b (plot roster), ag_sec_3a/3b (plot details),
-#          ag_sec_4a/4b (crop harvest), ag_sec_6a/6b (tree harvest)
-# NOTE:    Cleaning only. Standardise fields, preserve missingness, add flags.
+# NOTE:    Cleaning only. Standardise, preserve missingness, add flags.
 #          Do not repair uncertain values here; those belong in impute/crops.R
 # =============================================================================
 
@@ -24,30 +22,23 @@ dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE,
 
 # =============================================================================
 # SECTION 1: PLOTS (ag_sec_2a / ag_sec_2b)
-# Plot roster — farmer area estimates and GPS measurements
 # =============================================================================
 
-ag_sec_2a <- raw$crops$ag_sec_2a  # long rainy season
-ag_sec_2b <- raw$crops$ag_sec_2b  # short rainy season
+ag_sec_2a <- raw$crops$ag_sec_2a
+ag_sec_2b <- raw$crops$ag_sec_2b
 
-# Prepare each season for binding
 long <- ag_sec_2a %>% setDT() %>% add_column(season = "long")
 short <- ag_sec_2b %>% setDT() %>% add_column(season = "short")
 
-# Align column names (short mirrors long structure after this)
 colnames(short) <- colnames(long)
 
-# Preserve labels for re-attachment after clean_up() strips them
 labs <- lapply(short, attr, "label")
 labs <- unlist(labs, use.names = TRUE)
 
-# Bind and apply standard cleaning (strips labels, lowercases factors, etc.)
 plots <- long %>% bind_rows(short) %>% clean_up()
-
 plots <- zap_labels(plots)
 label(plots) <- as.list(labs[match(names(plots), names(labs))])
 
-# Rename and derive variables
 plots <- upData(plots,
                 rename = .q(
                   ag2a_04 = area,
@@ -56,17 +47,8 @@ plots <- upData(plots,
                   ag2a_09 = gps_area,
                   ag2a_10 = weather
                 ),
-                # Acres-to-hectares conversion — factor 0.40468564224
-                # Source: standard international conversion; not codebook-specified.
-                # Review if LSMS documentation uses a different factor.
-                area_ha     = area * 0.40468564224,
+                area_ha = area * 0.40468564224,
                 gps_area_ha = gps_area * 0.40468564224,
-                
-                # ASSUMPTION A1: GPS readings of 0 are unreliable per LSMS team guidance — treat as NA.
-                # This is the ONLY place GPS zeros are handled; the plotsize derivation
-                # below relies on this and does not need a redundant != 0 check.
-                gps_area_ha = ifelse(gps_area == 0, NA_real_, gps_area_ha),
-                
                 labels = .q(
                   area        = "Farmers area estimate (acres)",
                   area_ha     = "Farmers area estimate (ha)",
@@ -78,32 +60,26 @@ plots <- upData(plots,
                   area_ha     = ha,
                   gps_area_ha = ha
                 ),
-                # Drop confidential or uninformative variables
                 drop = .q(plotname, ag2a_06_1, ag2a_06_2, ag2a_06_3, ag2a_06_4)
 )
 
+# FLAG A1: GPS area is zero, which is treated as unusable for diagnostics
+plots[, flag_gps_area_zero := fifelse(gps_area == 0, 1L, 0L)]
+n_flag_gps_area_zero <- plots[flag_gps_area_zero == 1L, .N]
+message("flag_gps_area_zero: ", n_flag_gps_area_zero, " rows where gps_area == 0")
+
 saveRDS(plots, here::here("data", "processed", "01", "clean", "plots.rds"), compress = TRUE)
 
-# --------------------------------------------------------------------------
-# Derived: composite plot size (GPS preferred over farmer estimate)
-# --------------------------------------------------------------------------
 p <- plots[, .(y4_hhid, plotnum, area_ha, gps_area_ha)]
 
-# ASSUMPTION A2: Composite plotsize: GPS preferred over farmer estimate.
-# GPS zeros already converted to NA above — no need for != 0 guard here.
-p[, plotsize := ifelse(is.na(gps_area_ha), area_ha, gps_area_ha)]
-p[, plotsize := adlab(plotsize, "Reconciled plotsize (ha)")]
+# Derived diagnostic only: composite plot size candidate
+p[, plotsize_candidate := ifelse(is.na(gps_area_ha), area_ha, gps_area_ha)]
 
-# --------------------------------------------------------------------------
-# Plot statistics: total land per household
-# --------------------------------------------------------------------------
 pn <- p %>% select(y4_hhid, plotnum) %>% count(y4_hhid) %>% dplyr::rename(nplots = n)
 
-phh <- p %>% select(y4_hhid, plotnum, plotsize, area_ha, gps_area_ha) %>% unique()
-phh[, land     := sum(plotsize, na.rm = TRUE), by = "y4_hhid"]
+phh <- p %>% select(y4_hhid, plotnum, plotsize_candidate, area_ha, gps_area_ha) %>% unique()
+phh[, land     := sum(plotsize_candidate, na.rm = TRUE), by = "y4_hhid"]
 phh[, land_gps := sum(gps_area_ha, na.rm = TRUE), by = "y4_hhid"]
-phh[, land     := adlab(land, "Sum of reconciled plotsizes (ha)")]
-phh[, land_gps := adlab(land_gps, "Sum of gps plotsizes where available (ha)")]
 phh <- phh %>% select(y4_hhid, land, land_gps) %>% unique()
 phh <- phh[pn, on = "y4_hhid"]
 
@@ -111,11 +87,10 @@ saveRDS(phh, here::here("data", "processed", "01", "clean", "plots_stats.rds"), 
 
 # =============================================================================
 # SECTION 2: CROPS (ag_sec_4a / ag_sec_4b)
-# Annual crop harvest quantities, pre-harvest losses, area harvested
 # =============================================================================
 
-ag_sec_4a <- raw$crops$ag_sec_4a  # long rainy season
-ag_sec_4b <- raw$crops$ag_sec_4b  # short rainy season
+ag_sec_4a <- raw$crops$ag_sec_4a
+ag_sec_4b <- raw$crops$ag_sec_4b
 
 long  <- prep(ag_sec_4a, season = "long")
 short <- ag_sec_4b %>% prep("short") %>% strip_colnames("4b", "4a")
@@ -125,38 +100,25 @@ crops <- bind_dt(long, short)
 
 setnames(crops, "zaocode", "cropid")
 crops <- clean_names(crops, crops_list, "cropid")
-
 label(crops) <- as.list(labs[match(names(crops), names(labs))])
 
-# =============================================================================
-# F1: Harvest contradiction and missingness checks
-# =============================================================================
+# FLAGS: harvest logic and missingness
+crops[ag4a_19 == "no"  & !is.na(ag4a_28), flag_harvest_contradiction := 1L]
+crops[ag4a_19 == "yes" & is.na(ag4a_28),  flag_harvest_quantity_missing := 1L]
+crops[is.na(ag4a_19) & !is.na(plotnum) & !is.na(cropid), flag_harvest_missing := 1L]
+crops[ag4a_25 == "no" & is.na(ag4a_27) & !is.na(cropid),  flag_harvest_remain_missing := 1L]
 
-# 🚩 FLAG 1: harvested == "no" but a quantity was recorded — enumerator error
-crops[ag4a_19 == "no" & !is.na(ag4a_28), flag_harvest_contradiction := 1L]
+n_flag_harvest_contradiction <- crops[flag_harvest_contradiction == 1L, .N]
+n_flag_harvest_quantity_missing <- crops[flag_harvest_quantity_missing == 1L, .N]
+n_flag_harvest_missing <- crops[flag_harvest_missing == 1L, .N]
+n_flag_harvest_remain_missing <- crops[flag_harvest_remain_missing == 1L, .N]
 
-n_flag_harvest_contradiction <- sum(crops$flag_harvest_contradiction == 1L, na.rm = TRUE)
 message("flag_harvest_contradiction: ", n_flag_harvest_contradiction,
         " records where harvested == 'no' but quant_harvest is not NA")
-
-# 🚩 FLAG 2: harvested == "yes" but no quantity was recorded — enumerator error
-crops[ag4a_19 == "yes" & is.na(ag4a_28), flag_harvest_quantity_missing := 1L]
-
-n_flag_harvest_quantity_missing <- sum(crops$flag_harvest_quantity_missing == 1L, na.rm = TRUE)
 message("flag_harvest_quantity_missing: ", n_flag_harvest_quantity_missing,
         " records where harvested == 'yes' but quant_harvest is NA")
-
-# 🚩 FLAG 3: harvested response itself is missing — cannot determine participation
-crops[is.na(ag4a_19) & !is.na(plotnum) & !is.na(cropid), flag_harvest_missing := 1L]
-
-n_flag_harvest_missing <- sum(crops$flag_harvest_missing == 1L, na.rm = TRUE)
 message("flag_harvest_missing: ", n_flag_harvest_missing,
-        " records where harvested is NA — participation status unknown")
-
-# 🚩 FLAG 4: harvested but remaining harvest estimate is missing
-crops[ag4a_19 == "yes" & is.na(ag4a_27), flag_harvest_remain_missing := 1L]
-
-n_flag_harvest_remain_missing <- sum(crops$flag_harvest_remain_missing == 1L, na.rm = TRUE)
+        " records where harvested is NA")
 message("flag_harvest_remain_missing: ", n_flag_harvest_remain_missing,
         " records where harvested == 'yes' but harvest_remain is NA")
 
@@ -176,7 +138,6 @@ crops <- upData(crops,
                   ag4a_28 = quant_harvest,
                   ag4a_29 = value
                 ),
-                # Proportion of plot planted with crop (fractional)
                 area_planted = case_when(
                   ag4a_02 == "1/4" ~ 0.25,
                   ag4a_02 == "1/2" ~ 0.5,
@@ -184,18 +145,7 @@ crops <- upData(crops,
                   ag4a_01 == "yes" ~ 1
                 ),
                 loss_cause = ifelse(preharvest_losses == "no" & is.na(loss_cause), "no loss", loss_cause),
-                
-                # Replace NA with structural 0 where no harvest occurred
-                # Type: structural zero | FLAG only
-                # Profiled in: 05_exclusions_audit.R if needed later
-                harvest_remain    = ifelse(finished == "yes", 0, harvest_remain),
-                area_harvested    = ifelse(harvested == "no", 0, area_harvested),
-                harvest_remain    = ifelse(harvested == "no", 0, harvest_remain),
-                quant_harvest     = ifelse(harvested == "no", 0, quant_harvest),
-                
-                # Acres-to-hectares — same factor as plots. Not codebook-specified.
                 area_harvested_ha = area_harvested * 0.40468564224,
-                
                 labels = .q(
                   area_harvested    = "Estimate of area harvested (acres)",
                   area_harvested_ha = "Estimate of area harvested converted (ha)",
@@ -215,9 +165,6 @@ crops <- upData(crops,
 
 saveRDS(crops, here::here("data", "processed", "01", "clean", "crops.rds"), compress = TRUE)
 
-# --------------------------------------------------------------------------
-# Merge crops with plots to get per-crop area and yield
-# --------------------------------------------------------------------------
 crops_sub <- crops[, .(
   y4_hhid, plotnum, type, cropid,
   preharvest_losses, loss_cause,
@@ -225,104 +172,81 @@ crops_sub <- crops[, .(
   area_planted, area_harvested_ha
 )]
 
-# Left-inner join: all crop records, matched to plot sizes where available
 pc <- p[crops_sub, on = c("y4_hhid", "plotnum")]
 
-# Area planted as a fraction → convert to ha using composite plotsize
-pc[, area_planted_ha := area_planted * plotsize]
+pc[, area_planted_ha := area_planted * plotsize_candidate]
 
-# ASSUMPTION A3: Alternative area harvested: farmers estimate scaled by GPS/farmer ratio
-# Note: this is stored as a candidate derived field in cleaning, not used to overwrite values here.
-pc[, area_harvested_alt := area_harvested_ha / area_ha * plotsize]
-
-# ASSUMPTION A4: Where harvest == all planted and no crops remain, area_harvested = area_planted
-# Note: this is stored as a candidate derived field in cleaning, not used to overwrite values here.
-pc[, area_harvested_final := ifelse(
+# Derived diagnostics only, not replacements
+pc[, area_harvested_alt := area_harvested_ha / area_ha * plotsize_candidate]
+pc[, area_harvested_final_candidate := ifelse(
   lessharvest == "no" & is.na(harvest_remain),
   area_planted_ha,
   NA_real_
 )]
-pc[, area_harvested_com := ifelse(
+pc[, area_harvested_com_candidate := ifelse(
   lessharvest == "no" & is.na(harvest_remain),
   area_planted_ha,
   area_harvested_alt
 )]
 
-# 🚩 FLAG 5: area_planted missing on observed plot records
+# Flags
 pc[, flag_area_planted_missing := fifelse(!is.na(plotnum) & is.na(area_planted), 1L, 0L)]
-pc[, flag_plotnum_missing := fifelse(is.na(plotnum), 1L, 0L)]
+pc[, flag_plotnum_missing := fifelse(is.na(plotnum), 1L, 0L)] # check against roster
+pc[, flag_area_harvested_gt_plotsize := fifelse(area_harvested_com_candidate > plotsize_candidate, 1L, 0L)]
+pc[, flag_quant_harvest_missing := fifelse(is.na(quant_harvest) & harvested == "yes", 1L, 0L)]
 
 n_flag_area_planted_missing <- pc[flag_area_planted_missing == 1L, .N]
 n_flag_plotnum_missing <- pc[flag_plotnum_missing == 1L, .N]
-
-message(
-  "flag_area_planted_missing: ", n_flag_area_planted_missing,
-  " records with missing area_planted on non-missing plotnum; ",
-  n_flag_plotnum_missing, " records with missing plotnum"
-)
-
-# 🚩 FLAG 6: harvested area exceeds reconciled plot size
-pc[, flag_area_harvested_gt_plotsize := fifelse(area_harvested_com > plotsize, 1L, 0L)]
-
 n_flag_area_harvested_gt_plotsize <- pc[flag_area_harvested_gt_plotsize == 1L, .N]
-message("flag_area_harvested_gt_plotsize: ", n_flag_area_harvested_gt_plotsize,
-        " records where area_harvested_com > plotsize")
-
-# 🚩 FLAG 7: harvest quantity missing on observed plot records
-pc[, flag_quant_harvest_missing := fifelse(is.na(quant_harvest) & !is.na(plotnum), 1L, 0L)]
-
 n_flag_quant_harvest_missing <- pc[flag_quant_harvest_missing == 1L, .N]
+
+message("flag_area_planted_missing: ", n_flag_area_planted_missing,
+        " records with missing area_planted on observed plot records")
+message("flag_plotnum_missing: ", n_flag_plotnum_missing,
+        " records with missing plotnum, (households not culitvating) check against household roster")
+message("flag_area_harvested_gt_plotsize: ", n_flag_area_harvested_gt_plotsize,
+        " records where harvested area candidate exceeds plotsize_candidate")
 message("flag_quant_harvest_missing: ", n_flag_quant_harvest_missing,
-        " records where quant_harvest is NA and plotnum is present")
+        " records where quant_harvest is NA and harvest occured")
 
 pc <- upData(pc,
              labels = .q(
-               plotsize                        = "Composite plotsize with gps where available",
-               area_planted_ha                 = "Estimate of area planted (ha)",
-               area_harvested_final            = "Area harvested based on planted area assumption",
-               area_harvested_alt              = "Area harvested based on proportional estimate",
-               area_harvested_com              = "Combined harvested area candidate",
-               flag_area_planted_missing       = "Area planted missing on observed plot record",
-               flag_plotnum_missing            = "Plot number missing",
-               flag_area_harvested_gt_plotsize = "Area harvested exceeds composite plotsize",
-               flag_quant_harvest_missing      = "Harvest quantity missing on observed plot record"
-             ),
-             units = .q(
-               plotsize           = ha,
-               area_planted_ha    = ha,
-               area_harvested_com = ha
+               plotsize_candidate         = "Composite plotsize candidate with gps where available",
+               area_planted_ha            = "Estimate of area planted (ha)",
+               area_harvested_final_candidate = "Area harvested candidate based on planted area assumption",
+               area_harvested_alt         = "Area harvested based on proportional estimate",
+               area_harvested_com_candidate = "Combined harvested area candidate",
+               flag_area_planted_missing  = "Area planted missing on observed plot record",
+               flag_plotnum_missing       = "Plot number missing",
+               flag_area_harvested_gt_plotsize = "Area harvested candidate exceeds composite plotsize candidate",
+               flag_quant_harvest_missing = "Harvest quantity missing on observed plot record",
+               flag_harvest_contradiction  = "Harvested == no but quantity recorded",
+               flag_harvest_quantity_missing = "Harvested == yes but quantity missing",
+               flag_harvest_missing       = "Harvested response missing",
+               flag_harvest_remain_missing = "Harvested == yes but harvest_remain missing"
              )
 )
 
 saveRDS(pc, here::here("data", "processed", "01", "clean", "pc.rds"), compress = TRUE)
 
-# --------------------------------------------------------------------------
-# Pre-harvest losses (crops) — separate file for audit use
-# --------------------------------------------------------------------------
 crops_prelost <- crops %>% select(y4_hhid, cropid, type, plotnum, preharvest_losses, loss_cause)
-
-saveRDS(crops_prelost, here::here("data", "processed", "01", "clean", "crops_prelost.rds"),
-        compress = TRUE)
+saveRDS(crops_prelost, here::here("data", "processed", "01", "clean", "crops_prelost.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 3: TREE CROPS (ag_sec_6a / ag_sec_6b)
-# Fruit and permanent crop harvest quantities
 # =============================================================================
 
-ag_sec_6a <- raw$crops$ag_sec_6a  # fruit trees
-ag_sec_6b <- raw$crops$ag_sec_6b  # permanent crops
+ag_sec_6a <- raw$crops$ag_sec_6a
+ag_sec_6b <- raw$crops$ag_sec_6b
 
 fruit <- prep(ag_sec_6a, season = "fruit")
-perm  <- ag_sec_6b %>%
-  prep("permanent") %>%
-  strip_colnames("6b", "6a")
+perm  <- ag_sec_6b %>% prep("permanent") %>% strip_colnames("6b", "6a")
 
 labs  <- prep_labs(perm)
 trees <- fruit %>% bind_dt(perm)
 
 setnames(trees, "zaocode", "cropid")
 trees <- trees %>% clean_names(list = crops_list, "cropid")
-
 label(trees) <- as.list(labs[match(names(trees), names(labs))])
 
 trees <- upData(trees,
@@ -345,44 +269,30 @@ trees <- upData(trees,
 
 saveRDS(trees, here::here("data", "processed", "01", "clean", "trees.rds"), compress = TRUE)
 
-# Merge trees with plots
 trees_sub <- trees[, .(y4_hhid, plotnum, type, cropid, ntrees, harvest, pre_lost, loss_cause)]
 pt <- p[trees_sub, on = c("y4_hhid", "plotnum")]
 pt[, .q(area_ha, gps_area_ha) := NULL]
-
 saveRDS(pt, here::here("data", "processed", "01", "clean", "pt.rds"), compress = TRUE)
 
-# --------------------------------------------------------------------------
-# Pre-harvest losses: bind crops and trees
-# --------------------------------------------------------------------------
 cph <- pc[, .(
-  y4_hhid,
-  type,
-  cropid,
-  plotnum,
+  y4_hhid, type, cropid, plotnum,
   pre_lost = preharvest_losses,
   loss_cause = as.character(loss_cause)
 )]
 
 tph <- pt[, .(
-  y4_hhid,
-  type,
-  cropid,
-  plotnum,
+  y4_hhid, type, cropid, plotnum,
   pre_lost,
   loss_cause = as.character(loss_cause)
 )]
 
 prelost <- rbindlist(list(cph, tph), fill = TRUE)
-prelost[, pre_lost   := as.factor(pre_lost)]
+prelost[, pre_lost := as.factor(pre_lost)]
 prelost[, loss_cause := as.factor(loss_cause)]
-
 saveRDS(prelost, here::here("data", "processed", "01", "clean", "prelost.rds"), compress = TRUE)
 
 # =============================================================================
 # SECTION 4: PLOT DETAILS (ag_sec_3a / ag_sec_3b)
-# Soil quality, irrigation, water source — used in impute/yield_gap.R
-# Cleaning only: preserve raw missingness, standardize blanks to NA, add flags
 # =============================================================================
 
 ag_sec_3a <- raw$crops$ag_sec_3a
@@ -444,15 +354,36 @@ short <- short_raw %>%
   )
 
 stopifnot("Column count mismatch between seasons — check raw data structure" = ncol(short) == ncol(long))
-
 colnames(short) <- colnames(long)
 
 labs <- lapply(short, attr, "label")
 labs <- unlist(labs, use.names = TRUE)
 
 plots_full <- bind_rows(long, short) %>% clean_up()
-
 plots_full <- zap_labels(plots_full)
 label(plots_full) <- as.list(labs[match(names(plots_full), names(labs))])
-
 saveRDS(plots_full, here::here("data", "processed", "01", "clean", "plot_details.rds"), compress = TRUE)
+
+# =============================================================================
+# FLAG SUMMARY
+# =============================================================================
+
+flag_summary_obj <- function(x, obj_name) {
+  flag_cols <- names(x)[grepl("^flag_", names(x))]
+  if (length(flag_cols) == 0) return(NULL)
+  flag_summary <- data.table(
+    flag = flag_cols,
+    n = vapply(flag_cols, function(col) x[get(col) == 1L, .N], integer(1))
+  )[order(-n)]
+  message("----- Flag summary: ", obj_name, " -----")
+  print(flag_summary)
+  readr::write_csv(
+    as.data.frame(flag_summary),
+    here::here("data", "processed", "01", "clean", paste0(obj_name, "_flag_summary.csv"))
+  )
+  invisible(flag_summary)
+}
+
+flag_summary_obj(crops, "crops")
+flag_summary_obj(pc, "pc")
+flag_summary_obj(plots_full, "plot_details")

@@ -2,8 +2,11 @@
 # clean/recall.R
 # PURPOSE: Clean household 7-day food consumption recall survey section
 # INPUT:   raw$recall from 01_load_raw.R
-# OUTPUT:  data/processed/clean/recall.rds
+# OUTPUT:  data/processed/01/clean/recall.rds
+#          data/processed/01/clean/recall_missing_conversions.csv
 # SECTION: hh_sec_j1 — household Section J1 (food consumption recall)
+# NOTE:    Cleaning only. Standardise, convert where supported, and flag gaps.
+#          Do not invent new conversion factors here.
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
@@ -23,13 +26,13 @@ KG_PER_GRAM <- 0.001
 # Sources: product-specific densities from literature (see inline comments)
 # =============================================================================
 
-# ASSUMPTION: All conversion factors below are assumed from literature or
-# standard density references, NOT from the LSMS codebook directly.
-# Most conversion factors are derived from a US conversion website
+# ASSUMPTION A1: All conversion factors below are assumed from literature or
+# standard density references, not from the LSMS codebook directly.
+# REVIEW: several factors are heuristic or context-specific and need explicit source notes.
 food_conv <- tibble::tribble(
   ~unit,         ~itemcode,                                                     ~conv,
   "litre",       "fresh milk",                                                  1.08,
-  "pieces",      "eggs",                                                        0.0408, # average weight TZA
+  "pieces",      "eggs",                                                        0.0408,
   "litre",       "milk products (like cream, cheese, yoghurt etc)",             1.01,
   "litre",       "cooking oil",                                                 0.9,
   "litre",       "bottled/canned soft drinks (soda, juice, water)",             1,
@@ -54,10 +57,20 @@ food_conv <- tibble::tribble(
   "litre",       "butter, margarine, ghee and other fat products",              0.959,
   "litre",       "sweet potatoes",                                              0.66,
   "litre",       "canned, dried and wild vegetables",                           0.3,
-  "pieces",      "buns, cakes and biscuits",                                    0.1 # guess
+  "pieces",      "buns, cakes and biscuits",                                    0.1
 )
 
-# Append kg (identity) and gram conversions for every item
+# FLAG F1: heuristic conversion factors that need explicit source review.
+flag_conv_review <- food_conv %>%
+  dplyr::filter(
+    (unit == "litre"  & itemcode %in% c("buns, cakes and biscuits", "sweet potatoes", "canned, dried and wild vegetables")) |
+      (unit == "pieces" & itemcode %in% c("bread", "coconuts (mature/immature)", "sweets", "buns, cakes and biscuits", "bottled/canned soft drinks (soda, juice, water)"))
+  )
+
+n_flag_conv_review <- nrow(flag_conv_review)
+message("flag_conv_review: ", n_flag_conv_review,
+        " conversion factor rows flagged for source review before publication")
+
 unique_items <- unique(food_conv$itemcode)
 
 food_conv <- dplyr::bind_rows(
@@ -81,15 +94,29 @@ food_conv <- dplyr::bind_rows(
 
 recall <- raw$recall$hh_sec_j1
 
+# FLAG F2: duplicate household-item rows in raw recall data.
+n_flag_dup_recall_keys <- recall %>%
+  dplyr::count(y4_hhid, itemcode) %>%
+  dplyr::filter(n > 1) %>%
+  nrow()
+
+message("flag_dup_recall_keys: ", n_flag_dup_recall_keys,
+        " duplicated (y4_hhid, itemcode) combinations detected in raw recall data")
+
 recall <- recall %>%
   clean_up() %>%
   dplyr::rename(
     consumed   = hh_j01,
-    quantity   = hh_j02_2,  unit       = hh_j02_1,
-    purchases  = hh_j03_2,  u_bought   = hh_j03_1,
-    value      = hh_j04,    source     = hh_j04_1,
-    production = hh_j05_2,  u_produced = hh_j05_1,
-    gifts      = hh_j06_2,  u_gifts    = hh_j06_1
+    quantity   = hh_j02_2,
+    unit       = hh_j02_1,
+    purchases  = hh_j03_2,
+    u_bought   = hh_j03_1,
+    value      = hh_j04,
+    source     = hh_j04_1,
+    production = hh_j05_2,
+    u_produced = hh_j05_1,
+    gifts      = hh_j06_2,
+    u_gifts    = hh_j06_1
   ) %>%
   dplyr::mutate(across(c(unit, u_bought, u_produced, u_gifts), as.character))
 
@@ -105,15 +132,15 @@ convert_to_kg <- function(df, qty_col, unit_col, items_ref) {
     ) %>%
     dplyr::mutate(
       "{qty_col}_kg" := dplyr::case_when(
-        is.na(.data[[qty_col]])                          ~ NA_real_,          # source not reported — not a conversion failure
-        .data[[qty_col]] == 0 & is.na(.data[[unit_col]]) ~ 0,                # structural zero — unit not recorded
+        is.na(.data[[qty_col]])                           ~ NA_real_,
+        .data[[qty_col]] == 0 & is.na(.data[[unit_col]])  ~ 0,
         .data[[unit_col]] == "kilograms"                 ~ .data[[qty_col]],
         .data[[unit_col]] == "grams"                     ~ .data[[qty_col]] * KG_PER_GRAM,
-        !is.na(conv)                                     ~ .data[[qty_col]] * conv,
-        TRUE                                             ~ NA_real_           # genuine missing conversion — flag upstream
+        !is.na(conv)                                      ~ .data[[qty_col]] * conv,
+        TRUE                                              ~ NA_real_
       )
     ) %>%
-    dplyr::select(-conv) #, -all_of(unit_col)
+    dplyr::select(-conv)
 }
 
 recall_kg <- recall %>%
@@ -123,14 +150,40 @@ recall_kg <- recall %>%
   convert_to_kg("gifts",      "u_gifts",    food_conv)
 
 # =============================================================================
-# DIAGNOSTIC: report unmatched item/unit combinations
+# FLAGS: missing conversions and review conditions
 # =============================================================================
 
+# FLAG F3: consumed == yes but quantity missing.
+recall_kg <- recall_kg %>%
+  dplyr::mutate(
+    flag_quantity_missing = dplyr::if_else(consumed == "yes" & is.na(quantity), 1L, 0L),
+    flag_value_missing = dplyr::if_else(consumed == "yes" &
+                                          (coalesce(purchases, 0) > 0 | coalesce(production, 0) > 0 | coalesce(gifts, 0) > 0) &
+                                          is.na(value), 1L, 0L),
+    flag_source_missing = dplyr::if_else(consumed == "yes" & !is.na(value) & is.na(source), 1L, 0L),
+    flag_consumed_no_but_quantity = dplyr::if_else(consumed == "no" & coalesce(quantity, 0) > 0, 1L, 0L)
+  )
+
+n_flag_quantity_missing <- sum(recall_kg$flag_quantity_missing, na.rm = TRUE)
+n_flag_value_missing <- sum(recall_kg$flag_value_missing, na.rm = TRUE)
+n_flag_source_missing <- sum(recall_kg$flag_source_missing, na.rm = TRUE)
+n_flag_consumed_no_but_quantity <- sum(recall_kg$flag_consumed_no_but_quantity, na.rm = TRUE)
+
+message("flag_quantity_missing: ", n_flag_quantity_missing,
+        " consumed items with missing quantity")
+message("flag_value_missing: ", n_flag_value_missing,
+        " consumed items with acquisition amounts but missing value")
+message("flag_source_missing: ", n_flag_source_missing,
+        " consumed items from purchase with value present but source missing")
+message("flag_consumed_no_but_quantity: ", n_flag_consumed_no_but_quantity,
+        " items marked not consumed but with positive quantity")
+
+# FLAG F4: genuine missing conversion factors on consumed items.
 missing_conversions <- recall_kg %>%
   dplyr::filter(consumed == "yes") %>%
   dplyr::filter(
-    (!is.na(quantity)   & quantity   != 0 & is.na(quantity_kg))   |
-      (!is.na(purchases)  & purchases  != 0 & is.na(purchases_kg))  |
+    (!is.na(quantity)   & quantity   != 0 & is.na(quantity_kg)) |
+      (!is.na(purchases)  & purchases  != 0 & is.na(purchases_kg)) |
       (!is.na(production) & production != 0 & is.na(production_kg)) |
       (!is.na(gifts)      & gifts      != 0 & is.na(gifts_kg))
   ) %>%
@@ -141,19 +194,49 @@ missing_conversions <- recall_kg %>%
                 production, production_kg,
                 gifts, gifts_kg)
 
-if (nrow(missing_conversions) > 0) {
-  # 🚩 FLAG UNIT: Genuine missing conversion factors detected.
-  # Scope: consumed == "yes"; structural zeros and unreported quantities excluded.
-  # No action this requires imputation.
-  message("clean/recall.R: ", nrow(missing_conversions),
-          " item/unit combination(s) missing a conversion factor (consumed items only).")
+n_missing_conversions <- nrow(missing_conversions)
+message("missing_conversions: ", n_missing_conversions,
+        " item/unit combinations missing a conversion factor (consumed items only)")
+if (n_missing_conversions > 0) {
   print(missing_conversions %>% dplyr::count(itemcode, unit, sort = TRUE))
 }
 
-# Save diagnostic for QA review
+# FLAG F5: total acquisition components do not reconcile with reported quantity.
+recall_kg <- recall_kg %>%
+  dplyr::mutate(
+    acquired_kg = rowSums(dplyr::across(c(purchases_kg, production_kg, gifts_kg)), na.rm = TRUE),
+    flag_quantity_component_mismatch = dplyr::if_else(
+      consumed == "yes" & !is.na(quantity_kg) & acquired_kg > 0 & abs(quantity_kg - acquired_kg) > 0.001,
+      1L,
+      0L
+    )
+  )
+
+n_flag_quantity_component_mismatch <- sum(recall_kg$flag_quantity_component_mismatch, na.rm = TRUE)
+message("flag_quantity_component_mismatch: ", n_flag_quantity_component_mismatch,
+        " consumed items where quantity_kg does not match purchases_kg + production_kg + gifts_kg")
+
 readr::write_csv(
   missing_conversions,
   here::here("data", "processed", "01", "clean", "recall_missing_conversions.csv")
+)
+
+# =============================================================================
+# FLAG SUMMARY
+# =============================================================================
+
+flag_cols <- names(recall_kg)[grepl("^flag_", names(recall_kg))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) recall_kg[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: recall -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "recall_flag_summary.csv")
 )
 
 # =============================================================================
@@ -161,5 +244,4 @@ readr::write_csv(
 # =============================================================================
 
 saveRDS(recall_kg, here::here("data", "processed", "01", "clean", "recall.rds"), compress = TRUE)
-
-message("clean/recall.R: recall data cleaned and saved.")
+message("clean/recall.R: recall data cleaned and saved")

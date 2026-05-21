@@ -2,21 +2,18 @@
 # clean/animals.R
 # PURPOSE: Clean livestock ownership, slaughter and feed survey sections
 # INPUT:   raw$animals from 01_load_raw.R
-# OUTPUT:  data/processed/clean/animals.rds       (cleaned ownership/slaughter)
-#          data/processed/clean/animals_fin.rds   (with derived stock measures)
-#          data/processed/clean/excl_animals.csv  (exclusion flags)
-#          data/processed/clean/feed.rds          (raw feed practices)
-#          data/processed/clean/feed_short.rds    (simplified feed type per hh-animal)
-#          data/processed/clean/wa.rds            (carcass breakdown, pre-impute)
-#          data/processed/clean/fishes.rds        (fishery)
+# OUTPUT:  data/processed/01/clean/animals.rds
+#          data/processed/01/clean/animals_fin.rds
+#          data/processed/01/clean/excl_animals.csv
+#          data/processed/01/clean/feed.rds
+#          data/processed/01/clean/feed_short.rds
+#          data/processed/01/clean/wa.rds
+#          data/processed/01/clean/fishes.rds
 # SECTION: lf_sec_02 (livestock ownership/slaughter), lf_sec_04 (feed),
 #          lf_sec_12 (fishery)
-# NOTE:    Feed requirement IMPUTATION (FAO feed tables) is in impute/animals.R
-#          Carcass breakdown coefficients are applied here as they derive
-#          from reference data (breakdown.xlsx) not from assumptions about
-#          individual household behaviour.
+# NOTE:    Clean stage only: standardise, derive diagnostics, and flag issues.
+#          Any value-changing repair or fallback belongs in impute/animals.R.
 # =============================================================================
-
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
@@ -28,57 +25,35 @@ dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE,
 # =============================================================================
 
 lf_sec_02 <- raw$animals$lf_sec_02
-animals   <- clean_up(lf_sec_02)
-
-# Re-attach Stata labels stripped by clean_up()
+animals <- clean_up(lf_sec_02)
 labfix(lf_sec_02, animals)
 
-animals <- upData(animals,
+animals <- upData(
+  animals,
   rename = .q(
-    lf02_01    = ownershp,
-    lf02_02    = owned2,
-    lf02_03    = owned1,
-    lf02_04_1  = ind,
-    lf02_04_2  = exotic,
-    lf02_05    = born,
-    lf02_07    = bought,
-    lf02_10    = gift,
-    lf02_11    = giver,
-    lf02_13    = gifted,
-    lf02_14    = recp,
-    lf02_16    = disease,
-    lf02_19    = theft,
-    lf02_22    = injury,
-    lf02_25    = sold,
-    lf02_28_1  = dest1,
-    lf02_28_2  = dest2,
-    lf02_30    = slaughter,
-    lf02_32    = ssold,
-    lf02_31    = weight,
-    lf02_34_1  = dest1s,
-    lf02_34_2  = dest2s
+    lf02_01   = ownershp,
+    lf02_02   = owned2,
+    lf02_03   = owned1,
+    lf02_04_1 = ind,
+    lf02_04_2 = exotic,
+    lf02_05   = born,
+    lf02_07   = bought,
+    lf02_10   = gift,
+    lf02_11   = giver,
+    lf02_13   = gifted,
+    lf02_14   = recp,
+    lf02_16   = disease,
+    lf02_19   = theft,
+    lf02_22   = injury,
+    lf02_25   = sold,
+    lf02_28_1 = dest1,
+    lf02_28_2 = dest2,
+    lf02_30   = slaughter,
+    lf02_32   = ssold,
+    lf02_31   = weight,
+    lf02_34_1 = dest1s,
+    lf02_34_2 = dest2s
   ),
-
-  # Replace NA with structural 0 where survey question was answered "no"
-  # 🚩 FLAG ASSUMPTION: Sentinel 0 applied when gateway question == "no".
-  # If a household selected "no" in error (e.g. recall fatigue), these zeros
-  # are incorrect. Condition should account for is.na and == "no" in case "yes" should have been selected. 
-  # Profile distribution of zeros vs NAs in 05_exclusions_audit.R.
-  bought   = ifelse(lf02_06 == "no", 0, bought),
-  gift     = ifelse(lf02_09 == "no", 0, gift),
-  gifted   = ifelse(lf02_12 == "no", 0, gifted),
-  disease  = ifelse(lf02_15 == "no", 0, disease),
-  theft    = ifelse(lf02_18 == "no", 0, theft),
-  injury   = ifelse(lf02_21 == "no", 0, injury),
-  sold     = ifelse(lf02_24 == "no", 0, sold),
-  slaughter = ifelse(lf02_29 == "no", 0, slaughter),
-
-  # Current stock: indigenous + exotic breeds
-  ind     = ifelse(is.na(ind), 0, ind),
-  exotic  = ifelse(is.na(exotic), 0, exotic),
-  current = ind + exotic,
-  current = ifelse(ownershp == "no", 0, current),
-
   labels = .q(
     ownershp  = "Animals owned in past year",
     owned2    = "Number of animals owned two years ago",
@@ -100,30 +75,86 @@ animals <- upData(animals,
     slaughter = "Number of animals slaughtered",
     dest1s    = "First buyer of slaughtered animals",
     dest2s    = "Second buyer of slaughtered animals",
-    current   = "Number of animals currently owned (ind + exotic)",
     weight    = "Average live weight of slaughtered animals",
     ssold     = "Number of animals slaughtered and sold"
   ),
-  units = .q(
-    weight = kg
-  )
+  units = .q(weight = kg)
 )
 
-# Assign sex where determinable from livestock category name
-animals <- animals[, sex := fcase(
+# FLAG F1: duplicate animal rows by household and livestock item.
+n_flag_dup_animals <- animals[, .N, by = .(y4_hhid, lvstckid)][N > 1, .N]
+animals[, flag_dup_animals := fifelse(duplicated(paste(y4_hhid, lvstckid)) | duplicated(paste(y4_hhid, lvstckid), fromLast = TRUE), 1L, 0L)]
+message("flag_dup_animals: ", n_flag_dup_animals,
+        " duplicated (y4_hhid, lvstckid) combinations in lf_sec_02")
+
+# FLAG F2: gateway questions imply a zero count later, but that repair is deferred to impute.
+animals[, flag_bought_zero_from_gate := fifelse(lf02_06 == "no", 1L, 0L)]
+animals[, flag_gift_zero_from_gate := fifelse(lf02_09 == "no", 1L, 0L)]
+animals[, flag_gifted_zero_from_gate := fifelse(lf02_12 == "no", 1L, 0L)]
+animals[, flag_disease_zero_from_gate := fifelse(lf02_15 == "no", 1L, 0L)]
+animals[, flag_theft_zero_from_gate := fifelse(lf02_18 == "no", 1L, 0L)]
+animals[, flag_injury_zero_from_gate := fifelse(lf02_21 == "no", 1L, 0L)]
+animals[, flag_sold_zero_from_gate := fifelse(lf02_24 == "no", 1L, 0L)]
+animals[, flag_slaughter_zero_from_gate := fifelse(lf02_29 == "no", 1L, 0L)]
+
+n_flag_bought_zero_from_gate <- animals[flag_bought_zero_from_gate == 1L, .N]
+n_flag_gift_zero_from_gate <- animals[flag_gift_zero_from_gate == 1L, .N]
+n_flag_gifted_zero_from_gate <- animals[flag_gifted_zero_from_gate == 1L, .N]
+n_flag_disease_zero_from_gate <- animals[flag_disease_zero_from_gate == 1L, .N]
+n_flag_theft_zero_from_gate <- animals[flag_theft_zero_from_gate == 1L, .N]
+n_flag_injury_zero_from_gate <- animals[flag_injury_zero_from_gate == 1L, .N]
+n_flag_sold_zero_from_gate <- animals[flag_sold_zero_from_gate == 1L, .N]
+n_flag_slaughter_zero_from_gate <- animals[flag_slaughter_zero_from_gate == 1L, .N]
+
+message("flag_bought_zero_from_gate: ", n_flag_bought_zero_from_gate, " rows where bought gate is 'no'")
+message("flag_gift_zero_from_gate: ", n_flag_gift_zero_from_gate, " rows where gift gate is 'no'")
+message("flag_gifted_zero_from_gate: ", n_flag_gifted_zero_from_gate, " rows where gifted gate is 'no'")
+message("flag_disease_zero_from_gate: ", n_flag_disease_zero_from_gate, " rows where disease gate is 'no'")
+message("flag_theft_zero_from_gate: ", n_flag_theft_zero_from_gate, " rows where theft gate is 'no'")
+message("flag_injury_zero_from_gate: ", n_flag_injury_zero_from_gate, " rows where injury gate is 'no'")
+message("flag_sold_zero_from_gate: ", n_flag_sold_zero_from_gate, " rows where sold gate is 'no'")
+message("flag_slaughter_zero_from_gate: ", n_flag_slaughter_zero_from_gate, " rows where slaughter gate is 'no'")
+
+# FLAG F3: classify current stock and ownership inconsistency for review only.
+animals[, flag_current_missing := fifelse(ownershp == "yes" & is.na(ind) & is.na(exotic), 1L, 0L)]
+animals[, flag_no_ownership := fifelse(ownershp == "no", 1L, 0L)]
+animals[, flag_current_components_missing := fifelse(ownershp != "no" & is.na(ind) & is.na(exotic), 1L, 0L)]
+
+n_flag_current_missing <- animals[flag_current_missing == 1L, .N]
+n_flag_no_ownership <- animals[flag_no_ownership == 1L, .N]
+n_flag_current_components_missing <- animals[flag_current_components_missing == 1L, .N]
+
+message("flag_current_missing: ", n_flag_current_missing, " rows where ind and exotic are both missing")
+message("flag_no_ownership: ", n_flag_no_ownership, " rows where ownershp is 'no'")
+message("flag_current_components_missing: ", n_flag_current_components_missing,
+        " rows where ownershp is not 'no' but ind and exotic are both missing")
+
+# Standardise numeric columns without overwriting values.
+animals[, `:=`(
+  ind = as.numeric(ind),
+  exotic = as.numeric(exotic),
+  bought = as.numeric(bought),
+  gift = as.numeric(gift),
+  gifted = as.numeric(gifted),
+  disease = as.numeric(disease),
+  theft = as.numeric(theft),
+  injury = as.numeric(injury),
+  sold = as.numeric(sold),
+  slaughter = as.numeric(slaughter)
+)]
+
+animals[, sex := fcase(
   lvstckid == "male calves",   "male",
   lvstckid == "female calves", "female",
   lvstckid == "bulls",         "male",
   lvstckid == "steers",        "male",
   lvstckid == "heifers",       "female",
-  lvstckid == "cows",          "female"
+  lvstckid == "cows",          "female",
+  default = NA_character_
 )]
 
-# Normalise calves ID (sex information now captured in `sex` column)
-animals[, lvstckid := ifelse(lvstckid == "male calves",   "calves", lvstckid)]
-animals[, lvstckid := ifelse(lvstckid == "female calves", "calves", lvstckid)]
+animals[, lvstckid := fifelse(lvstckid %in% c("male calves", "female calves"), "calves", lvstckid)]
 
-# Add livestock type groupings
 ls_list <- list(
   "large ruminants" = c("bulls", "cows", "steers", "heifers", "calves"),
   "small ruminants" = c("goats", "sheep"),
@@ -134,16 +165,35 @@ ls_list <- list(
 
 ls_list <- data.table(
   lvstckid = unlist(ls_list),
-  type     = rep(names(ls_list), lengths(ls_list))
+  type = rep(names(ls_list), lengths(ls_list))
 )
 
 animals <- merge(ls_list, animals, by = "lvstckid")
 
 saveRDS(animals, here::here("data", "processed", "01", "clean", "animals.rds"), compress = TRUE)
 
-# --------------------------------------------------------------------------
-# Derived stock measures and exclusion flags
-# --------------------------------------------------------------------------
+# =============================================================================
+# FLAG SUMMARY
+# =============================================================================
+
+flag_cols <- names(animals)[grepl("^flag_", names(animals))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) animals[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: animals -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "animals_flag_summary.csv")
+)
+
+# =============================================================================
+# SECTION 1B: DERIVED STOCK MEASURES AND EXCLUSION FLAGS
+# =============================================================================
+
 animals_sub <- animals[, .(
   y4_hhid, ownershp, type, lvstckid, sex,
   slaughter, weight, owned1, ind, exotic,
@@ -151,152 +201,236 @@ animals_sub <- animals[, .(
   disease, theft, injury
 )]
 
-animals_sub[, type := as.factor(type)]
+animals_sub[, max_owned := rowSums(.SD, na.rm = TRUE),
+            .SDcols = c("owned1", "born", "bought", "gift")]
 
-animals_sub$max_owned <- rowSums(animals_sub[, owned1:gift],    na.rm = TRUE)
-animals_sub$all_lost  <- rowSums(animals_sub[, disease:injury], na.rm = TRUE)
-animals_sub$current   <- rowSums(animals_sub[, ind:exotic],     na.rm = TRUE)
+animals_sub[, all_lost := rowSums(.SD, na.rm = TRUE),
+            .SDcols = c("disease", "theft", "injury")]
 
-animals_sub <- upData(animals_sub,
-  n_slcons   = slaughter - ssold,             # animals slaughtered but not sold (assumed consumed)
-  sl_weight  = slaughter * weight,            # total live weight slaughtered
-  sold_weight = ssold * weight,               # live weight of slaughtered animals sold
-  cons_weight = n_slcons * weight,            # weight assumed consumed (not sold)
-  trans      = sold + gifted,                 # animals in transactions
-  all_lost2  = all_lost - theft,              # losses excl. theft
-  labels = .q(
-    all_lost    = "Animals lost to disease, theft or injury",
-    all_lost2   = "Animals lost to disease and injury (excl theft)",
-    trans       = "Animals part of transaction (sold, gifted or payment)",
-    max_owned   = "Maximum possible number of animals owned at any time",
-    current     = "Animals currently owned",
-    sl_weight   = "Total live weight of all slaughtered animals",
-    sold_weight = "Weight of animals slaughtered and sold",
-    cons_weight = "Weight of animals slaughtered and assumed consumed (not sold)"
-  )
-)
+animals_sub[, current := rowSums(.SD, na.rm = TRUE),
+            .SDcols = c("ind", "exotic")]
 
-saveRDS(animals_sub, here::here("data", "processed", "01", "clean", "animals_fin.rds"),
-        compress = TRUE)
-
-# Exclusion flags
-excl_animals <- copy(animals_sub)
-
-top2 <- function(x) quantile(x, probs = 0.98, na.rm = TRUE)
-bot2 <- function(x) quantile(x, probs = 0.02, na.rm = TRUE)
-
-excl_animals[, top    := top2(weight),  by = lvstckid]
-excl_animals[, bot    := bot2(weight),  by = lvstckid]
-excl_animals[, topown := top2(current), by = lvstckid]
-
-excl_animals <- excl_animals[, excl := fcase(
-  max_owned < slaughter, "Implausible",  # slaughtered more than ever owned
-  ssold > slaughter,     "Implausible",  # sold more than slaughtered
-  top < weight,          "Top 2%",
-  bot > weight,          "Bottom 2%"
+animals_sub[, n_slcons := slaughter - ssold]
+animals_sub[, `:=`(
+  sl_weight = slaughter * weight,
+  sold_weight = ssold * weight,
+  cons_weight = n_slcons * weight,
+  trans = sold + gifted,
+  all_lost2 = all_lost - theft
 )]
 
-# EXCLUSION: flag rows — profile in 05_exclusions_audit.R
-excl_animals <- excl_animals %>%
-  select(y4_hhid, item = lvstckid, excl) %>%
-  unique()
+animals_sub[, `:=`(
+  flag_slaughter_gt_max_owned = fifelse(!is.na(max_owned) & !is.na(slaughter) & slaughter > max_owned, 1L, 0L),
+  flag_ssold_gt_slaughter = fifelse(!is.na(ssold) & !is.na(slaughter) & ssold > slaughter, 1L, 0L),
+  flag_current_missing_sub = fifelse(is.na(current), 1L, 0L),
+  flag_milk_animal = fifelse(ownershp == "yes" & (type == "large ruminants" & sex == "female") | lvstckid == "goats" | lvstckid == "sheep", 1L, 0L) # include donkeys?
+)]
 
-write.csv(excl_animals,
-          here::here("data", "processed", "01", "clean", "excl_animals.csv"),
-          row.names = FALSE)
+n_flag_slaughter_gt_max_owned <- animals_sub[flag_slaughter_gt_max_owned == 1L, .N]
+n_flag_ssold_gt_slaughter <- animals_sub[flag_ssold_gt_slaughter == 1L, .N]
+n_flag_current_missing_sub <- animals_sub[flag_current_missing_sub == 1L, .N]
+n_flag_milk_animal <- animals_sub[flag_milk_animal == 1L, .N]
+
+message("flag_slaughter_gt_max_owned: ", n_flag_slaughter_gt_max_owned,
+        " rows where slaughter exceeds maximum observed ownership")
+message("flag_ssold_gt_slaughter: ", n_flag_ssold_gt_slaughter,
+        " rows where slaughtered-sold exceeds slaughtered total")
+message("flag_current_missing_sub: ", n_flag_current_missing_sub,
+        " rows where current stock measure is missing")
+message("flag_milk_animal: ", n_flag_milk_animal,
+        " rows with animals that can be milked")
+
+animals_sub[, type := as.factor(type)]
+
+saveRDS(animals_sub, here::here("data", "processed", "01", "clean", "animals_fin.rds"), compress = TRUE)
+
+flag_cols <- names(animals_sub)[grepl("^flag_", names(animals_sub))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) animals_sub[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: animals_fin -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "animals_fin_flag_summary.csv")
+)
 
 # =============================================================================
 # SECTION 2: CARCASS BREAKDOWN (reference data from breakdown.xlsx)
-# Applies component fractions (meat, offal, hides, waste) to slaughter weights
-# ⚠️ CROSS-SECTION DEPENDENCY
-# This script uses breakdown.xlsx (raw$ref$breakdown) loaded in 01_load_raw.R.
-# breakdown.xlsx is a reference dataset, not a survey section — loading is
-# handled centrally in 01_load_raw.R and does not require restructuring.
-# Retained here as the breakdown coefficients are applied to this section's data.
-# 🚩 FLAG [CROSS-SECTION]: breakdown.xlsx from raw$ref — confirm source in 01_load_raw.R
 # =============================================================================
 
 wa <- copy(animals_sub)
 
-# ASSUMPTION REMOVED — see impute/animals.R (A10)
 breakdown <- raw$ref$breakdown
 setDT(breakdown)
 
-breakdown[, `:=` (
+breakdown[, `:=`(
   waste = `Bone meal` + Bloodmeal + `Meat & bonemeal`,
   offal = Offals + Fat
 )]
 
-breakdown <- breakdown %>% filter(animal != "Beef")  # Beef handled separately in @Opio.2013
+breakdown <- breakdown[animal != "Beef"]
 breakdown <- breakdown[, .(
-  type, meat = `Raw meat`, waste, offal, hides = `Feather meal/hides`, fcr = FCR_A16, ew = EW_A16
+  type,
+  meat = `Raw meat`,
+  waste,
+  offal,
+  hides = `Feather meal/hides`,
+  fcr = FCR_A16,
+  ew = EW_A16
 )]
 
-# Balance breakdown to 1.0 (residual allocated to waste)
-breakdown <- breakdown %>%
-  mutate(waste = waste + (1 - meat - waste - hides - offal))
+breakdown[, waste := waste + (1 - meat - waste - hides - offal)]
 
 wa <- breakdown[wa, on = "type"]
 
-wa <- upData(wa,
-  meat     = meat     * cons_weight,
-  offal    = offal    * cons_weight,
-  hides    = hides    * cons_weight,
-  inedible = waste    * cons_weight,
-  ew       = sl_weight * ew,    # total edible weight of all slaughtered animals
-  need     = ew * fcr,          # DM feed needed to produce ew (used in impute/animals.R)
-  labels = .q(
-    meat     = "Edible quantity of slaughtered animals",
-    inedible = "Waste material",
-    offal    = "All offal and other edible co-products",
-    hides    = "Estimated weight of skin and hides",
-    ew       = "Edible weight of all animals slaughtered",
-    need     = "kg DM needed to produce EW"
-  ),
-  units = .q(
-    meat     = kg,
-    inedible = kg
-  ),
-  drop = .q(waste, fcr, bot, top, topown)
-)
+wa[, `:=`(
+  meat = meat * cons_weight,
+  offal = offal * cons_weight,
+  hides = hides * cons_weight,
+  inedible = waste * cons_weight,
+  ew = sl_weight * ew,
+  need = ew * fcr
+)]
+
+wa[, `:=`(
+  flag_weight_missing = fifelse(is.na(weight) & slaughter > 0, 1L, 0L),
+  flag_breakdown_type_missing = fifelse(is.na(type), 1L, 0L)
+)]
+
+n_flag_weight_missing <- wa[flag_weight_missing == 1L, .N]
+n_flag_breakdown_type_missing <- wa[flag_breakdown_type_missing == 1L, .N]
+
+message("flag_weight_missing: ", n_flag_weight_missing, " rows where slaughter weight is missing")
+message("flag_breakdown_type_missing: ", n_flag_breakdown_type_missing,
+        " rows where livestock type did not match carcass breakdown reference")
 
 saveRDS(wa, here::here("data", "processed", "01", "clean", "wa.rds"), compress = TRUE)
 
+flag_cols <- names(wa)[grepl("^flag_", names(wa))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) wa[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: wa -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "wa_flag_summary.csv")
+)
+
 # =============================================================================
 # SECTION 3: LIVESTOCK FEEDING PRACTICES (lf_sec_04)
-# Survey-reported primary and secondary feed type by livestock group
-# Feed requirement calculation (FAO tables) is in impute/animals.R
 # =============================================================================
 
 lf_sec_04 <- raw$animals$lf_sec_04
-feed      <- clean_up(lf_sec_04)
+feed <- clean_up(lf_sec_04)
+labfix(lf_sec_04, feed)
 
-labs        <- lapply(lf_sec_04, attr, "label")
-labs        <- unlist(labs, use.names = TRUE)
-label(feed) <- as.list(labs[match(names(feed), names(feed))])
-
-feed <- upData(feed,
+feed <- upData(
+  feed,
   rename = .q(
-    lf04_01_1 = feed1,
-    lf04_01_2 = feed2,
+    lf04_01_1 = feed1_raw,
+    lf04_01_2 = feed2_raw,
     lvstckcat = type
   ),
   labels = .q(
-    feed1 = "Major feeding practice",
-    feed2 = "Second major feeding practice"
+    feed1_raw = "Major feeding practice, as reported",
+    feed2_raw = "Second major feeding practice, as reported"
   )
 )
 
+feed_levels <- c(
+  "only feeding (no grazing/scavenging)",
+  "mainly grazing/scavenging w/ some feeding",
+  "only grazing/scavenging",
+  "mainly feeding w/ some grazing/scavenging",
+  "tethering"
+)
+
+animals_hh <- animals_sub %>%
+  filter(ownershp == "yes") %>%
+  select(y4_hhid, type) %>%
+  distinct() %>%
+  mutate(flag_expected_feed_section = 1L)
+
+feed <- feed %>%
+  full_join(animals_hh, by = c("y4_hhid", "type")) %>%
+  mutate(
+    flag_feed_only = fifelse(is.na(flag_expected_feed_section) & (!is.na(feed1_raw) | !is.na(feed2_raw)), 1L, 0L),
+    flag_animal_only = fifelse(!is.na(flag_expected_feed_section) & is.na(feed1_raw) & is.na(feed2_raw), 1L, 0L),
+    flag_both_sections = fifelse(!is.na(flag_expected_feed_section) & (!is.na(feed1_raw) | !is.na(feed2_raw)), 1L, 0L),
+    flag_true_na_feed1 = fifelse(!is.na(flag_expected_feed_section) & is.na(feed1_raw) & is.na(feed2_raw), 1L, 0L),
+    flag_feed1_unexpected = fifelse(!is.na(feed1_raw) & !(feed1_raw %in% feed_levels), 1L, 0L),
+    flag_feed2_unexpected = fifelse(!is.na(feed2_raw) & !(feed2_raw %in% feed_levels), 1L, 0L)
+  )
+
+n_flag_feed_only <- feed[flag_feed_only == 1L, .N]
+n_flag_animal_only <- feed[flag_animal_only == 1L, .N]
+n_flag_both_sections <- feed[flag_both_sections == 1L, .N]
+n_flag_true_na_feed1 <- feed[flag_true_na_feed1 == 1L, .N]
+n_flag_feed1_unexpected <- feed[flag_feed1_unexpected == 1L, .N]
+n_flag_feed2_unexpected <- feed[flag_feed2_unexpected == 1L, .N]
+
+message("flag_feed_only: ", n_flag_feed_only, " rows where feed exists without matching owned-animal record")
+message("flag_animal_only: ", n_flag_animal_only, " rows where owned-animal record exists without feed data")
+message("flag_both_sections: ", n_flag_both_sections, " rows where both sections matched")
+message("flag_true_na_feed1: ", n_flag_true_na_feed1, " rows where both feed fields are missing on matched livestock")
+message("flag_feed1_unexpected: ", n_flag_feed1_unexpected, " rows where primary feed practice is unrecognised")
+message("flag_feed2_unexpected: ", n_flag_feed2_unexpected, " rows where secondary feed practice is unrecognised")
+
 saveRDS(feed, here::here("data", "processed", "01", "clean", "feed.rds"), compress = TRUE)
 
-# Simplify: use feed2 where tethering (ambiguous) and feed2 is more informative
-# 🚩 FLAG ASSUMPTION: "tethering" replaced with feed2 if available.
-# Definition of tethering for feed intake not confirmed in codebook.
-feed[, feed1 := ifelse(feed1 == "tethering" & !is.na(feed2), feed2, feed1)]
-f <- feed[, .(y4_hhid, type, feed1)]
-f[, type := as.factor(type)]
+feed_short <- feed[, .(
+  y4_hhid,
+  type,
+  feed1_raw,
+  feed2_raw,
+  flag_expected_feed_section,
+  flag_feed_only,
+  flag_animal_only,
+  flag_both_sections,
+  flag_true_na_feed1,
+  flag_feed1_unexpected,
+  flag_feed2_unexpected
+)]
 
-saveRDS(f, here::here("data", "processed", "01", "clean", "feed_short.rds"), compress = TRUE)
+saveRDS(feed_short, here::here("data", "processed", "01", "clean", "feed_short.rds"), compress = TRUE)
+
+flag_cols <- names(feed_short)[grepl("^flag_", names(feed_short))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) feed_short[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: feed_short -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "feed_short_flag_summary.csv")
+)
+
+saveRDS(feed_short, here::here("data", "processed", "01", "clean", "feed_short.rds"), compress = TRUE)
+
+flag_cols <- names(feed_short)[grepl("^flag_", names(feed_short))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) feed_short[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: feed_short -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "feed_short_flag_summary.csv")
+)
 
 # =============================================================================
 # SECTION 4: FISHERY (lf_sec_12)
@@ -308,28 +442,44 @@ fishes <- lf_sec_12 %>%
   clean_up() %>%
   select(
     y4_hhid,
-    species           = lf12_02_2,
-    tot.quantity      = lf12_05_1,
-    tot.unit          = lf12_05_2,
-    wks_fished        = lf12_07,
-    quantity          = lf12_08_1,
-    unit              = lf12_08_2,
-    quant_preserved1  = lf12_10_1, unit_preserved1 = lf12_10_2, mtd_preserved1 = lf12_10_3,
-    quant_preserved2  = lf12_10_4, unit_preserved2 = lf12_10_5, mtd_preserved2 = lf12_10_6,
-    wks_sales         = lf12_11,
-    sold1             = lf12_12_1, sold.unit1 = lf12_12_2, sold.type1 = lf12_12_3,
-    sold2             = lf12_12_5, sold.unit2 = lf12_12_6, sold.type2 = lf12_12_7,
-    consumed1         = lf12_13_1, consumed.unit1 = lf12_13_2, consumed.type1 = lf12_13_3,
-    consumed2         = lf12_13_4, consumed.unit2 = lf12_13_5, consumed.type2 = lf12_13_6
-  ) %>%
-  mutate(
-    tot.quantity = ifelse(is.na(tot.quantity), 0, tot.quantity),
-    tot.unit     = ifelse(tot.unit == "kipande", "piece", tot.unit)
+    species = lf12_02_2,
+    tot.quantity = lf12_05_1,
+    tot.unit = lf12_05_2,
+    wks_fished = lf12_07,
+    quantity = lf12_08_1,
+    unit = lf12_08_2,
+    quant_preserved1 = lf12_10_1, unit_preserved1 = lf12_10_2, mtd_preserved1 = lf12_10_3,
+    quant_preserved2 = lf12_10_4, unit_preserved2 = lf12_10_5, mtd_preserved2 = lf12_10_6,
+    wks_sales = lf12_11,
+    sold1 = lf12_12_1, sold.unit1 = lf12_12_2, sold.type1 = lf12_12_3,
+    sold2 = lf12_12_5, sold.unit2 = lf12_12_6, sold.type2 = lf12_12_7,
+    consumed1 = lf12_13_1, consumed.unit1 = lf12_13_2, consumed.type1 = lf12_13_3,
+    consumed2 = lf12_13_4, consumed.unit2 = lf12_13_5, consumed.type2 = lf12_13_6
   )
 
-# NOTE: fish labour data (lf_sec_09) not integrated — labour variables
-# not required for MFA pipeline. Revisit if fish section is expanded.
+fishes[, flag_tot_quantity_missing := fifelse(is.na(tot.quantity) & !is.na(species), 1L, 0L)]
+fishes[, flag_tot_unit_missing := fifelse(is.na(tot.unit) & !is.na(species), 1L, 0L)]
+
+n_flag_tot_quantity_missing <- fishes[flag_tot_quantity_missing == 1L, .N]
+n_flag_tot_unit_missing <- fishes[flag_tot_unit_missing == 1L, .N]
+
+message("flag_tot_quantity_missing: ", n_flag_tot_quantity_missing, " rows where total quantity is missing")
+message("flag_tot_unit_missing: ", n_flag_tot_unit_missing, " rows where total unit is missing")
 
 saveRDS(fishes, here::here("data", "processed", "01", "clean", "fishes.rds"), compress = TRUE)
+
+flag_cols <- names(fishes)[grepl("^flag_", names(fishes))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) fishes[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: fishes -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "fishes_flag_summary.csv")
+)
 
 message("clean/animals.R: all animal outputs saved.")
