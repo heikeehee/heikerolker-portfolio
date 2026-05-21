@@ -10,15 +10,13 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-# Ensure output directory exists
 dir.create(here::here("data", "processed", "01", "impute"), showWarnings = FALSE, recursive = TRUE)
 
 pc <- readRDS(here::here("data", "processed", "01", "clean", "pc.rds"))
 
 # --------------------------------------------------------------------------
-# ASSUMPTION A04: If plot exists but planted fraction is missing, use reported
-# harvested area as fallback.
-# Rationale: This is a value-replacement rule and should not happen in cleaning.
+# A1: If plot exists but planted fraction is missing, use reported harvested area
+# as fallback.
 # --------------------------------------------------------------------------
 pc[, area_planted_ha_imp := fifelse(
   !is.na(plotnum) & is.na(area_planted) & !is.na(area_harvested_ha),
@@ -37,9 +35,8 @@ message("flag_area_planted_ha_imputed: ", n_flag_area_planted_ha_imputed,
         " records where area_planted_ha was replaced using area_harvested_ha")
 
 # --------------------------------------------------------------------------
-# ASSUMPTION A05: Total harvest is defined as observed harvested quantity plus
-# estimated remaining harvest.
-# Rationale: This is a composite inferred field, not a raw survey response.
+# A2: Total harvest is defined as observed harvested quantity plus estimated
+# remaining harvest.
 # --------------------------------------------------------------------------
 pc[, total_harvest := harvest_remain + quant_harvest]
 
