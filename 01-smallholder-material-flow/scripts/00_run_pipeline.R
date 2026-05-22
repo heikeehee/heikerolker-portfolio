@@ -32,8 +32,8 @@ source(here::here("01-smallholder-material-flow", "scripts", "01_load_raw.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "household_roster.R"))  # SPINE — run first
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "recall.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "crops.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R")).     # dependency on crops.R
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "destinations.R")).   # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R")).     # dependency on crops.R & destinations.R
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "animals.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "animal_products.R")) # dependency on animals.R and recall.R
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))            # dependency on animals.R
