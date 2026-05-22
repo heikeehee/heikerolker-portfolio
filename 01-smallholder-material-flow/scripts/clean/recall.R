@@ -157,17 +157,25 @@ recall_kg <- recall %>%
 recall_kg <- recall_kg %>%
   dplyr::mutate(
     flag_quantity_missing = dplyr::if_else(consumed == "yes" & is.na(quantity), 1L, 0L),
-    flag_value_missing = dplyr::if_else(consumed == "yes" &
-                                          (coalesce(purchases, 0) > 0 | coalesce(production, 0) > 0 | coalesce(gifts, 0) > 0) &
-                                          is.na(value), 1L, 0L),
-    flag_source_missing = dplyr::if_else(consumed == "yes" & !is.na(value) & is.na(source), 1L, 0L),
-    flag_consumed_no_but_quantity = dplyr::if_else(consumed == "no" & coalesce(quantity, 0) > 0, 1L, 0L)
+    flag_value_missing = dplyr::if_else(consumed == "yes" & purchases > 0 & is.na(value), 1L, 0L),
+    flag_source_missing = dplyr::if_else(consumed == "yes" & purchases > 0 & is.na(source), 1L, 0L),
+    flag_consumed_no_but_quantity = dplyr::if_else(consumed == "no" & coalesce(quantity, 0) > 0, 1L, 0L),
+    flag_unit_missing = dplyr::if_else(consumed == "yes" & quantity > 0 & is.na(unit), 1L, 0L),
+    flag_unit_production_missing = dplyr::if_else(consumed == "yes" & production > 0 & is.na(u_produced), 1L, 0L),
+    flag_unit_purchases_missing = dplyr::if_else(consumed == "yes" & purchases > 0 & is.na(u_bought), 1L, 0L),
+    flag_unit_gifts_missing = dplyr::if_else(consumed == "yes" & gifts > 0 & is.na(u_gifts), 1L, 0L)
   )
 
 n_flag_quantity_missing <- sum(recall_kg$flag_quantity_missing, na.rm = TRUE)
 n_flag_value_missing <- sum(recall_kg$flag_value_missing, na.rm = TRUE)
 n_flag_source_missing <- sum(recall_kg$flag_source_missing, na.rm = TRUE)
 n_flag_consumed_no_but_quantity <- sum(recall_kg$flag_consumed_no_but_quantity, na.rm = TRUE)
+n_flag_unit_missing <- sum(recall_kg$flag_unit_missing, na.rm = TRUE)
+n_flag_unit_production_missing <- sum(recall_kg$flag_unit_production_missing, na.rm = TRUE)
+n_flag_unit_purchases_missing <- sum(recall_kg$flag_unit_purchases_missing, na.rm = TRUE)
+n_flag_unit_gifts_missing <- sum(recall_kg$flag_unit_gifts_missing, na.rm = TRUE)
+
+
 
 message("flag_quantity_missing: ", n_flag_quantity_missing,
         " consumed items with missing quantity")
@@ -177,6 +185,14 @@ message("flag_source_missing: ", n_flag_source_missing,
         " consumed items from purchase with value present but source missing")
 message("flag_consumed_no_but_quantity: ", n_flag_consumed_no_but_quantity,
         " items marked not consumed but with positive quantity")
+message("flag_unit_missing: ", n_flag_unit_missing,
+        " items marked consumed but unit missing")
+message("flag_unit_production_missing: ", n_flag_unit_production_missing,
+        " items marked consumed from production but unit missing")
+message("flag_unit_purchases_missing: ", n_flag_unit_purchases_missing,
+        " items marked consumed from purchases but unit missing")
+message("flag_unit_gifts_missing: ", n_flag_unit_gifts_missing,
+        " items marked consumed from gifts but unit missing")
 
 # FLAG F4: genuine missing conversion factors on consumed items.
 missing_conversions <- recall_kg %>%
@@ -206,7 +222,7 @@ recall_kg <- recall_kg %>%
   dplyr::mutate(
     acquired_kg = rowSums(dplyr::across(c(purchases_kg, production_kg, gifts_kg)), na.rm = TRUE),
     flag_quantity_component_mismatch = dplyr::if_else(
-      consumed == "yes" & !is.na(quantity_kg) & acquired_kg > 0 & abs(quantity_kg - acquired_kg) > 0.001,
+      consumed == "yes" & quantity_kg < acquired_kg,
       1L,
       0L
     )

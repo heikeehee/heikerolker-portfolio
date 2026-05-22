@@ -20,7 +20,7 @@ Updated to match the revised pipeline structure. In the current convention, clea
 ## Review table
 
 | Variable | Stage | Script | Type | Description | Downstream action | Status | Notes |
-|----|----|----|----|----|----|----|----|
+|---------|---------|----------|---------|---------|---------|---------|---------|
 | gps_area_zero_rule | clean | `clean/crops.R` | assumption | GPS readings of `0` are treated as unusable and therefore missing for diagnostics. | Confirm this remains standardisation only, not imputation. | documented | Linked to `flag_gps_area_zero`. |
 | plotsize_candidate_rule | clean | `clean/crops.R` | assumption | GPS area is preferred over farmer-reported area for `plotsize_candidate` where available. | Confirm against LSMS-ISA area-measurement guidance. | needs review | Keep rationale short in README/methods note. |
 | area_harvested_alt_candidate_rule | clean | `clean/crops.R` | assumption | `area_harvested_alt` is retained as a candidate proportional harvested-area estimate. | Decide whether it stays diagnostic only or becomes an imputation input. | needs review | This is a candidate, not a final replacement. |
@@ -89,6 +89,17 @@ Updated to match the revised pipeline structure. In the current convention, clea
 | flag_disposition_inconsistent | impute | `impute/milk.R` | flag | Reported milk dispositions are not internally consistent. | Apply imputation rule. | needs review | Existing item from prior review file. |
 | flag_milk_conversion_applied | impute | `impute/milk.R` | flag | Litres converted to kg using density factor. | Confirm unit conversion. | documented | Existing item from prior review file. |
 | flag_cross_section_feed_mismatch | impute | `impute/milk.R` | flag | Milk feed record does not match animal support. | Review alignment. | needs review | Existing item from prior review file. |
+| flag_conv_review | clean | clean/recall.R | flag | Conversion not possible | Cross reference units and impute | documented | Overlap with missing units |
+| flag_dup_recall_keys | clean | clean/recall.R | flag | Duplicate (y4_hhid, itemcode) combinations in raw recall data. | Profile duplicates and confirm first-occurrence handling is justified. | documented | Counts duplicate keys in raw input. |
+| flag_quantity_missing | clean | clean/recall.R | flag | Consumed items with missing quantity. | Profile missingness and decide whether to keep as diagnostic only. | documented | Row-level flag on recall_kg. |
+| flag_value_missing | clean | clean/recall.R | flag | Consumed items with purchase amount but missing value. | Review whether value is genuinely missing or structurally absent. | documented | Row-level flag on recall_kg. |
+| flag_source_missing | clean | clean/recall.R | flag | Purchased items with value present but source missing. | Review as a consistency check, not an imputation rule. | documented | Row-level flag on recall_kg. |
+| flag_consumed_no_but_quantity | clean | clean/recall.R | flag | Items marked not consumed but with positive quantity. | Profile as contradiction and confirm coding logic. | documented | This should be in the summary if recall_kg is the object used. |
+| flag_unit_missing | clean | clean/recall.R | flag | Consumed items with quantity but missing unit. | Review missing unit patterns before deciding on repair. | documented |  |
+| flag_unit_production_missing | clean | clean/recall.R | flag | Consumed-from-production items with missing production unit. | Review missing unit patterns before deciding on repair. | documented |  |
+| flag_unit_purchases_missing | clean | clean/recall.R | flag | Consumed-from-purchases items with missing purchase unit. | Review missing unit patterns before deciding on repair. | documented |  |
+| flag_unit_gifts_missing | clean | clean/recall.R | flag | Consumed-from-gifts items with missing gift unit. | Review missing unit patterns before deciding on repair. | documented |  |
+| flag_quantity_component_mismatch | clean | clean/recall.R | flag | Converted quantity does not reconcile with purchases,production, and gifts. | Investigate as a reconciliation check. | documented | Uses quantity_kg \< acquired_kg |
 
 ## Review order
 
@@ -115,10 +126,10 @@ Updated to match the revised pipeline structure. In the current convention, clea
 ### `clean/recall.R`
 
 -   [ ] Cite or replace every heuristic conversion factor in `food_conv` (items tagged by `flag_conv_review`). At minimum add a short inline comment with the source for each factor before publication.
--   [ ] Profile `flag_dup_recall_keys`: are duplicate recall keys legitimate multi-item rows, or survey artefacts? Confirm whether first-occurrence retention loses data.
--   [ ] Profile `flag_consumed_no_but_quantity` and `flag_quantity_missing` together — these are mirror-image gateway mismatches and the same enumerator pattern likely drives both.
--   [ ] Check `flag_quantity_component_mismatch`: decide whether the 0.001 kg reconciliation tolerance is correct or needs adjustment for the item types involved.
--   [ ] Review `recall_missing_conversions.csv` output and decide which gaps are fillable with literature values versus which should remain `NA` downstream.
+-   [x] Profile `flag_dup_recall_keys`: are duplicate recall keys legitimate multi-item rows, or survey artefacts? Confirm whether first-occurrence retention loses data.
+-   [x] Profile `flag_consumed_no_but_quantity` and `flag_quantity_missing` together — these are mirror-image gateway mismatches and the same enumerator pattern likely drives both.
+-   [x] Check `flag_quantity_component_mismatch`: decide whether the 0.001 kg reconciliation tolerance is correct or needs adjustment for the item types involved. → no tolerance applied quantity \< acquired
+-   [x] Review `recall_missing_conversions.csv` output and decide which gaps are fillable with literature values versus which should remain `NA` downstream. → new unit missing flags created, requires imputation
 
 ### `clean/animals.R`
 
