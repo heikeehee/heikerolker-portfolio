@@ -2,12 +2,13 @@
 # clean/ag_produce.R
 # PURPOSE: Clean agricultural produce / processed products survey section
 # INPUT:   raw$ag_produce from 01_load_raw.R
-# OUTPUT:  data/processed/clean/ag_produce.rds
-#          data/processed/clean/mass_agprod_long.rds
-#          data/processed/clean/mass_agprod.rds
+# OUTPUT:  data/processed/01/clean/ag_produce.rds
+#          data/processed/01/clean/ag_produce_flag_summary.csv
 # SECTION: ag_sec_10 — processed agricultural products and by-products
+# NOTE:    Clean stage only. Standardise names, labels, and section-level flags.
+#          Unit conversion, reconciliation, allocation rules, and extraction-rate
+#          assumptions belong in impute/ag_produce.R and impute/processed_crops.R.
 # =============================================================================
-
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
@@ -16,197 +17,122 @@ dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE,
 
 # =============================================================================
 # SECTION 1: LOAD AND RENAME
-# ag_sec_10: volumes of processed products, by-products, and sales
 # =============================================================================
 
 ag_sec_10  <- raw$ag_produce$ag_sec_10
 ag_produce <- ag_sec_10 %>% clean_up()
 
-ag_produce <- upData(ag_produce,
+ag_produce <- upData(
+  ag_produce,
   rename = .q(
     zaocode    = cropid,
     ag10_02_3  = type,
     ag10_03    = product,
-    ag10_04_1  = quant,
-    ag10_04_2  = unit,
-    ag10_05    = input,
+    ag10_04_1  = quant_raw,
+    ag10_04_2  = unit_raw,
+    ag10_05    = input_raw,
     ag10_06    = sales,
-    ag10_07_1  = sold,
-    ag10_07_2  = unit_s,
-    ag10_08    = input_s,
+    ag10_07_1  = sold_raw,
+    ag10_07_2  = unit_s_raw,
+    ag10_08    = input_s_raw,
     ag10_12_1  = buyer1,
     ag10_12_2  = buyer2
   ),
   labels = .q(
-    input   = "Input quantity before processing",
-    product = "Name final product",
-    quant   = "Quantity by/product",
-    unit    = "Unit by/product",
-    sales   = "Sales conducted",
-    sold    = "Quantity sold",
-    unit_s  = "Unit of sales",
-    input_s = "Input for sales",
-    buyer1  = "Primary buyer",
-    buyer2  = "Second largest buyer"
-  ),
-  # Replace NA with structural 0 where no sales occurred
-  sold = ifelse(sales == "no", 0, sold)
+    type       = "Processed product or by-product type",
+    product    = "Name of final product",
+    quant_raw  = "Quantity of product/by-product, as reported",
+    unit_raw   = "Unit of product/by-product, as reported",
+    input_raw  = "Input quantity before processing, as reported",
+    sales      = "Sales conducted",
+    sold_raw   = "Quantity sold, as reported",
+    unit_s_raw = "Unit of sales quantity, as reported",
+    input_s_raw = "Input associated with sales, as reported",
+    buyer1     = "Primary buyer",
+    buyer2     = "Second largest buyer"
+  )
 )
 
-saveRDS(ag_produce, here::here("data", "processed", "01",  "clean", "ag_produce.rds"),
-        compress = TRUE)
+# Structural zero only: if no sales, sold should be zero
+ag_produce[, sold_kg := fifelse(sales == "no", 0, as.numeric(sold_raw))]
 
 # =============================================================================
-# SECTION 2: UNIT CONVERSION — volumes to kg
-# Conversion from litre to kg using product-specific densities
-# Source: https://www.aqua-calc.com/calculate/food-volume-to-weight
+# SECTION 2: CLEAN-STAGE FLAGS
 # =============================================================================
 
-# Items requiring conversion (not already in kg)
-items <- ag_produce %>%
-  select(cropid, product, unit) %>%
-  unique() %>%
-  filter(!is.na(cropid)) %>%
-  filter(unit != "kg")
+ag_produce[, flag_sales_gate_no := fifelse(sales == "no" & !is.na(type), 1L, 0L)]
+ag_produce[, flag_sales_gate_yes := fifelse(sales == "yes" & !is.na(type), 1L, 0L)]
 
-items <- clear.labels(items)
+ag_produce[, flag_true_na_sold := fifelse(sales == "yes" & is.na(sold_raw), 1L, 0L)]
+ag_produce[, flag_true_na_unit_s := fifelse(sales == "yes" & is.na(unit_s_raw), 1L, 0L)]
+ag_produce[, flag_true_na_input_s := fifelse(sales == "yes" & is.na(input_s_raw), 1L, 0L)]
 
-# ASSUMPTION REMOVED — see impute/ag_produce.R (A06)
-ap_conv <- data.frame(
-  cropid = c("maize", "sunflower", "cassava", "pineapple", "palm oil",
-             "maize", "paddy", "paddy", "paddy", "sorghum",
-             "palm oil", "palm oil", "palm oil", "sunflower", "cocoa",
-             "cocoa", "sunflower", "groundnut", "palm oil", "avocado",
-             "banana", "palm oil", "banana", "sunflower", "bulrush millet",
-             "palm oil", "passion fruit", "sesame", "cassava"),
-  product = c("flour", "palm oil", "flour", "juice", "palm oil",
-              "maize bran", "flour", "rice cover", "seed", "flour",
-              "other (specify)", "flour", "wet husk (wheat barley)", "wet husk (wheat barley)", "other (specify)",
-              "palm oil", "juice", "palm oil", "pulp", "palm oil",
-              "juice", "rubber", "other (specify)", "flour", "thread",
-              "seed", "juice", "palm oil", "outer cover"),
-  # Litre-to-kg conversion factors (product as starting point)
-  # Sources inline; NA = no reliable source found
-  conv = c(0.49, 0.92, 0.59, 1.05, 0.92,   # maize flour 0.49; sunflower oil 0.92; cassava flour 0.59; pineapple juice 1.05; palm oil 0.92
-           0.3, 0.67, 0.1, 0.72, 0.51,      # maize bran 0.3; rice flour 0.67; rice cover/husk 0.1; paddy seed 0.72; sorghum flour 0.51
-           1, NA, NA, NA, NA,               # palm oil 'other' assumed 1; flour/wet husk NA
-           0.92, NA, 0.95, NA, 0.95,        # cocoa palm oil 0.92; sunflower juice NA; groundnut oil 0.95; palm oil pulp NA; avocado oil 0.95
-           NA, NA, NA, 0.27, NA,            # banana juice NA; palm oil rubber NA; banana other NA; sunflower flour 0.27; bulrush millet thread NA
-           NA, 1.04, 0.95, NA),             # palm oil seed NA; passion fruit juice 1.04; sesame oil 0.95; cassava outer cover NA
-  unit = "litre",
-  stringsAsFactors = FALSE
-)
-setDT(ap_conv)
+ag_produce[, flag_quant_missing := fifelse(is.na(quant_raw) & !is.na(type), 1L, 0L)]
+ag_produce[, flag_input_missing := fifelse(is.na(input_raw) & !is.na(type), 1L, 0L)]
+ag_produce[, flag_unit_missing := fifelse(is.na(unit_raw) & !is.na(type), 1L, 0L)]
+ag_produce[, flag_no_product := fifelse(is.na(product), 1L, 0L)]
+ag_produce[, flag_cropid_product_missing := fifelse(is.na(cropid) & !is.na(type), 1L, 0L)]
 
-# Diagnostic: items still needing a conversion factor
-# NOTE: 'items_check' is for QA only — not used in pipeline output
-items_check <- items %>%
-  left_join(select(ap_conv, cropid, product, conv), by = c("cropid", "product"))
+ag_produce[, flag_unit_needs_conversion := fifelse(!is.na(unit_raw) & unit_raw != "kg", 1L, 0L)]
+ag_produce[, flag_sales_unit_needs_conversion := fifelse(!is.na(unit_s_raw) & unit_s_raw != "kg", 1L, 0L)]
 
-# Apply conversion (product quantities)
-ap_convert <- ap_conv[ag_produce, on = c("cropid", "product", "unit")]
-ap_convert[, produced  := ifelse(unit == "kg", quant, quant * conv)]
-ap_convert[, input_new := ifelse(unit == "kg", input, input * conv)]
-ap_convert[, `:=` (conv = NULL, unit = NULL)]
+ag_produce[, flag_product_type := fifelse(type == "processed", 1L, 0L)]
+ag_produce[, flag_byproduct_type := fifelse(type == "by-product", 1L, 0L)]
 
-# Apply conversion (sales quantities)
-ap_convert <- ap_conv[ap_convert, on = c("cropid", "product", "unit" = "unit_s")]
-ap_convert[, `:=` (
-  sold_new    = ifelse(unit == "kg", sold, sold * conv),
-  input_s_new = ifelse(unit == "kg", input_s, input_s * conv)
+ag_produce[, flag_sold_gt_quant_raw := fifelse(
+  !is.na(sold_raw) & !is.na(quant_raw) & sold_raw > quant_raw,
+  1L, 0L
 )]
-ap_convert[, `:=` (conv = NULL, unit = NULL)]
 
-# =============================================================================
-# SECTION 3: PRODUCT/BY-PRODUCT RECONCILIATION
-# Determine which inputs belong to which products when multiple
-# products and by-products are produced from the same raw input
-# =============================================================================
+message("flag_sales_gate_no: ", ag_produce[flag_sales_gate_no == 1L, .N],
+        " rows where sales gateway is no")
+message("flag_sales_gate_yes: ", ag_produce[flag_sales_gate_yes == 1L, .N],
+        " rows where sales gateway is yes")
+message("flag_true_na_sold: ", ag_produce[flag_true_na_sold == 1L, .N],
+        " rows where sales is yes but sold_raw is missing")
+message("flag_true_na_unit_s: ", ag_produce[flag_true_na_unit_s == 1L, .N],
+        " rows where sales is yes but unit_s_raw is missing")
+message("flag_true_na_input_s: ", ag_produce[flag_true_na_input_s == 1L, .N],
+        " rows where sales is yes but input_s_raw is missing")
+message("flag_quant_missing: ", ag_produce[flag_quant_missing == 1L, .N],
+        " rows where quant_raw is missing")
+message("flag_input_missing: ", ag_produce[flag_input_missing == 1L, .N],
+        " rows where input_raw is missing")
+message("flag_unit_missing: ", ag_produce[flag_unit_missing == 1L, .N],
+        " rows where unit_raw is missing")
+message("flag_no_product: ", ag_produce[flag_no_product == 1L, .N],
+        " rows where product is missing")
+message("flag_cropid_product_missing: ", ag_produce[flag_cropid_product_missing == 1L, .N],
+        " rows where cropid for product is missing")
+message("flag_unit_needs_conversion: ", ag_produce[flag_unit_needs_conversion == 1L, .N],
+        " rows where product quantity unit is not kg")
+message("flag_sales_unit_needs_conversion: ", ag_produce[flag_sales_unit_needs_conversion == 1L, .N],
+        " rows where sales quantity unit is not kg")
+message("flag_product_type: ", ag_produce[flag_product_type == 1L, .N],
+        " rows flagged as processed products")
+message("flag_byproduct_type: ", ag_produce[flag_byproduct_type == 1L, .N],
+        " rows flagged as by-products")
+message("flag_sold_gt_quant_raw: ", ag_produce[flag_sold_gt_quant_raw == 1L, .N],
+        " rows where sold_raw exceeds quant_raw")
 
-input <- ap_convert %>%
-  mutate(
-    prod    = ifelse(type == "processed",   1, 0),
-    byprod  = ifelse(type == "by-product",  1, 0),
-    sale    = ifelse(sales == "yes",        1, 0),
-    remain  = input - quant,
-    consumed = quant - sold
-  ) %>%
-  select(y4_hhid, cropid, type, product, prod, byprod, quant, input, input_s, sold, sale, consumed) %>%
-  filter(!is.na(cropid))
+saveRDS(
+  ag_produce,
+  here::here("data", "processed", "01", "clean", "ag_produce.rds"),
+  compress = TRUE
+)
 
-# Rename products for consistency
-inputlong <- input %>%
-  mutate(
-    product = ifelse(product %in% c("other (specify)", "no waste"),  "other",     product),
-    product = ifelse(product == "maize bran",                        "bran",      product),
-    product = ifelse(product %in% c("outer cover", "rice cover"),    "cover",     product),
-    product = ifelse(product == "palm oil",                          "oil",       product),
-    product = ifelse(product == "wet husk (wheat barley)",           "wet husk",  product),
-    item    = paste(cropid, product, sep = " "),
-    input_s = ifelse(sold == 0, 0, input_s)
-  ) %>%
-  select(y4_hhid, cropid, product, item, produced = quant, sold, consumed)
+flag_cols <- names(ag_produce)[grepl("^flag_", names(ag_produce))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) ag_produce[get(col) == 1L, .N], integer(1))
+)[order(-n)]
 
-saveRDS(inputlong,
-        here::here("data", "processed", "01", "clean", "mass_agprod_long.rds"),
-        compress = TRUE)
+message("----- Flag summary: tree_disp -----")
+print(flag_summary)
 
-# Collapse to household-crop level to assign inputs across products/by-products
-input_crop <- input[, lapply(.SD, sm), .SDcols = is.numeric, by = .(y4_hhid, cropid)]
-
-input_stats <- input_crop %>%
-  mutate(
-    input_s  = ifelse(sale == 2, input_s / 2, input_s),  # only one sales entry, halve
-    diff     = input - quant,
-    frac     = quant / input,
-
-    # Input allocation rules — certainty decreasing down the list:
-    # 🚩 FLAG ASSUMPTION: Input allocation rules use product counts and ratios.
-    # Logic is heuristic: "if input / quantity == 2, split equally".
-    # These rules are not codebook-derived. LSMS team cannot provide guidance.
-    new_input = ifelse(prod == 1 & byprod == 0, input, NA),                            # single product
-    new_input = ifelse(prod == 0 & byprod == 1, input, new_input),                     # single by-product
-    new_input = ifelse(prod == 1 & byprod == 1 & input / quant == 2, input / 2, new_input),  # product + by-product equal split
-    new_input = ifelse(prod == 2 & byprod == 0 & input / quant == 2, input / 2, new_input),  # two products equal split
-    new_input = ifelse(prod == 3 & byprod == 0, quant, new_input),                     # three products, input = total quantity
-    new_input = ifelse(prod == 2 & byprod == 1 & input / quant == 2, input / 2, new_input),
-    new_input = ifelse(is.na(new_input) & quant == input, input, new_input)             # everything adds up
-  )
-
-input_stats2 <- input_stats %>%
-  mutate(
-    # ASSUMPTION REMOVED — see impute/ag_produce.R (A08)
-    new_input = ifelse(y4_hhid == "3208-001", input / 2, new_input),
-
-    # Remaining uncertain cases: progressively more uncertain allocation rules
-    new_input = ifelse(is.na(new_input) & prod == 1 & byprod == 1 & quant * 2 < input,
-                       input / 2, new_input),
-    new_input = ifelse(is.na(new_input) & prod == 2 & byprod == 0 & quant < input,
-                       input, new_input),
-    new_input = ifelse(is.na(new_input) & prod == 2 & byprod == 1,
-                       input * frac, new_input),
-    new_input = ifelse(is.na(new_input) & input * frac == quant,
-                       input * frac, new_input)
-  )
-
-input_stats <- input_stats2 %>%
-  mutate(
-    # ASSUMPTION REMOVED — see impute/ag_produce.R (A09)
-    new_input = ifelse(is.na(new_input), input, new_input)
-  )
-
-inputs_final <- input_stats %>%
-  mutate(
-    input_cons = new_input - input_s,
-    consumed   = quant - sold
-  ) %>%
-  select(y4_hhid, cropid, prod, byprod,
-         produced = quant, input = new_input, input_sales = input_s,
-         sold, input_cons, consumed) %>%
-  mutate(uncertain = input - produced)  # residual waste / unaccounted
-
-saveRDS(inputs_final,
-        here::here("data", "processed", "01", "clean", "mass_agprod.rds"),
-        compress = TRUE)
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "ag_produce_flag_summary.csv")
+)
 
 message("clean/ag_produce.R: ag produce outputs saved.")

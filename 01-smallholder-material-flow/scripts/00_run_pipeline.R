@@ -32,10 +32,10 @@ source(here::here("01-smallholder-material-flow", "scripts", "01_load_raw.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "household_roster.R"))  # SPINE — run first
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "recall.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "crops.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "destinations.R")).   # dependency on crops.R
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R")).     # dependency on crops.R & destinations.R
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "destinations.R"))   # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R"))     # dependency on crops.R & destinations.R
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "animals.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "animal_products.R")) # dependency on animals.R and recall.R
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "animal_products.R")) # dependency on animals.R 
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))            # dependency on animals.R
 
 # =============================================================================
@@ -45,9 +45,15 @@ source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))
 # destinations) have been moved to scripts/archive/ — see README.md there.
 # =============================================================================
 
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "yield_gap.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "crops.R")).          # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "yield_gap.R"))       # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinations.R"))    # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "ag_produce.R"))      # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "processed_crops.R")) # dependency on ag_produce.R & destinations.R
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "animals.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "processed_crops.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "milk.R"))            # dependency on animals.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "animal_products.R")) # dependency on animals.R
+
 
 # =============================================================================
 # STAGE 3: Build household-level dataset

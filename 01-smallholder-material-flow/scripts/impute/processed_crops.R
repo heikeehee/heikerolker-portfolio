@@ -46,32 +46,29 @@ extraction_rates <- tribble(
 # These include: Coffee, Cashew nut — add rates if processing data present.
 
 # =============================================================================
-# STEP 2: LOAD CLEANED PROCESSED-CROP DATA
+# STEP 2: LOAD IMPUTED PROCESSED-CROP DATA
 # =============================================================================
 
-ag_produce <- zap_all(readRDS(here::here("data", "processed", "01", "clean", "ag_produce.rds")))
+ag_produce_proc <- zap_all(readRDS(
+  here::here("data", "processed", "01", "impute", "mass_agprod.rds")
+))
 
-# Diagnostic: unique crops in ag_produce
-n_crops_raw <- n_distinct(ag_produce$cropid, na.rm = TRUE)
-message("impute/processed_crops.R: ", n_crops_raw, " unique crop IDs in ag_produce.rds")
+n_crops_raw <- n_distinct(ag_produce_proc$cropid, na.rm = TRUE)
+message("impute/processed_crops.R: ", n_crops_raw, " unique crop IDs in mass_agprod.rds")
 
 # =============================================================================
-# STEP 3: DERIVE sent_to_processing_kg FROM ag_produce
-# ag_produce records volume processed (new_input from clean/ag_produce.R).
-# Treat `input` column as sent_to_processing_kg — the input quantity before processing.
-# 🚩 FLAG [ASSUMPTION]: `input` field (ag10_05) assumed to equal volume sent to processing.
-# Survey records volume processed, not volume sent — these may differ if transit losses occur.
+# STEP 3: DERIVE sent_to_processing_kg FROM IMPUTED INPUTS
 # =============================================================================
 
-ag_produce_proc <- ag_produce %>%
+ag_produce_proc <- ag_produce_proc %>%
   filter(!is.na(cropid)) %>%
-  select(y4_hhid, cropid, product, input) %>%
+  select(y4_hhid, cropid, input) %>%
+  distinct() %>%
   rename(
-    crop                 = cropid,
+    crop = cropid,
     sent_to_processing_kg = input
   ) %>%
-  mutate(crop = str_to_title(crop))  # normalise case to match extraction_rates table
-
+  mutate(crop = str_to_title(crop))
 # =============================================================================
 # STEP 4: JOIN EXTRACTION RATES AND APPLY PRODUCT / BYPRODUCT SPLIT
 # =============================================================================
