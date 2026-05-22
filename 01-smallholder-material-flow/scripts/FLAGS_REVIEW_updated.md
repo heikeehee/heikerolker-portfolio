@@ -2,7 +2,7 @@
 
 Updated to match the revised crop workflow. In the current convention, cleaning scripts contain flags and harmless standardisations only, while imputation scripts hold value-changing assumptions. No crop item is treated as an exclusion at this stage; unresolved items remain flags until they can be imputed or explicitly justified later.
 
-## Crop workflow
+## Assumptions
 
 | ID | Script | Type | Description | Action needed |
 |---------------|---------------|---------------|---------------|---------------|
@@ -11,7 +11,15 @@ Updated to match the revised crop workflow. In the current convention, cleaning 
 | A3 | `clean/crops.R` | Assumption | `area_harvested_alt` is retained as a candidate proportional estimate. | Review whether it should remain diagnostic only. |
 | A4 | `impute/crops.R` | Assumption | Missing `area_planted_ha` may be replaced using `area_harvested_ha`. | Profile affected records and keep count in the audit log. |
 | A5 | `impute/crops.R` | Assumption | `total_harvest = harvest_remain + quant_harvest`. | Keep sensitivity check if needed. |
-
+| A1 | impute/animal_products.R | Assumption | Gateway “no” responses imply structural zeros in imputation.                                       | Keep explicit in impute. |
+| A2 | impute/animal_products.R | Assumption | Hides allocation is based on slaughter-linked support, not on animals that died from other causes. | Review and document.     |
+| A3 | impute/animal_products.R | Assumption | Egg feed allocation uses the poultry feed crosswalk.                                               | Keep explicit in impute. |
+| A4 | impute/animal_products.R | Assumption | Missing feed splits may be defaulted only in imputation and should remain reviewable.              | Keep explicit in impute. |
+| A1 | impute/milk.R | Assumption | Missing average milk production may be filled using reported disposition values. | Document explicitly.             |
+| A2 | impute/milk.R | Assumption | Reported processed < psold is corrected by replacing processed with psold.       | Keep as a logged rule.           |
+| A3 | impute/milk.R | Assumption | Milk uncertainty is approximated using range/4.                                  | Document and justify.            |
+| A4 | impute/milk.R | Assumption | Feed requirement factors are applied uniformly within ruminant groups.           | Keep explicit.                   |
+| A5 | impute/milk.R | Assumption | Milk density is 1.03 kg/litre.                                                   | Confirm against source standard. |
 ## Flags
 
 | ID | Script | Type | Description | Action needed |
@@ -35,6 +43,36 @@ Updated to match the revised crop workflow. In the current convention, cleaning 
 | F5 | `clean/household_roster.R` | Flag | Participation flags imply structural zero downstream. | Check for any cases where participation is FALSE but quantities are positive. |
 | F6 | `clean/household_roster.R` | Flag | Households in `hh_sec_a` with no `ag_filters` match. | Profile missing linkage between roster and agriculture module. |
 | F7 | `clean/household_roster.R` | Flag | Households in `hh_sec_a` with no `lf_filters` match. | Profile missing linkage between roster and livestock module. |
+| F1  | clean/animal_products.R  | Flag | flag_produced_gate_no — production gate says no.                                     | Review for section mismatch or later imputation. |
+| F2  | clean/animal_products.R  | Flag | flag_sold_gate_no — sales gate says no.                                              | Review for section mismatch or later imputation. |
+| F3  | clean/animal_products.R  | Flag | flag_true_na_produced — produced quantity is genuinely missing.                      | Review missingness.                              |
+| F4  | clean/animal_products.R  | Flag | flag_true_na_unit — production unit is genuinely missing.                            | Review missingness.                              |
+| F5  | clean/animal_products.R  | Flag | flag_true_na_sold — sold quantity is genuinely missing.                              | Review missingness.                              |
+| F6  | clean/animal_products.R  | Flag | flag_true_na_unitsold — sold unit is genuinely missing.                              | Review missingness.                              |
+| F7  | clean/animal_products.R  | Flag | flag_unit_unexpected — production unit is not recognised.                            | Review coding or recode.                         |
+| F8  | clean/animal_products.R  | Flag | flag_hides_section_present — hides record exists in product section.                 | Keep as diagnostics.                             |
+| F9  | clean/animal_products.R  | Flag | flag_hides_true_na — hides production and sales are both genuinely missing.          | Review missingness.                              |
+| F10 | clean/animal_products.R  | Flag | flag_hides_section_misalignment — hides row lacks household linkage.                 | Review alignment.                                |
+| F11 | clean/animal_products.R  | Flag | flag_eggs_true_na — egg production and sales are both genuinely missing.             | Review missingness.                              |
+| F12 | clean/animal_products.R  | Flag | flag_eggs_section_misalignment — egg row has no poultry support match.               | Review alignment.                                |
+| F13 | clean/animal_products.R  | Flag | flag_eggs_feed_alignment_missing — eggs have no matching feed practice.              | Review alignment.                                |
+| F14 | clean/animal_products.R  | Flag | flag_egg_feed_category_missing — egg feed category does not match poultry crosswalk. | Review coding or recode.                         |
+| F15 | impute/animal_products.R | Flag | flag_produced_imputed_zero — production gate says no and produced was set to zero.   | Imputation rule; keep logged.                    |
+| F16 | impute/animal_products.R | Flag | flag_sold_imputed_zero — sales gate says no and sold was set to zero.                | Imputation rule; keep logged.                    |
+| F17 | impute/animal_products.R | Flag | flag_produced_annualised — produced quantity was annualised using length.            | Confirm annualisation.                           |
+| F18 | impute/animal_products.R | Flag | flag_hides_weight_repair — hides weight needed repair.                               | Review or justify repair.                        |
+| F19 | impute/animal_products.R | Flag | flag_hides_type_unmatched — hides records do not match an animal type.               | Review alignment.                                |
+| F20 | impute/animal_products.R | Flag | flag_hides_allocation_missing — hides allocation is missing.                         | Review allocation gap.                           |
+| F21 | impute/animal_products.R | Flag | flag_rel_prod_imputed — relative hides production was derived.                       | Review derived allocation.                       |
+| F22 | impute/animal_products.R | Flag | flag_eggs_feed_missing — egg feed allocation is missing.                             | Review allocation gap.                           |
+| F23 | impute/animal_products.R | Flag | flag_eggs_feed_defaulted — egg feed/grazing split was defaulted.                     | Review default assumption.  |
+| F1 | clean/milk.R  | Flag | flag_manual_lf06_03_fix — household-specific average milk production override was needed.   | Review and move to impute.    |
+| F2 | clean/milk.R  | Flag | flag_processed_lt_psold — processed milk reported lower than product sold.                  | Review for inconsistency.     |
+| F3 | clean/milk.R  | Flag | flag_av_missing — average milk production is missing.                                       | Review missingness.           |
+| F4 | clean/milk.R  | Flag | flag_non_ruminant_dropped — livestock category dropped because it cannot produce milk here. | Keep as structural exclusion. |
+| F5 | impute/milk.R | Flag | flag_disposition_inconsistent — reported milk dispositions are not internally consistent.   | Apply imputation rule.        |
+| F6 | impute/milk.R | Flag | flag_milk_conversion_applied — litres converted to kg using density factor.                 | Confirm unit conversion.      |
+| F7 | impute/milk.R | Flag | flag_cross_section_feed_mismatch — milk feed record does not match animal support.          | Review alignment.             |
 
 ## Review order
 
