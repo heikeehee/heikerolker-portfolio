@@ -41,8 +41,8 @@ produce <- upData(
   )
 )
 
-produce[, flag_produced_gate_no := fifelse(lf08_01 == "no", 1L, 0L)]
-produce[, flag_sold_gate_no := fifelse(lf08_04 == "no", 1L, 0L)]
+produce[, flag_produced_gate := fifelse(lf08_01 == "yes", 1L, 0L)]
+produce[, flag_sold_gate := fifelse(lf08_04 == "yes", 1L, 0L)]
 produce[, flag_true_na_produced := fifelse(lf08_01 == "yes" & is.na(produced_raw), 1L, 0L)]
 produce[, flag_true_na_unit := fifelse(lf08_01 == "yes" & is.na(unit_raw), 1L, 0L)]
 produce[, flag_true_na_sold := fifelse(lf08_04 == "yes" & is.na(sold_raw), 1L, 0L)]
@@ -51,8 +51,8 @@ produce[, flag_true_na_unitsold := fifelse(lf08_04 == "yes" & is.na(unitsold_raw
 allowed_units <- c("kgs", "kg", "pieces", "piece", "litres", "liters", "litre", "liter")
 produce[, flag_unit_unexpected := fifelse(!is.na(unit_raw) & !(tolower(unit_raw) %in% allowed_units), 1L, 0L)]
 
-message("flag_produced_gate_no: ", produce[flag_produced_gate_no == 1L, .N], " rows where production gate is 'no'")
-message("flag_sold_gate_no: ", produce[flag_sold_gate_no == 1L, .N], " rows where sales gate is 'no'")
+message("flag_produced_gate: ", produce[flag_produced_gate == 1L, .N], " rows where production gate is 'yes'")
+message("flag_sold_gate: ", produce[flag_sold_gate == 1L, .N], " rows where sales gate is 'yes'")
 message("flag_true_na_produced: ", produce[flag_true_na_produced == 1L, .N], " rows where produced_raw is genuinely missing")
 message("flag_true_na_unit: ", produce[flag_true_na_unit == 1L, .N], " rows where unit_raw is genuinely missing")
 message("flag_true_na_sold: ", produce[flag_true_na_sold == 1L, .N], " rows where sold_raw is genuinely missing")
@@ -74,15 +74,12 @@ readr::write_csv(
   here::here("data", "processed", "01", "clean", "produce_flag_summary.csv")
 )
 
-wa <- readRDS(here::here("data", "processed", "01", "clean", "wa.rds"))
-
 hides <- produce[productid == "skin / hides"]
+
 hides[, flag_hides_section_present := 1L]
 hides[, flag_hides_true_na := fifelse(is.na(produced_raw) & is.na(sold_raw), 1L, 0L)]
-hides[, flag_hides_section_misalignment := fifelse(is.na(y4_hhid), 1L, 0L)]
 
 message("flag_hides_true_na: ", hides[flag_hides_true_na == 1L, .N], " rows where hides production and sales are both genuinely missing")
-message("flag_hides_section_misalignment: ", hides[flag_hides_section_misalignment == 1L, .N], " rows where hides record lacks household linkage")
 
 saveRDS(hides, here::here("data", "processed", "01", "clean", "hides.rds"), compress = TRUE)
 
@@ -100,7 +97,23 @@ readr::write_csv(
 )
 
 animals_fin <- readRDS(here::here("data", "processed", "01", "clean", "animals_fin.rds"))
-feed_short <- readRDS(here::here("data", "processed", "01", "clean", "feed_short.rds"))
+feed_short  <- readRDS(here::here("data", "processed", "01", "clean", "feed_short.rds"))
+
+animals_poultry_hh <- animals_fin[type == "poultry", .(
+  max_owned = sum(max_owned, na.rm = TRUE),
+  current = sum(current, na.rm = TRUE),
+  n_poultry_rows = .N
+), by = y4_hhid]
+
+feed_poultry_hh <- feed_short[type == "poultry", .(
+  feed1_raw = first(feed1_raw),
+  feed2_raw = first(feed2_raw),
+  flag_feed_only = max(flag_feed_only, na.rm = TRUE),
+  flag_animal_only = max(flag_animal_only, na.rm = TRUE),
+  flag_both_sections = max(flag_both_sections, na.rm = TRUE),
+  flag_feed1_unexpected = max(flag_feed1_unexpected, na.rm = TRUE),
+  flag_feed2_unexpected = max(flag_feed2_unexpected, na.rm = TRUE)
+), by = y4_hhid]
 
 chicken <- data.table(
   feed1 = c(
@@ -115,51 +128,40 @@ chicken <- data.table(
   grazed = c(0, 0.6, 1, 0.4, 0.5)
 )
 
-eggs <- produce[productid == "eggs"]
-eggs[, flag_eggs_true_na := fifelse(is.na(produced_raw) & is.na(sold_raw), 1L, 0L)]
-message("flag_eggs_true_na: ", eggs[flag_eggs_true_na == 1L, .N], " rows where egg production and sales are both genuinely missing")
-
-ef <- eggs[, .(
+eggs <- produce[productid == "eggs", .(
   y4_hhid,
   productid,
   produced_kg = as.numeric(produced_raw),
   sold_kg = as.numeric(sold_raw),
-  length
+  egg_length = length
 )]
 
-ef <- merge(
-  ef,
-  animals_fin[, .(y4_hhid, type)],
-  by = "y4_hhid",
-  all.x = TRUE
-)
+ef <- merge(eggs, animals_poultry_hh, by = "y4_hhid", all.x = TRUE)
+ef <- merge(ef, feed_poultry_hh, by = "y4_hhid", all.x = TRUE)
+ef <- merge(ef, chicken, by.x = "feed1_raw", by.y = "feed1", all.x = TRUE)
 
-ef <- feed_short[ef, on = c("type", "y4_hhid")]
-
-ef[, flag_eggs_section_misalignment := fifelse(is.na(type), 1L, 0L)]
-ef[, flag_eggs_feed_alignment_missing := fifelse(is.na(feed1_raw) & is.na(feed2_raw), 1L, 0L)]
+ef[, flag_eggs_gate := fifelse(produced_kg>0, 1L, 0L)]
+ef[, flag_eggs_section_misalignment := fifelse(is.na(type) & produced_kg > 0, 1L, 0L)]
+ef[, flag_eggs_feed_alignment_missing := fifelse(is.na(feed1_raw) & is.na(feed2_raw) & produced_kg > 0, 1L, 0L)]
 ef[, flag_egg_feed_category_missing := fifelse(!is.na(feed1_raw) & !(feed1_raw %in% chicken$feed1), 1L, 0L)]
+ef[, flag_chicken_no_egg := fifelse(max_owned > 0 & is.na(produced_kg), 1L, 0L)]
+ef[, flag_egg_unaccounted := fifelse(!is.na(sold_kg) & produced_kg-sold_kg != 0, 1L, 0L)]
+ef[, flag_egg_overuse := fifelse(!is.na(sold_kg) & produced_kg<sold_kg, 1L, 0L)]
 
+message("flag_eggs_gate: ", ef[flag_eggs_gate == 1L, .N], " rows where eggs produced")
 message("flag_eggs_section_misalignment: ", ef[flag_eggs_section_misalignment == 1L, .N], " rows where eggs have no poultry support match")
 message("flag_eggs_feed_alignment_missing: ", ef[flag_eggs_feed_alignment_missing == 1L, .N], " rows where eggs have no matching feed practice")
 message("flag_egg_feed_category_missing: ", ef[flag_egg_feed_category_missing == 1L, .N], " rows where egg feed category does not match the poultry crosswalk")
+message("flag_chicken_no_egg: ", ef[flag_chicken_no_egg == 1L, .N], " rows where chicken exist but no eggs")
+message("flag_egg_unaccounted: ", ef[flag_egg_unaccounted == 1L, .N], " rows where egg produced - egg sold not zero")
+message("flag_egg_overuse: ", ef[flag_egg_overuse == 1L, .N], " rows where egg sold exceed eggs produced")
+
 
 ef <- chicken[ef, on = .(feed1 = feed1_raw, type)]
 
 mass_eggs <- ef
 saveRDS(mass_eggs, here::here("data", "processed", "01", "clean", "mass_eggs.rds"), compress = TRUE)
 
-excl_eggs <- mass_eggs[, .(
-  y4_hhid,
-  item = productid,
-  excl = fifelse(is.na(feed), "Needs feed match", NA_character_)
-)]
-
-write.csv(
-  excl_eggs,
-  here::here("data", "processed", "01", "clean", "excl_eggs.csv"),
-  row.names = FALSE
-)
 
 flag_summary <- data.table(
   flag = names(mass_eggs)[grepl("^flag_", names(mass_eggs))],

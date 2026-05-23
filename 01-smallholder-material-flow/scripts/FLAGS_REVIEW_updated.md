@@ -59,25 +59,28 @@ Updated to match the revised pipeline structure. In the current convention, clea
 | flag_area_harvested_imputed_gt_plotsize | impute | `impute/crops.R` | flag | Imputed/composite harvested area still exceeds `plotsize`. | Compare with clean-stage mismatch count. | needs review | Post-imputation plausibility check. |
 | flag_short_code | clean | `clean/crops.R` | flag | Short-season plot-details rows where `ag3b_01b != 2` or missing. | Confirm codebook meaning of `2`; keep as audit flag until then. | needs review | `flag_short_code`. |
 | flag_blank_plotnum | clean | `clean/crops.R` | flag | Short-season plot-details rows with blank or missing `plotnum`. | Profile whether joins are affected. | needs review | `flag_blank_plotnum`. |
-| flag_produced_gate_no | clean | `clean/animal_products.R` | flag | Production gate says no. | Review for section mismatch or later imputation. | needs review | Existing item from prior review file. |
-| flag_sold_gate_no | clean | `clean/animal_products.R` | flag | Sales gate says no. | Review for section mismatch or later imputation. | needs review | Existing item from prior review file. |
-| flag_true_na_produced | clean | `clean/animal_products.R` | flag | Produced quantity is genuinely missing. | Review missingness. | needs review | Existing item from prior review file. |
-| flag_true_na_unit | clean | `clean/animal_products.R` | flag | Production unit is genuinely missing. | Review missingness. | needs review | Existing item from prior review file. |
-| flag_true_na_sold | clean | `clean/animal_products.R` | flag | Sold quantity is genuinely missing. | Review missingness. | needs review | Existing item from prior review file. |
-| flag_true_na_unitsold | clean | `clean/animal_products.R` | flag | Sold unit is genuinely missing. | Review missingness. | needs review | Existing item from prior review file. |
-| flag_unit_unexpected | clean | `clean/animal_products.R` | flag | Production unit is not recognised. | Review coding or recode. | needs review | Existing item from prior review file. |
-| flag_hides_section_present | clean | `clean/animal_products.R` | flag | Hides record exists in product section. | Keep as diagnostics. | diagnostic only | Existing item from prior review file. |
-| flag_hides_true_na | clean | `clean/animal_products.R` | flag | Hides production and sales are both genuinely missing. | Review missingness. | needs review | Existing item from prior review file. |
-| flag_hides_section_misalignment | clean | `clean/animal_products.R` | flag | Hides row lacks household linkage. | Review alignment. | needs review | Existing item from prior review file. |
-| flag_eggs_true_na | clean | `clean/animal_products.R` | flag | Egg production and sales are both genuinely missing. | Review missingness. | needs review | Existing item from prior review file. |
-| flag_eggs_section_misalignment | clean | `clean/animal_products.R` | flag | Egg row has no poultry support match. | Review alignment. | needs review | Existing item from prior review file. |
-| flag_eggs_feed_alignment_missing | clean | `clean/animal_products.R` | flag | Eggs have no matching feed practice. | Review alignment. | needs review | Existing item from prior review file. |
-| flag_egg_feed_category_missing | clean | `clean/animal_products.R` | flag | Egg feed category does not match poultry crosswalk. | Review coding or recode. | needs review | Existing item from prior review file. |
+| flag_produced_gate | clean | `clean/animal_products.R` | flag | Production gate says yes. | Review for section mismatch or later imputation. | Diagnostic only. | . |
+| flag_sold_gate | clean | `clean/animal_products.R` | flag | Sales gate says yes. | Review for section mismatch or later imputation. | Diagnostic only. |  |
+| flag_true_na_produced | clean | `clean/animal_products.R` | flag | Produced quantity is genuinely missing. | Review missingness. | documented |  |
+| flag_true_na_unit | clean | `clean/animal_products.R` | flag | Production unit is genuinely missing. | Review missingness. | documented |  |
+| flag_egg_overuse | clean | `clean/animal_products.R` | flag | Eggs sales exceed production. | Review for section mismatch or later imputation. | documented |  |
+| flag_egg_unaccounted | clean | `clean/animal_products.R` | flag |  | Review for section mismatch or later imputation. | documented. | For consumption imputation |
+| flag_true_na_sold | clean | `clean/animal_products.R` | flag | Sold quantity is genuinely missing. | Review missingness. | documented |  |
+| flag_true_na_unitsold | clean | `clean/animal_products.R` | flag | Sold unit is genuinely missing. | Review missingness. | documented |  |
+| flag_unit_unexpected | clean | `clean/animal_products.R` | flag | Production unit is not recognised. | Review coding or recode. | documented |  |
+| flag_hides_section_present | clean | `clean/animal_products.R` | flag | Hides record exists in product section. | Keep as diagnostics. | diagnostic only |  |
+| flag_hides_true_na | clean | `clean/animal_products.R` | flag | Hides production and sales are both genuinely missing. | Review missingness. | diagnostic only |  |
+| flag_eggs_gate | clean | clean/animal_products.R | flag | Egg production yes | Keep as diagnostics. | diagnostic only |  |
+| flag_eggs_section_misalignment | clean | `clean/animal_products.R` | flag | Egg row has no poultry support match. | Review alignment. | documented |  |
+| flag_eggs_feed_alignment_missing | clean | `clean/animal_products.R` | flag | Eggs have no matching feed practice. | Review alignment. | documented |  |
+| flag_egg_feed_category_missing | clean | `clean/animal_products.R` | flag | Egg feed category does not match poultry crosswalk. | Review coding or recode. | documented |  |
+| flag_chicken_no_egg | clean | clean/animal_products.R | flag | Poultry has no egg support match. | Review for plausibility. | documented |  |
 | flag_produced_imputed_zero | impute | `impute/animal_products.R` | flag | Production gate says no and produced was set to zero. | Imputation rule; keep logged. | documented | Existing item from prior review file. |
 | flag_sold_imputed_zero | impute | `impute/animal_products.R` | flag | Sales gate says no and sold was set to zero. | Imputation rule; keep logged. | documented | Existing item from prior review file. |
 | flag_produced_annualised | impute | `impute/animal_products.R` | flag | Produced quantity was annualised using length. | Confirm annualisation. | needs review | Existing item from prior review file. |
 | flag_hides_weight_repair | impute | `impute/animal_products.R` | flag | Hides weight needed repair. | Review or justify repair. | needs review | Existing item from prior review file. |
 | flag_hides_type_unmatched | impute | `impute/animal_products.R` | flag | Hides records do not match an animal type. | Review alignment. | needs review | Existing item from prior review file. |
+|  |  |  |  |  |  |  |  |
 | flag_hides_allocation_missing | impute | `impute/animal_products.R` | flag | Hides allocation is missing. | Review allocation gap. | needs review | Existing item from prior review file. |
 | flag_rel_prod_imputed | impute | `impute/animal_products.R` | flag | Relative hides production was derived. | Review derived allocation. | needs review | Existing item from prior review file. |
 | flag_eggs_feed_missing | impute | `impute/animal_products.R` | flag | Egg feed allocation is missing. | Review allocation gap. | needs review | Existing item from prior review file. |
@@ -161,9 +164,9 @@ Updated to match the revised pipeline structure. In the current convention, clea
 
 ### `clean/animal_products.R`
 
--   [ ] All flags in this script were already present in the review table from the prior session. Confirm that `produce.rds`, `hides.rds`, and `mass_eggs.rds` remain the canonical clean outputs and that no repair logic has silently been added here since the last review.
--   [ ] Check `excl_eggs.csv`: the field name is `excl` and the only value is `"Needs feed match"`. This looks like an exclusion marker, which contradicts the no-exclusion-at-clean-stage rule. Either rename to a flag or confirm this CSV is only used as a diagnostic list by the impute script, not as a hard exclusion filter.
--   [ ] Confirm that `flag_hides_section_present` (always `1L` for hides rows) is intentional as a class identifier rather than a diagnostic flag — if so, label it clearly in the script.
+-   [x] All flags in this script were already present in the review table from the prior session. Confirm that `produce.rds`, `hides.rds`, and `mass_eggs.rds` remain the canonical clean outputs and that no repair logic has silently been added here since the last review.
+-   [x] Check `excl_eggs.csv`: the field name is `excl` and the only value is `"Needs feed match"`. This looks like an exclusion marker, which contradicts the no-exclusion-at-clean-stage rule. Either rename to a flag or confirm this CSV is only used as a diagnostic list by the impute script, not as a hard exclusion filter. → deleted all exclude code
+-   [x] Confirm that `flag_hides_section_present` (always `1L` for hides rows) is intentional as a class identifier rather than a diagnostic flag — if so, label it clearly in the script.
 
 ### `clean/milk.R`
 
