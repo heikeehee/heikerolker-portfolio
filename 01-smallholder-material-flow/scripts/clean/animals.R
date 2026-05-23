@@ -88,14 +88,14 @@ message("flag_dup_animals: ", n_flag_dup_animals,
         " duplicated (y4_hhid, lvstckid) combinations in lf_sec_02")
 
 # FLAG F2: gateway questions imply a zero count later, but that repair is deferred to impute.
-animals[, flag_bought_zero_from_gate := fifelse(lf02_06 == "no", 1L, 0L)]
-animals[, flag_gift_zero_from_gate := fifelse(lf02_09 == "no", 1L, 0L)]
-animals[, flag_gifted_zero_from_gate := fifelse(lf02_12 == "no", 1L, 0L)]
-animals[, flag_disease_zero_from_gate := fifelse(lf02_15 == "no", 1L, 0L)]
-animals[, flag_theft_zero_from_gate := fifelse(lf02_18 == "no", 1L, 0L)]
-animals[, flag_injury_zero_from_gate := fifelse(lf02_21 == "no", 1L, 0L)]
-animals[, flag_sold_zero_from_gate := fifelse(lf02_24 == "no", 1L, 0L)]
-animals[, flag_slaughter_zero_from_gate := fifelse(lf02_29 == "no", 1L, 0L)]
+animals[, flag_bought_zero_from_gate := fifelse(lf02_06 == "no" & ownershp == "yes", 1L, 0L)]
+animals[, flag_gift_zero_from_gate := fifelse(lf02_09 == "no" & ownershp == "yes", 1L, 0L)]
+animals[, flag_gifted_zero_from_gate := fifelse(lf02_12 == "no" & ownershp == "yes", 1L, 0L)]
+animals[, flag_disease_zero_from_gate := fifelse(lf02_15 == "no" & ownershp == "yes", 1L, 0L)]
+animals[, flag_theft_zero_from_gate := fifelse(lf02_18 == "no" & ownershp == "yes", 1L, 0L)]
+animals[, flag_injury_zero_from_gate := fifelse(lf02_21 == "no" & ownershp == "yes", 1L, 0L)]
+animals[, flag_sold_zero_from_gate := fifelse(lf02_24 == "no" & ownershp == "yes", 1L, 0L)]
+animals[, flag_slaughter_zero_from_gate := fifelse(lf02_29 == "no" & ownershp == "yes", 1L, 0L)]
 
 n_flag_bought_zero_from_gate <- animals[flag_bought_zero_from_gate == 1L, .N]
 n_flag_gift_zero_from_gate <- animals[flag_gift_zero_from_gate == 1L, .N]
@@ -117,17 +117,13 @@ message("flag_slaughter_zero_from_gate: ", n_flag_slaughter_zero_from_gate, " ro
 
 # FLAG F3: classify current stock and ownership inconsistency for review only.
 animals[, flag_current_missing := fifelse(ownershp == "yes" & is.na(ind) & is.na(exotic), 1L, 0L)]
-animals[, flag_no_ownership := fifelse(ownershp == "no", 1L, 0L)]
-animals[, flag_current_components_missing := fifelse(ownershp != "no" & is.na(ind) & is.na(exotic), 1L, 0L)]
+animals[, flag_ownership := fifelse(ownershp == "yes", 1L, 0L)]
 
 n_flag_current_missing <- animals[flag_current_missing == 1L, .N]
-n_flag_no_ownership <- animals[flag_no_ownership == 1L, .N]
-n_flag_current_components_missing <- animals[flag_current_components_missing == 1L, .N]
+n_flag_ownership <- animals[flag_ownership == 1L, .N]
 
 message("flag_current_missing: ", n_flag_current_missing, " rows where ind and exotic are both missing")
-message("flag_no_ownership: ", n_flag_no_ownership, " rows where ownershp is 'no'")
-message("flag_current_components_missing: ", n_flag_current_components_missing,
-        " rows where ownershp is not 'no' but ind and exotic are both missing")
+message("flag_ownership: ", n_flag_ownership, " rows where ownershp is 'yes'")
 
 # Standardise numeric columns without overwriting values.
 animals[, `:=`(
@@ -222,8 +218,16 @@ animals_sub[, `:=`(
 animals_sub[, `:=`(
   flag_slaughter_gt_max_owned = fifelse(!is.na(max_owned) & !is.na(slaughter) & slaughter > max_owned, 1L, 0L),
   flag_ssold_gt_slaughter = fifelse(!is.na(ssold) & !is.na(slaughter) & ssold > slaughter, 1L, 0L),
+  flag_in_out_misaligned = fifelse(max_owned < all_lost, 1L, 0L),
   flag_current_missing_sub = fifelse(is.na(current), 1L, 0L),
-  flag_milk_animal = fifelse(ownershp == "yes" & (type == "large ruminants" & sex == "female") | lvstckid == "goats" | lvstckid == "sheep", 1L, 0L) # include donkeys?
+  flag_milk_animal = fifelse(ownershp == "yes" & (type == "large ruminants" & sex == "female") | lvstckid == "goats" | lvstckid == "sheep", 1L, 0L)
+  )]
+
+animals_sub[, flag_current_own_mismatch := fifelse(
+  !is.na(current) &
+    current < (fcoalesce(ind, 0) + fcoalesce(exotic, 0)),
+  1L,
+  0L
 )]
 
 n_flag_slaughter_gt_max_owned <- animals_sub[flag_slaughter_gt_max_owned == 1L, .N]
@@ -239,6 +243,9 @@ message("flag_current_missing_sub: ", n_flag_current_missing_sub,
         " rows where current stock measure is missing")
 message("flag_milk_animal: ", n_flag_milk_animal,
         " rows with animals that can be milked")
+message("flag_current_own_mismatch: ", animals_sub[flag_current_own_mismatch == 1L, .N], " rows where current ownership mismatched")
+message("flag_in_out_misaligned: ", animals_sub[flag_in_out_misaligned == 1L, .N], " rows where more animals lost than max_owned")
+
 
 animals_sub[, type := as.factor(type)]
 
@@ -365,7 +372,6 @@ feed <- feed %>%
     flag_feed_only = fifelse(is.na(flag_expected_feed_section) & (!is.na(feed1_raw) | !is.na(feed2_raw)), 1L, 0L),
     flag_animal_only = fifelse(!is.na(flag_expected_feed_section) & is.na(feed1_raw) & is.na(feed2_raw), 1L, 0L),
     flag_both_sections = fifelse(!is.na(flag_expected_feed_section) & (!is.na(feed1_raw) | !is.na(feed2_raw)), 1L, 0L),
-    flag_true_na_feed1 = fifelse(!is.na(flag_expected_feed_section) & is.na(feed1_raw) & is.na(feed2_raw), 1L, 0L),
     flag_feed1_unexpected = fifelse(!is.na(feed1_raw) & !(feed1_raw %in% feed_levels), 1L, 0L),
     flag_feed2_unexpected = fifelse(!is.na(feed2_raw) & !(feed2_raw %in% feed_levels), 1L, 0L)
   )
@@ -373,14 +379,12 @@ feed <- feed %>%
 n_flag_feed_only <- feed[flag_feed_only == 1L, .N]
 n_flag_animal_only <- feed[flag_animal_only == 1L, .N]
 n_flag_both_sections <- feed[flag_both_sections == 1L, .N]
-n_flag_true_na_feed1 <- feed[flag_true_na_feed1 == 1L, .N]
 n_flag_feed1_unexpected <- feed[flag_feed1_unexpected == 1L, .N]
 n_flag_feed2_unexpected <- feed[flag_feed2_unexpected == 1L, .N]
 
 message("flag_feed_only: ", n_flag_feed_only, " rows where feed exists without matching owned-animal record")
 message("flag_animal_only: ", n_flag_animal_only, " rows where owned-animal record exists without feed data")
 message("flag_both_sections: ", n_flag_both_sections, " rows where both sections matched")
-message("flag_true_na_feed1: ", n_flag_true_na_feed1, " rows where both feed fields are missing on matched livestock")
 message("flag_feed1_unexpected: ", n_flag_feed1_unexpected, " rows where primary feed practice is unrecognised")
 message("flag_feed2_unexpected: ", n_flag_feed2_unexpected, " rows where secondary feed practice is unrecognised")
 
@@ -395,7 +399,6 @@ feed_short <- feed[, .(
   flag_feed_only,
   flag_animal_only,
   flag_both_sections,
-  flag_true_na_feed1,
   flag_feed1_unexpected,
   flag_feed2_unexpected
 )]
@@ -423,14 +426,6 @@ flag_summary <- data.table(
   flag = flag_cols,
   n = vapply(flag_cols, function(col) feed_short[get(col) == 1L, .N], integer(1))
 )[order(-n)]
-
-message("----- Flag summary: feed_short -----")
-print(flag_summary)
-
-readr::write_csv(
-  as.data.frame(flag_summary),
-  here::here("data", "processed", "01", "clean", "feed_short_flag_summary.csv")
-)
 
 # =============================================================================
 # SECTION 4: FISHERY (lf_sec_12)

@@ -20,7 +20,7 @@ Updated to match the revised pipeline structure. In the current convention, clea
 ## Review table
 
 | Variable | Stage | Script | Type | Description | Downstream action | Status | Notes |
-|---------|---------|----------|---------|---------|---------|---------|---------|
+|---------|---------|---------|---------|---------|---------|---------|---------|
 | gps_area_zero_rule | clean | `clean/crops.R` | assumption | GPS readings of `0` are treated as unusable and therefore missing for diagnostics. | Confirm this remains standardisation only, not imputation. | documented | Linked to `flag_gps_area_zero`. |
 | plotsize_candidate_rule | clean | `clean/crops.R` | assumption | GPS area is preferred over farmer-reported area for `plotsize_candidate` where available. | Confirm against LSMS-ISA area-measurement guidance. | needs review | Keep rationale short in README/methods note. |
 | area_harvested_alt_candidate_rule | clean | `clean/crops.R` | assumption | `area_harvested_alt` is retained as a candidate proportional harvested-area estimate. | Decide whether it stays diagnostic only or becomes an imputation input. | needs review | This is a candidate, not a final replacement. |
@@ -100,6 +100,32 @@ Updated to match the revised pipeline structure. In the current convention, clea
 | flag_unit_purchases_missing | clean | clean/recall.R | flag | Consumed-from-purchases items with missing purchase unit. | Review missing unit patterns before deciding on repair. | documented |  |
 | flag_unit_gifts_missing | clean | clean/recall.R | flag | Consumed-from-gifts items with missing gift unit. | Review missing unit patterns before deciding on repair. | documented |  |
 | flag_quantity_component_mismatch | clean | clean/recall.R | flag | Converted quantity does not reconcile with purchases,production, and gifts. | Investigate as a reconciliation check. | documented | Uses quantity_kg \< acquired_kg |
+| flag_dup_animals | clean | clean/animals.R | flag | Duplicate (y4_hhid, lvstckid) combinations in lf_sec_02. | Profile duplicate rate and confirm handling is acceptable. | documented | Row-level diagnostic flag on animals. |
+| flag_bought_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_06 == "no" implies zero bought animals later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_gift_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_09 == "no" implies zero gift animals later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_gifted_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_12 == "no" implies zero gifted animals later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_disease_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_15 == "no" implies zero disease losses later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_theft_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_18 == "no" implies zero theft losses later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_injury_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_21 == "no" implies zero injury losses later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_sold_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_24 == "no" implies zero sold animals later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_slaughter_zero_from_gate | clean | clean/animals.R | flag | ownershp == "yes" & lf02_29 == "no" implies zero slaughter later. | Keep as structural-zero diagnostic; repair belongs in impute. | documented | Row-level flag on animals. |
+| flag_current_missing | clean | clean/animals.R | flag | Both ind and exotic are missing when ownership is yes. | Profile missingness and confirm whether imputation is needed. | documented | Row-level flag on animals. |
+| flag_ownership | clean | clean/animals.R | flag | Household reports ownership. | Use as gate flag only; should match roster | documented | Row-level flag on animals. |
+| flag_in_out_misaligned | clean | clean.animals.R | flag | all_lost exceeds max_owned | Investigate as plausibility check | documented | Row-level flag on animals_sub. |
+| flag_slaughter_gt_max_owned | clean | clean/animals.R | flag | Slaughter exceeds maximum observed ownership. | Investigate as plausibility check. | documented | Row-level flag on animals_sub. |
+| flag_ssold_gt_slaughter | clean | clean/animals.R | flag | Slaughtered-sold count exceeds slaughtered total. | Investigate as plausibility check. | documented | Row-level flag on animals_sub. |
+| flag_current_missing_sub | clean | clean/animals.R | flag | Current stock measure is missing in the derived stock table. | Review missingness before publication. | documented | Row-level flag on animals_sub. |
+| flag_current_own_mismatch | clean | clean/animals.R | flag | Current stock is less than ind + exotic after missing values are handled. | Investigate as ownership consistency check. | documented | Row-level flag on animals_sub. |
+| flag_weight_missing | clean | clean/animals.R | flag | Slaughter weight is missing where slaughter occurs. | Review as reference-data or entry-gap issue. | documented | Row-level flag on wa. |
+| flag_breakdown_type_missing | clean | clean/animals.R | flag | Livestock type did not match carcass breakdown reference. | Check reference crosswalk and unmatched types. | documented | Row-level flag on wa. |
+| flag_expected_feed_section | clean | clean/animals.R | flag | Household-animal record expected to have a feed section match. | Join helper for feed review; keep only if needed downstream. | diagnostic only | Join helper, not necessarily a final review item. |
+| flag_feed_only | clean | clean/animals.R | flag | Feed record exists without matching owned-animal record. | Review unmatched feed households. | documented | Row-level flag on feed. |
+| flag_animal_only | clean | clean/animals.R | flag | Owned-animal record exists without feed data. All related to 'other animal' | Review whether missing feed is acceptable or needs follow-up. | documented | Row-level flag on feed. |
+| flag_both_sections | clean | clean/animals.R | flag | Both animal and feed sections matched. | Diagnostic only; useful for QA counts. | diagnostic only | Not really a problem flag. |
+| flag_feed1_unexpected | clean | clean/animals.R | flag | Primary feed practice is outside the expected category set. | Verify against codebook before publication. | documented | Row-level flag on feed. |
+| flag_feed2_unexpected | clean | clean/animals.R | flag | Secondary feed practice is outside the expected category set. | Verify against codebook before publication. | documented | Row-level flag on feed. |
+| flag_tot_quantity_missing | clean | clean/animals.R | flag | Total fish quantity is missing for a reported species. | Review missingness in fishery totals. | documented | Row-level flag on fishes. |
+| flag_tot_unit_missing | clean | clean/animals.R | flag | Total fish unit is missing for a reported species. | Review missingness in fishery units. | documented | Row-level flag on fishes. |
 
 ## Review order
 
@@ -123,23 +149,15 @@ Updated to match the revised pipeline structure. In the current convention, clea
 
 ## Per-script TODOs
 
-### `clean/recall.R`
-
--   [ ] Cite or replace every heuristic conversion factor in `food_conv` (items tagged by `flag_conv_review`). At minimum add a short inline comment with the source for each factor before publication.
--   [x] Profile `flag_dup_recall_keys`: are duplicate recall keys legitimate multi-item rows, or survey artefacts? Confirm whether first-occurrence retention loses data.
--   [x] Profile `flag_consumed_no_but_quantity` and `flag_quantity_missing` together — these are mirror-image gateway mismatches and the same enumerator pattern likely drives both.
--   [x] Check `flag_quantity_component_mismatch`: decide whether the 0.001 kg reconciliation tolerance is correct or needs adjustment for the item types involved. → no tolerance applied quantity \< acquired
--   [x] Review `recall_missing_conversions.csv` output and decide which gaps are fillable with literature values versus which should remain `NA` downstream. → new unit missing flags created, requires imputation
-
 ### `clean/animals.R`
 
--   [ ] Resolve the inline comment "include donkeys?" in the `flag_milk_animal` derivation — confirm against domain knowledge before the flag feeds into milk analysis.
--   [ ] Confirm `flag_current_missing` and `flag_current_components_missing` are genuinely distinct populations, not the same rows counted twice.
--   [ ] Confirm `flag_animal_only` and `flag_true_na_feed1` are not identical; if they are, collapse to one flag and remove the duplicate.
+-   [x] Resolve the inline comment "include donkeys?" in the `flag_milk_animal` derivation — confirm against domain knowledge before the flag feeds into milk analysis. → not included
+-   [x] Confirm `flag_current_missing` and `flag_current_components_missing` are genuinely distinct populations, not the same rows counted twice. → deleted flag_current_components_missing
+-   [x] Confirm `flag_animal_only` and `flag_true_na_feed1` are not identical; if they are, collapse to one flag and remove the duplicate. → duplicated removed `flag_true_na_feed1`
 -   [ ] Review the eight `*_zero_from_gate` flags as a batch: confirm zero-fill for all of them belongs in `impute/animals.R`, not here.
--   [ ] Profile `flag_slaughter_gt_max_owned` and `flag_ssold_gt_slaughter` for implausible records before deciding whether any become exclusion candidates later.
--   [ ] Check carcass breakdown crosswalk coverage (`flag_breakdown_type_missing`): identify which livestock types are unmatched and whether the reference table needs expanding.
--   [ ] Feed duplicate saving and flag-summary blocks for `feed_short` are repeated twice in the script — remove the duplicate block before portfolio publication (unhealthy pattern: copy-pasted code block that should appear once).
+-   [x] Profile `flag_slaughter_gt_max_owned` and `flag_ssold_gt_slaughter` for implausible records before deciding whether any become exclusion candidates later. → possible imputation
+-   [x] Check carcass breakdown crosswalk coverage (`flag_breakdown_type_missing`): identify which livestock types are unmatched and whether the reference table needs expanding. → no
+-   [x] Feed duplicate saving and flag-summary blocks for `feed_short` are repeated twice in the script — remove the duplicate block before portfolio publication (unhealthy pattern: copy-pasted code block that should appear once).
 
 ### `clean/animal_products.R`
 
