@@ -109,7 +109,6 @@ milk[, flag_av_missing := fifelse(milked > 0 & is.na(av_raw), 1L, 0L)]
 milk[, flag_hi_missing := fifelse(milked > 0 & is.na(hi_raw), 1L, 0L)]
 milk[, flag_lo_missing := fifelse(milked > 0 & is.na(lo_raw), 1L, 0L)]
 milk[, flag_length_missing := fifelse(milked > 0 & is.na(length), 1L, 0L)]
-milk[, flag_milked_missing := fifelse(is.na(milked) & !is.na(lvstckcat), 1L, 0L)]
 milk[, flag_fix_processing_input := fifelse(processed_raw < psold_raw, 1L, 0L)]
 milk[, flag_daily_output_implausible := fifelse(milked == 1 & av_raw > 6, 1L, 0L)]
 
@@ -144,8 +143,6 @@ message("flag_lo_missing: ", milk[flag_lo_missing == 1L, .N],
         " rows where lo_raw is missing")
 message("flag_length_missing: ", milk[flag_length_missing == 1L, .N],
         " rows where length is missing")
-message("flag_milked_missing: ", milk[flag_milked_missing == 1L, .N],
-        " rows where milked is missing")
 message("flag_processed_value_missing: ", milk[flag_processed_value_missing == 1L, .N],
         " rows where processed sold value is missing")
 message("flag_disposition_present_but_av_missing: ", milk[flag_disposition_present_but_av_missing == 1L, .N],

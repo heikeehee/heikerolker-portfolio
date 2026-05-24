@@ -93,19 +93,19 @@ crop_disp <- upData(
   )
 )
 
-crop_disp[, flag_sale_gate_no := fifelse(sale == "yes", 1L, 0L)]
-crop_disp[, flag_storage_gate_no := fifelse(storage == "yes", 1L, 0L)]
-crop_disp[, flag_loss_gate_yes := fifelse(lost == "yes", 1L, 0L)]
+crop_disp[, flag_sale_gate_yes := fifelse(sale == "yes" & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_storage_gate_yes := fifelse(storage == "yes" & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_loss_gate_yes := fifelse(lost == "yes" & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_consumed_gate_yes := fifelse(!is.na(consumed_raw) & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_feed_gate_yes := fifelse(!is.na(feed_raw) & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_seed_gate_yes := fifelse(!is.na(seed_raw) & !is.na(cropid), 1L, 0L)]
 
 crop_disp[, flag_true_na_sold := fifelse(sale == "yes" & is.na(sold_raw), 1L, 0L)]
 crop_disp[, flag_true_na_stored := fifelse(storage == "yes" & is.na(stored_raw), 1L, 0L)]
 crop_disp[, flag_true_na_losses := fifelse(lost == "yes" & is.na(losses_pct_raw), 1L, 0L)]
-crop_disp[, flag_consumed_missing := fifelse(is.na(consumed_raw), 1L, 0L)]
-crop_disp[, flag_feed_missing := fifelse(is.na(feed_raw), 1L, 0L)]
-crop_disp[, flag_seed_missing := fifelse(is.na(seed_raw), 1L, 0L)]
 crop_disp[, flag_manual_hh_fix_needed := fifelse(y4_hhid == "8659-001" & cropid == "maize", 1L, 0L)]
 
-message("flag_sale_gate_no: ", crop_disp[flag_sale_gate_no == 1L, .N],
+message("flag_sale_gate_yes: ", crop_disp[flag_sale_gate_yes == 1L, .N],
         " rows where sale gateway is yes")
 message("flag_storage_gate_no: ", crop_disp[flag_storage_gate_no == 1L, .N],
         " rows where storage gateway is yes")
@@ -117,11 +117,11 @@ message("flag_true_na_stored: ", crop_disp[flag_true_na_stored == 1L, .N],
         " rows where storage is yes but stored_raw is missing")
 message("flag_true_na_losses: ", crop_disp[flag_true_na_losses == 1L, .N],
         " rows where loss is yes but losses_pct_raw is missing")
-message("flag_consumed_missing: ", crop_disp[flag_consumed_missing == 1L, .N],
+message("flag_consumed_gate_yes: ", crop_disp[flag_consumed_missing == 1L, .N],
         " rows where consumed_raw is missing")
-message("flag_feed_missing: ", crop_disp[flag_feed_missing == 1L, .N],
+message("flag_feed_gate_yes: ", crop_disp[flag_feed_missing == 1L, .N],
         " rows where feed_raw is missing")
-message("flag_seed_missing: ", crop_disp[flag_seed_missing == 1L, .N],
+message("flag_seed_gate_yes: ", crop_disp[flag_seed_missing == 1L, .N],
         " rows where seed_raw is missing")
 message("flag_manual_hh_fix_needed: ", crop_disp[flag_manual_hh_fix_needed == 1L, .N],
         " rows where maize consumption needs household-specific repair")
@@ -202,13 +202,28 @@ tree_disp <- upData(
   )
 )
 
-tree_disp[, flag_sale_gate_no := fifelse(sale == "no", 1L, 0L)]
-tree_disp[, flag_storage_gate_no := fifelse(storage == "no", 1L, 0L)]
-tree_disp[, flag_loss_gate_no := fifelse(lost == "no", 1L, 0L)]
+tree_disp[, flag_sale_gate_yes := fifelse(sale == "yes" & !is.na(cropid), 1L, 0L)]
+tree_disp[, flag_storage_gate_yes := fifelse(storage == "yes" & !is.na(cropid), 1L, 0L)]
+tree_disp[, flag_loss_gate_yes := fifelse(lost == "yes", 1L, 0L)]
 tree_disp[, flag_true_na_sold := fifelse(sale == "yes" & is.na(sold_raw), 1L, 0L)]
 tree_disp[, flag_true_na_stored := fifelse(storage == "yes" & is.na(stored_raw), 1L, 0L)]
 tree_disp[, flag_true_na_losses := fifelse(lost == "yes" & is.na(losses_pct_raw), 1L, 0L)]
-tree_disp[, flag_consumed_missing := fifelse(is.na(consumed_raw), 1L, 0L)]
+tree_disp[, flag_consumed_missing := fifelse(is.na(consumed_raw) & !is.na(cropid), 1L, 0L)]
+
+message("flag_sale_gate_yes: ", tree_disp[flag_sale_gate_yes == 1L, .N],
+        " rows where sale gateway is 'yes'")
+message("flag_storage_gate_yes: ", tree_disp[flag_storage_gate_yes == 1L, .N],
+        " rows where storage gateway is 'yes'")
+message("flag_loss_gate_yes: ", tree_disp[flag_loss_gate_yes == 1L, .N],
+        " rows where loss gateway is 'yes'")
+message("flag_true_na_sold: ", tree_disp[flag_true_na_sold == 1L, .N],
+        " rows where sale is 'yes' but sold_raw is missing")
+message("flag_true_na_stored: ", tree_disp[flag_true_na_stored == 1L, .N],
+        " rows where storage is 'yes' but stored_raw is missing")
+message("flag_true_na_losses: ", tree_disp[flag_true_na_losses == 1L, .N],
+        " rows where loss is 'yes' but losses_pct_raw is missing")
+message("flag_consumed_missing: ", tree_disp[flag_consumed_missing == 1L, .N],
+        " rows where consumed_raw is missing")
 
 for (nm in grep("^flag_", names(tree_disp), value = TRUE)) {
   message(nm, ": ", tree_disp[get(nm) == 1L, .N], " rows")

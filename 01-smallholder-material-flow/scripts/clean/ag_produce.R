@@ -60,7 +60,6 @@ ag_produce[, sold_kg := fifelse(sales == "no", 0, as.numeric(sold_raw))]
 # SECTION 2: CLEAN-STAGE FLAGS
 # =============================================================================
 
-ag_produce[, flag_sales_gate_no := fifelse(sales == "no" & !is.na(type), 1L, 0L)]
 ag_produce[, flag_sales_gate_yes := fifelse(sales == "yes" & !is.na(type), 1L, 0L)]
 
 ag_produce[, flag_true_na_sold := fifelse(sales == "yes" & is.na(sold_raw), 1L, 0L)]
@@ -70,7 +69,7 @@ ag_produce[, flag_true_na_input_s := fifelse(sales == "yes" & is.na(input_s_raw)
 ag_produce[, flag_quant_missing := fifelse(is.na(quant_raw) & !is.na(type), 1L, 0L)]
 ag_produce[, flag_input_missing := fifelse(is.na(input_raw) & !is.na(type), 1L, 0L)]
 ag_produce[, flag_unit_missing := fifelse(is.na(unit_raw) & !is.na(type), 1L, 0L)]
-ag_produce[, flag_no_product := fifelse(is.na(product), 1L, 0L)]
+ag_produce[, flag_no_product := fifelse(is.na(product) & !is.na(cropid), 1L, 0L)]
 ag_produce[, flag_cropid_product_missing := fifelse(is.na(cropid) & !is.na(type), 1L, 0L)]
 
 ag_produce[, flag_unit_needs_conversion := fifelse(!is.na(unit_raw) & unit_raw != "kg", 1L, 0L)]

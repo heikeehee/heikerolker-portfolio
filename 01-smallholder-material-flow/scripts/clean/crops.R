@@ -101,27 +101,6 @@ crops <- bind_dt(long, short)
 setnames(crops, "zaocode", "cropid")
 crops <- clean_names(crops, crops_list, "cropid")
 label(crops) <- as.list(labs[match(names(crops), names(labs))])
-
-# FLAGS: harvest logic and missingness
-crops[ag4a_19 == "no"  & !is.na(ag4a_28), flag_harvest_contradiction := 1L]
-crops[ag4a_19 == "yes" & is.na(ag4a_28),  flag_harvest_quantity_missing := 1L]
-crops[is.na(ag4a_19) & !is.na(plotnum) & !is.na(cropid), flag_harvest_missing := 1L]
-crops[ag4a_25 == "no" & is.na(ag4a_27) & !is.na(cropid),  flag_harvest_remain_missing := 1L]
-
-n_flag_harvest_contradiction <- crops[flag_harvest_contradiction == 1L, .N]
-n_flag_harvest_quantity_missing <- crops[flag_harvest_quantity_missing == 1L, .N]
-n_flag_harvest_missing <- crops[flag_harvest_missing == 1L, .N]
-n_flag_harvest_remain_missing <- crops[flag_harvest_remain_missing == 1L, .N]
-
-message("flag_harvest_contradiction: ", n_flag_harvest_contradiction,
-        " records where harvested == 'no' but quant_harvest is not NA")
-message("flag_harvest_quantity_missing: ", n_flag_harvest_quantity_missing,
-        " records where harvested == 'yes' but quant_harvest is NA")
-message("flag_harvest_missing: ", n_flag_harvest_missing,
-        " records where harvested is NA")
-message("flag_harvest_remain_missing: ", n_flag_harvest_remain_missing,
-        " records where harvested == 'yes' but harvest_remain is NA")
-
 crops <- upData(crops,
                 rename = .q(
                   ag4a_17 = preharvest_losses,
@@ -163,6 +142,33 @@ crops <- upData(crops,
                 drop = .q(plotname, ag4a_01, ag4a_02)
 )
 
+# FLAGS: harvest logic and missingness
+crops[harvested == "no"  & !is.na(quant_harvest), flag_harvest_contradiction := 1L]
+crops[harvested == "yes" & is.na(quant_harvest),  flag_harvest_quantity_missing := 1L]
+crops[is.na(harvested) & !is.na(plotnum) & !is.na(cropid), flag_harvest_missing := 1L]
+crops[finished == "no" & is.na(harvest_remain) & !is.na(cropid), flag_harvest_remain_missing := 1L]
+
+crops[, `:=`(
+  flag_harvest_contradiction     = fifelse(is.na(flag_harvest_contradiction), 0L, flag_harvest_contradiction),
+  flag_harvest_quantity_missing   = fifelse(is.na(flag_harvest_quantity_missing), 0L, flag_harvest_quantity_missing),
+  flag_harvest_missing            = fifelse(is.na(flag_harvest_missing), 0L, flag_harvest_missing),
+  flag_harvest_remain_missing     = fifelse(is.na(flag_harvest_remain_missing), 0L, flag_harvest_remain_missing)
+)]
+
+crops[harvested == "no" & !is.na(quant_harvest), flag_harvest_contradiction := 1L]
+crops[harvested == "yes" & is.na(quant_harvest),  flag_harvest_quantity_missing := 1L]
+crops[is.na(harvested) & !is.na(plotnum) & !is.na(cropid), flag_harvest_missing := 1L]
+crops[finished == "no" & is.na(harvest_remain) & !is.na(cropid), flag_harvest_remain_missing := 1L]
+
+message("flag_harvest_contradiction: ", crops[flag_harvest_contradiction == 1L, .N],
+        " rows where harvested == 'no' but quant_harvest is not NA")
+message("flag_harvest_quantity_missing: ", crops[flag_harvest_quantity_missing == 1L, .N],
+        " rows where harvested == 'yes' but quant_harvest is NA")
+message("flag_harvest_missing: ", crops[flag_harvest_missing == 1L, .N],
+        " rows where harvested is NA")
+message("flag_harvest_remain_missing: ", crops[flag_harvest_remain_missing == 1L, .N],
+        " rows where finished == 'no' but harvest_remain is NA")
+
 saveRDS(crops, here::here("data", "processed", "01", "clean", "crops.rds"), compress = TRUE)
 
 crops_sub <- crops[, .(
@@ -191,23 +197,18 @@ pc[, area_harvested_com_candidate := ifelse(
 
 # Flags
 pc[, flag_area_planted_missing := fifelse(!is.na(plotnum) & is.na(area_planted), 1L, 0L)]
-pc[, flag_plotnum_missing := fifelse(is.na(plotnum), 1L, 0L)] # check against roster
+pc[, flag_plotnum_missing := fifelse(is.na(plotnum) & !is.na(cropid), 1L, 0L)]
 pc[, flag_area_harvested_gt_plotsize := fifelse(area_harvested_com_candidate > plotsize_candidate, 1L, 0L)]
 pc[, flag_quant_harvest_missing := fifelse(is.na(quant_harvest) & harvested == "yes", 1L, 0L)]
 
-n_flag_area_planted_missing <- pc[flag_area_planted_missing == 1L, .N]
-n_flag_plotnum_missing <- pc[flag_plotnum_missing == 1L, .N]
-n_flag_area_harvested_gt_plotsize <- pc[flag_area_harvested_gt_plotsize == 1L, .N]
-n_flag_quant_harvest_missing <- pc[flag_quant_harvest_missing == 1L, .N]
-
-message("flag_area_planted_missing: ", n_flag_area_planted_missing,
+message("flag_area_planted_missing: ", pc[flag_area_planted_missing == 1L, .N],
         " records with missing area_planted on observed plot records")
-message("flag_plotnum_missing: ", n_flag_plotnum_missing,
-        " records with missing plotnum, (households not culitvating) check against household roster")
-message("flag_area_harvested_gt_plotsize: ", n_flag_area_harvested_gt_plotsize,
+message("flag_plotnum_missing: ", pc[flag_plotnum_missing == 1L, .N],
+        " records with missing plotnum, check against household roster")
+message("flag_area_harvested_gt_plotsize: ", pc[flag_area_harvested_gt_plotsize == 1L, .N],
         " records where harvested area candidate exceeds plotsize_candidate")
-message("flag_quant_harvest_missing: ", n_flag_quant_harvest_missing,
-        " records where quant_harvest is NA and harvest occured")
+message("flag_quant_harvest_missing: ", pc[flag_quant_harvest_missing == 1L, .N],
+        " records where quant_harvest is NA and harvest occurred")
 
 pc <- upData(pc,
              labels = .q(

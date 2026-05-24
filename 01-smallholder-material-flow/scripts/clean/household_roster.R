@@ -178,11 +178,20 @@ message("  Did process:       ", sum(roster_full$did_process,   na.rm = TRUE))
 # FLAG SUMMARY
 # =============================================================================
 
+roster[, flag_dup_roster := as.integer(duplicated(y4_hhid))]
+ag_flags[, flag_dup_ag_filters := as.integer(duplicated(y4_hhid))]
+lf_flags[, flag_dup_lf_filters := as.integer(duplicated(y4_hhid))]
+
+roster_full <- roster |>
+  left_join(ag_flags, by = "y4_hhid") |>
+  left_join(lf_flags, by = "y4_hhid")
+
 flag_cols <- names(roster_full)[grepl("^flag_", names(roster_full))]
 flag_summary <- data.table(
   flag = flag_cols,
   n = vapply(flag_cols, function(col) roster_full[get(col) == 1L, .N], integer(1))
 )[order(-n)]
+
 
 message("----- Flag summary: household_roster -----")
 print(flag_summary)

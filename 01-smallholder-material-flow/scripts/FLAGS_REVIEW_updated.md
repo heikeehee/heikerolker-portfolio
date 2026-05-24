@@ -11,11 +11,13 @@ Updated to match the revised pipeline structure. In the current convention, clea
 
 ## Status labels
 
--   `documented` — logged and structurally clear.
--   `needs review` — requires a manual decision, profiling, or codebook check.
--   `resolved in review` — ownership is already clear enough at this stage and does not need a separate transition category.
--   `diagnostic only` — keep as an audit flag; no direct action needed now.
--   `resolved` — already handled and no longer an active review item.
+-   `diagnostic only` — audit/count/check flag, no action needed now.
+
+-   `needs review` — requires a manual decision, profiling, or codebook check before you know what to do.
+
+-   `move to impute` — clean has done its job; next step is value-changing repair, allocation, or explicit imputation logic.
+
+-   `resolved` — already handled and no longer an active item.
 
 ## Review table
 
@@ -39,14 +41,12 @@ Updated to match the revised pipeline structure. In the current convention, clea
 | product_density_conversion_rule | impute | `impute/ag_produce.R` | assumption | Litre-to-kg conversion uses product-specific density factors. | Keep conversion table explicit and profile rows with missing factors. | documented | AP1 in script. |
 | manual_input_split_rule | impute | `impute/ag_produce.R` | assumption | Household-specific input split for `y4_hhid == "3208-001"`. | Re-check raw record and retain as explicit manual split if still needed. | needs review | AP2 in script; household-level manual rule. |
 | input_fallback_full_rule | impute | `impute/ag_produce.R` | assumption | Final fallback assigns full input when allocation remains unresolved. | Profile affected rows and report residual uncertainty. | needs review | AP3 in script; fallback should stay reviewable. |
-| flag_dup_roster | clean | `clean/household_roster.R` | flag | Duplicate `y4_hhid` in `hh_sec_a`. | Profile duplication rate and confirm first-occurrence retention is acceptable. | needs review | Currently message-only; add to review log even if not stored as column. |
-| flag_dup_ag_filters | clean | `clean/household_roster.R` | flag | Duplicate `y4_hhid` in `ag_filters`. | Profile duplication rate and confirm first-occurrence retention is acceptable. | needs review | Message-only flag. |
-| flag_mixed_lf_coding | clean | `clean/household_roster.R` | flag | Mixed coding within `lf_filters` (`yes/no` vs numeric `1/2`). | Verify against codebook before publication. | needs review | Survey coding issue, not imputation. |
-| flag_dup_lf_filters | clean | `clean/household_roster.R` | flag | Duplicate `y4_hhid` in `lf_filters`. | Profile duplication rate and confirm first-occurrence retention is acceptable. | needs review | Message-only flag. |
-| flag_structural_zero_participation_check | clean | `clean/household_roster.R` | flag | Participation flags imply structural zeros downstream. | Check whether any households have `FALSE` participation but positive quantities later. | documented | Ground-truth participation flags remain `grew_crops`, `owned_animals`, `did_process`. [<file:569>] |
-| flag_no_match_ag | clean | `clean/household_roster.R` | flag | Households in `hh_sec_a` with no `ag_filters` match. | Profile missing linkage to agriculture module. | needs review | `flag_no_match_ag` is message-only in current script. |
-| flag_no_match_lf | clean | `clean/household_roster.R` | flag | Households in `hh_sec_a` with no `lf_filters` match. | Profile missing linkage to livestock module. | needs review | `flag_no_match_lf` is message-only in current script. |
-| flag_gps_area_zero | clean | `clean/crops.R` | flag | `gps_area == 0`, treated as unusable for diagnostics. | Keep as audit flag and confirm no downstream misuse. | diagnostic only | `flag_gps_area_zero`. |
+| flag_dup_roster | clean | `clean/household_roster.R` | flag | Duplicate `y4_hhid` in `hh_sec_a`. | Profile duplication rate and confirm first-occurrence retention is acceptable. | diagnostic only |  |
+| flag_dup_ag_filters | clean | `clean/household_roster.R` | flag | Duplicate `y4_hhid` in `ag_filters`. | Profile duplication rate and confirm first-occurrence retention is acceptable. | resolved |  |
+| flag_dup_lf_filters | clean | `clean/household_roster.R` | flag | Duplicate `y4_hhid` in `lf_filters`. | Profile duplication rate and confirm first-occurrence retention is acceptable. | resolved | Message-only flag. |
+| flag_no_match_ag | clean | `clean/household_roster.R` | flag | Households in `hh_sec_a` with no `ag_filters` match. | Profile missing linkage to agriculture module. | diagnostic only | `flag_no_match_ag` is message-only in current script. |
+| flag_no_match_lf | clean | `clean/household_roster.R` | flag | Households in `hh_sec_a` with no `lf_filters` match. | Profile missing linkage to livestock module. | diagnostic only | `flag_no_match_lf` is message-only in current script. |
+| flag_gps_area_zero | clean | `clean/crops.R` | flag | `gps_area == 0`, treated as unusable for diagnostics. | Keep as audit flag and confirm no downstream misuse. | move to impute | `flag_gps_area_zero`. |
 | flag_harvest_contradiction | clean | `clean/crops.R` | flag | `harvested == "no"` but `quant_harvest` is recorded. | Profile by crop and season; decide whether later repair is defensible. | needs review | `flag_harvest_contradiction`. |
 | flag_harvest_quantity_missing | clean | `clean/crops.R` | flag | `harvested == "yes"` but `quant_harvest` is missing. | Review for enumerator error versus later imputation. | needs review | `flag_harvest_quantity_missing`. |
 | flag_harvest_missing | clean | `clean/crops.R` | flag | `harvested` response is missing on an observed crop record. | Profile missingness before any repair. | needs review | `flag_harvest_missing`. |
@@ -61,19 +61,19 @@ Updated to match the revised pipeline structure. In the current convention, clea
 | flag_blank_plotnum | clean | `clean/crops.R` | flag | Short-season plot-details rows with blank or missing `plotnum`. | Profile whether joins are affected. | needs review | `flag_blank_plotnum`. |
 | flag_produced_gate | clean | `clean/animal_products.R` | flag | Production gate says yes. | Review for section mismatch or later imputation. | Diagnostic only. | . |
 | flag_sold_gate | clean | `clean/animal_products.R` | flag | Sales gate says yes. | Review for section mismatch or later imputation. | Diagnostic only. |  |
-| flag_true_na_produced | clean | `clean/animal_products.R` | flag | Produced quantity is genuinely missing. | Review missingness. | documented |  |
-| flag_true_na_unit | clean | `clean/animal_products.R` | flag | Production unit is genuinely missing. | Review missingness. | documented |  |
-| flag_egg_overuse | clean | `clean/animal_products.R` | flag | Eggs sales exceed production. | Review for section mismatch or later imputation. | documented |  |
-| flag_egg_unaccounted | clean | `clean/animal_products.R` | flag |  | Review for section mismatch or later imputation. | documented. | For consumption imputation |
-| flag_true_na_sold | clean | `clean/animal_products.R` | flag | Sold quantity is genuinely missing. | Review missingness. | documented |  |
-| flag_true_na_unitsold | clean | `clean/animal_products.R` | flag | Sold unit is genuinely missing. | Review missingness. | documented |  |
-| flag_unit_unexpected | clean | `clean/animal_products.R` | flag | Production unit is not recognised. | Review coding or recode. | documented |  |
+| flag_true_na_produced | clean | `clean/animal_products.R` | flag | Produced quantity is genuinely missing. | Review missingness. | resolved |  |
+| flag_true_na_unit | clean | `clean/animal_products.R` | flag | Production unit is genuinely missing. | Review missingness. | resolved |  |
+| flag_egg_overuse | clean | `clean/animal_products.R` | flag | Eggs sales exceed production. | Review for section mismatch or later imputation. | move to impute |  |
+| flag_egg_unaccounted | clean | `clean/animal_products.R` | flag |  | Review for section mismatch or later imputation. | move to impute | For consumption imputation |
+| flag_true_na_sold | clean | `clean/animal_products.R` | flag | Sold quantity is genuinely missing. | Review missingness. | resolved |  |
+| flag_true_na_unitsold | clean | `clean/animal_products.R` | flag | Sold unit is genuinely missing. | Review missingness. | resolved |  |
+| flag_unit_unexpected | clean | `clean/animal_products.R` | flag | Production unit is not recognised. | Review coding or recode. | resolved |  |
 | flag_hides_section_present | clean | `clean/animal_products.R` | flag | Hides record exists in product section. | Keep as diagnostics. | diagnostic only |  |
 | flag_hides_true_na | clean | `clean/animal_products.R` | flag | Hides production and sales are both genuinely missing. | Review missingness. | diagnostic only |  |
 | flag_eggs_gate | clean | clean/animal_products.R | flag | Egg production yes | Keep as diagnostics. | diagnostic only |  |
-| flag_eggs_section_misalignment | clean | `clean/animal_products.R` | flag | Egg row has no poultry support match. | Review alignment. | documented |  |
+| flag_eggs_section_misalignment | clean | `clean/animal_products.R` | flag | Egg row has no poultry support match. | Review alignment. | resolved |  |
 | flag_eggs_feed_alignment_missing | clean | `clean/animal_products.R` | flag | Eggs have no matching feed practice. | Review alignment. | documented |  |
-| flag_egg_feed_category_missing | clean | `clean/animal_products.R` | flag | Egg feed category does not match poultry crosswalk. | Review coding or recode. | documented |  |
+| flag_egg_feed_category_missing | clean | `clean/animal_products.R` | flag | Egg feed category does not match poultry crosswalk. | Review coding or recode. | resolved |  |
 | flag_chicken_no_egg | clean | clean/animal_products.R | flag | Poultry has no egg support match. | Review for plausibility. | documented |  |
 | flag_produced_imputed_zero | impute | `impute/animal_products.R` | flag | Production gate says no and produced was set to zero. | Imputation rule; keep logged. | documented | Existing item from prior review file. |
 | flag_sold_imputed_zero | impute | `impute/animal_products.R` | flag | Sales gate says no and sold was set to zero. | Imputation rule; keep logged. | documented | Existing item from prior review file. |
@@ -85,10 +85,22 @@ Updated to match the revised pipeline structure. In the current convention, clea
 | flag_rel_prod_imputed | impute | `impute/animal_products.R` | flag | Relative hides production was derived. | Review derived allocation. | needs review | Existing item from prior review file. |
 | flag_eggs_feed_missing | impute | `impute/animal_products.R` | flag | Egg feed allocation is missing. | Review allocation gap. | needs review | Existing item from prior review file. |
 | flag_eggs_feed_defaulted | impute | `impute/animal_products.R` | flag | Egg feed/grazing split was defaulted. | Review default assumption. | needs review | Existing item from prior review file. |
-| flag_manual_lf06_03_fix | clean | `clean/milk.R` | flag | Household-specific average milk production override was needed. | Review and move to impute. | needs review | Existing item from prior review file. |
-| flag_processed_lt_psold | clean | `clean/milk.R` | flag | Processed milk reported lower than product sold. | Review for inconsistency. | needs review | Existing item from prior review file. |
-| flag_av_missing | clean | `clean/milk.R` | flag | Average milk production is missing. | Review missingness. | needs review | Existing item from prior review file. |
-| flag_non_ruminant_dropped | clean | `clean/milk.R` | flag | Non-ruminant category dropped because it cannot produce milk here. | Keep as structural exclusion. | resolved | Existing item from prior review file. |
+| flag_processed_value_missing | clean | clean/milk.R | flag | value_raw is missing or zero when processed milk products are reported. | Move to impute. | move to impute | Positive processed output but missing sales value. |
+| flag_manual_av_fix_needed | clean | clean/milk.R | flag | Household-specific override needed for av_raw. | Move to impute. | move to impute | Explicit manual repair candidate. |
+| flag_fix_processing_input | clean | clean/milk.R | flag | processed_raw is lower than psold_raw. | Move to impute or review measurement logic. | Move to impute | Inconsistency between processed and sold quantities. |
+| flag_av_missing | clean | clean/milk.R | flag | av_raw is missing when animals were milked. | Move to impute. | Move to impute | Missing core average production measure. |
+| flag_hh_milking | clean | clean/milk.R | flag | Household milked animals. | Diagnostic only. | diagnostic only | Section marker, not a problem flag. |
+| flag_milk_support_missing | clean | clean/milk.R | flag | Milk section record has no matching animal-support row. | Needs join review. | clean, resolved | Cross-section linkage issue. |
+| flag_section_mismatch_milked_gt_owned | clean | clean/milk.R | flag | Milking count exceeds supported owned milkable animals. | Needs impute or exclusion decision. | move to impute | Measurement/consistency issue. |
+| flag_hi_missing | clean | clean/milk.R | flag | hi_raw is missing when animals were milked. | Diagnostic / potential impute candidate. | diagnostic/move to impute | Keep for completeness. |
+| flag_lo_missing | clean | clean/milk.R | flag | lo_raw is missing when animals were milked. | Diagnostic / potential impute candidate. | diagnostic/move to impute | Keep for completeness. |
+| flag_length_missing | clean | clean/milk.R | flag | length is missing when animals were milked. | Diagnostic / potential impute candidate. | clean, resolved | Keep for completeness. |
+| flag_fix_processing_input | clean | clean/milk.R | flag | processed_raw is lower than psold_raw. | Move to impute or review measurement logic. | move to impute | Inconsistency flag. |
+| flag_daily_output_implausible | clean | clean/milk.R | flag | milked == 1 and average milk output above 6l. | Measurement error check. | move to impute | Implausible value check. |
+| flag_disposition_present_but_av_missing | clean | clean/milk.R | flag | Dispositions exist but av_raw is missing. | Needs review. | move to impute | Missingness conditional on reported outputs. |
+| flag_disposition_exceeds_production | clean | clean/milk.R | flag | Sum of disposition exceeds average production. | Measurement error / reconciliation check. | move to impute | Consistency issue. |
+| flag_period_implausible | clean | clean/milk.R | flag | Milking period exceeds 10 months for single animal. | Measurement error check. | move to impute | Implausible duration. |
+| flag_zero_milked_with_output | clean | clean/milk.R | flag | No animals milked but milk outputs exist. | Structural inconsistency check. | clean, resolved | Possibly entry error. |
 | flag_disposition_inconsistent | impute | `impute/milk.R` | flag | Reported milk dispositions are not internally consistent. | Apply imputation rule. | needs review | Existing item from prior review file. |
 | flag_milk_conversion_applied | impute | `impute/milk.R` | flag | Litres converted to kg using density factor. | Confirm unit conversion. | documented | Existing item from prior review file. |
 | flag_cross_section_feed_mismatch | impute | `impute/milk.R` | flag | Milk feed record does not match animal support. | Review alignment. | needs review | Existing item from prior review file. |
@@ -123,12 +135,43 @@ Updated to match the revised pipeline structure. In the current convention, clea
 | flag_breakdown_type_missing | clean | clean/animals.R | flag | Livestock type did not match carcass breakdown reference. | Check reference crosswalk and unmatched types. | documented | Row-level flag on wa. |
 | flag_expected_feed_section | clean | clean/animals.R | flag | Household-animal record expected to have a feed section match. | Join helper for feed review; keep only if needed downstream. | diagnostic only | Join helper, not necessarily a final review item. |
 | flag_feed_only | clean | clean/animals.R | flag | Feed record exists without matching owned-animal record. | Review unmatched feed households. | documented | Row-level flag on feed. |
-| flag_animal_only | clean | clean/animals.R | flag | Owned-animal record exists without feed data. All related to 'other animal' | Review whether missing feed is acceptable or needs follow-up. | documented | Row-level flag on feed. |
+| flag_animal_only | clean | clean/animals.R | flag | Owned-animal record exists without feed data. All related to 'other animal' | Review whether missing feed is acceptable or needs follow-up. | resolved | Row-level flag on feed. |
 | flag_both_sections | clean | clean/animals.R | flag | Both animal and feed sections matched. | Diagnostic only; useful for QA counts. | diagnostic only | Not really a problem flag. |
-| flag_feed1_unexpected | clean | clean/animals.R | flag | Primary feed practice is outside the expected category set. | Verify against codebook before publication. | documented | Row-level flag on feed. |
-| flag_feed2_unexpected | clean | clean/animals.R | flag | Secondary feed practice is outside the expected category set. | Verify against codebook before publication. | documented | Row-level flag on feed. |
+| flag_feed1_unexpected | clean | clean/animals.R | flag | Primary feed practice is outside the expected category set. | Verify against codebook before publication. | resolved | Row-level flag on feed. |
+| flag_feed2_unexpected | clean | clean/animals.R | flag | Secondary feed practice is outside the expected category set. | Verify against codebook before publication. | resolved | Row-level flag on feed. |
 | flag_tot_quantity_missing | clean | clean/animals.R | flag | Total fish quantity is missing for a reported species. | Review missingness in fishery totals. | documented | Row-level flag on fishes. |
 | flag_tot_unit_missing | clean | clean/animals.R | flag | Total fish unit is missing for a reported species. | Review missingness in fishery units. | documented | Row-level flag on fishes. |
+| flag_sale_gate_no | clean | clean/destinations.R | flag | Sale gateway is yes. | Check for structural zero / missing follow-up alignment. | diagnostic only | Crop disposition. |
+| flag_storage_gate_no | clean | clean/destinations.R | flag | Storage gateway is yes. | Check for structural zero / missing follow-up alignment. | diagnostic only | Crop disposition. |
+| flag_loss_gate_yes | clean | clean/destinations.R | flag | Loss gateway is yes. | Check for structural zero / missing follow-up alignment. | diagnostic only | Crop disposition. |
+| flag_true_na_sold | clean | clean/destinations.R | flag | Sale is yes but sold_raw is missing. | Move to impute or review codebook logic. | needs review | Crop disposition. |
+| flag_true_na_stored | clean | clean/destinations.R | flag | Storage is yes but stored_raw is missing. | Move to impute or review codebook logic. | needs review | Crop disposition. |
+| flag_true_na_losses | clean | clean/destinations.R | flag | Loss is yes but losses_pct_raw is missing. | Move to impute or review codebook logic. | needs review | Crop disposition. |
+| flag_consumed_missing | clean | clean/destinations.R | flag | consumed_raw is missing. | Decide if missingness should be imputed or left as structural. | needs review | Crop disposition. |
+| flag_feed_missing | clean | clean/destinations.R | flag | feed_raw is missing. | Decide if missingness should be imputed or left as structural. | needs review | Crop disposition. |
+| flag_seed_missing | clean | clean/destinations.R | flag | seed_raw is missing. | Decide if missingness should be imputed or left as structural. | needs review | Crop disposition. |
+| flag_manual_hh_fix_needed | clean | clean/destinations.R | flag | Maize consumption needs household-specific repair. | Move to impute. | needs review | Crop disposition; explicit one-off repair. |
+| flag_sale_gate_no | clean | clean/destinations.R | flag | Sale gateway is yes. | Check for structural zero / missing follow-up alignment. | diagnostic only | Tree disposition. |
+| flag_storage_gate_no | clean | clean/destinations.R | flag | Storage gateway is yes. | Check for structural zero / missing follow-up alignment. | diagnostic only | Tree disposition. |
+| flag_loss_gate_no | clean | clean/destinations.R | flag | Loss gateway is no. | Check for structural zero / missing follow-up alignment. | diagnostic only | Tree disposition. |
+| flag_true_na_sold | clean | clean/destinations.R | flag | Sale is yes but sold_raw is missing. | Move to impute or review codebook logic. | needs review | Tree disposition. |
+| flag_true_na_stored | clean | clean/destinations.R | flag | Storage is yes but stored_raw is missing. | Move to impute or review codebook logic. | needs review | Tree disposition. |
+| flag_true_na_losses | clean | clean/destinations.R | flag | Loss is yes but losses_pct_raw is missing. | Move to impute or review codebook logic. | needs review | Tree disposition. |
+| flag_consumed_missing | clean | clean/destinations.R | flag | consumed_raw is missing. | Decide if missingness should be imputed or left as structural. | needs review | Tree disposition. |
+| flag_sales_gate_yes | clean | clean/ag_produce.R | flag | Sales gateway is yes. | Structural branch entered; follow-up should exist. | diagnostic only | Clean audit only. |
+| flag_true_na_sold | clean | clean/ag_produce.R | flag | Sales is yes but sold_raw is missing. | Move to impute or review codebook logic. | clean, resolved | Missingness after positive gate. |
+| flag_true_na_unit_s | clean | clean/ag_produce.R | flag | Sales is yes but unit_s_raw is missing. | Move to impute or review codebook logic. | clean, resolved | Missingness after positive gate. |
+| flag_true_na_input_s | clean | clean/ag_produce.R | flag | Sales is yes but input_s_raw is missing. | Move to impute or review codebook logic. | clean, resolved | Missingness after positive gate. |
+| flag_quant_missing | clean | clean/ag_produce.R | flag | quant_raw is missing. | Decide whether this is true missingness or a structural blank. | clean, resolved | Core quantity missing. |
+| flag_input_missing | clean | clean/ag_produce.R | flag | input_raw is missing. | Decide whether this is true missingness or a structural blank. | clean, resolved | Core input missing. |
+| flag_unit_missing | clean | clean/ag_produce.R | flag | unit_raw is missing. | Decide whether unit needs imputation or is structurally blank. | clean, resolved | Unit data missing. |
+| flag_no_product | clean | clean/ag_produce.R | flag | Product name is missing. | Review section completeness or codebook mapping. | clean, resolved | Product identity missing. |
+| flag_cropid_product_missing | clean | clean/ag_produce.R | flag | cropid is missing for a recorded product. | Review merge/crosswalk logic. | clean, resolved | Linkage issue. |
+| flag_unit_needs_conversion | clean | clean/ag_produce.R | flag | Product quantity unit is not kg. | Move unit conversion to impute or documented recode. | move to impute | Requires conversion rule. |
+| flag_sales_unit_needs_conversion | clean | clean/ag_produce.R | flag | Sales quantity unit is not kg. | Move unit conversion to impute or documented recode. | move to impute | Requires conversion rule. |
+| flag_product_type | clean | clean/ag_produce.R | flag | Record is a processed product. | Diagnostic only. | diagnostic only | Category marker. |
+| flag_byproduct_type | clean | clean/ag_produce.R | flag | Record is a by-product. | Diagnostic only. | diagnostic only | Category marker. |
+| flag_sold_gt_quant_raw | clean | clean/ag_produce.R | flag | Sold quantity exceeds reported quantity. | Check for measurement error or unit mismatch. | clean, resolved | Plausible inconsistency. |
 
 ## Review order
 
@@ -152,6 +195,59 @@ Updated to match the revised pipeline structure. In the current convention, clea
 
 ## Per-script TODOs
 
+### `clean/recall.R`
+
+-   [ ] move conversion table to impute
+
+### `clean/crops.R`
+
+-   [x] Confirm `plots.rds`, `plots_stats.rds`, `crops.rds`, `trees.rds`, `pc.rds`, `pt.rds`, `prelost.rds`, `plot_details.rds`, and `crops_prelost.rds` are still the canonical clean outputs, with no repair logic quietly added in clean.
+-   [x] Check that `flag_gps_area_zero` is treated as a diagnostic only flag, not as a trigger for area repair or exclusion.
+-   [x] Check that the harvest flags are separated cleanly: `flag_harvest_contradiction`, `flag_harvest_quantity_missing`, `flag_harvest_missing`, and `flag_harvest_remain_missing` should all remain review/impute candidates, not silent fixes.
+-   [x] Confirm `area_planted_ha` and `area_harvested_*` are only derived diagnostics in clean, with no fallback substitution beyond the documented candidate logic.
+-   [x] Check whether `flag_area_planted_missing` and `flag_plotnum_missing` are truly clean-stage review flags; if either is already being used to drop rows, move that logic out of clean.
+-   [x] Confirm `flag_area_harvested_gt_plotsize` is a measurement-error flag, not a hard exclusion rule. -\> no exclusion at this stage
+-   [x] Check that `flag_quant_harvest_missing` is still just a missingness flag and not being used to backfill quantity in clean. -\> no imputing
+-   [x] Confirm the short-season filter in `plot_details` (`ag3b_01b == 2`) is a structural inclusion rule, not a repair or exclusion decision. -\> odd one not using it for now
+-   [x] Check that `flag_blank_plotnum` and `flag_short_code` are classified as diagnostics/review items, not cleaned away before imputation. -\> diagnostic
+-   [x] Confirm `flag_summary_obj()` is only writing audit summaries and not changing any data objects.
+
+## `clean/household_roster.R`
+
+-   [x] Confirm the roster output is still canonical clean-only data and that no household composition repair has been added here.
+
+-   [x] Check that duplicate household-member combinations are only flagged, not removed unless that removal is explicitly documented as structural cleaning.
+
+-   [x] Confirm any missing household-member linkage is treated as a review item for the impute stage, not silently fixed in clean.
+
+-   [x] Check that person/household identifiers are standardized consistently before downstream joins.
+
+-   [x] Confirm the flag summary only reports diagnostics and does not alter row counts.
+
+## `clean/destinations.R`
+
+-   [x] Confirm the destination outputs are still clean-stage only and that no allocation or fallback logic has been moved into clean.
+
+-   [x] Check that sale, storage, loss, consumption, feed, seed, and payment missingness are flagged separately rather than collapsed into one generic missing flag.
+
+-   [x] Confirm any gateway-derived zeros are treated as structural zeros, not imputation values.
+
+-   [x] Check that misalignment between crop disposition and tree disposition is flagged for review, not repaired in clean.
+
+-   [x] Confirm any manual household-crop exception remains in the audit trail only and is not used to overwrite data at this stage.
+
+## `clean/ag_produce.R`
+
+-   [x] Confirm the agricultural production output is still canonical clean-stage data and not pre-imputed production.
+
+-   [x] Check that duplicate household-crop production rows are flagged and investigated, not silently deduplicated.
+
+-   [x] Confirm missing production, sales, and unit values are kept as missingness flags, with no backfilling in clean.
+
+-   [x] Check that implausible yield or quantity values are flagged as measurement issues rather than excluded automatically.
+
+-   [x] Confirm any cross-section mismatches are routed to `needs review` or `move to impute`, not closed inside clean.
+
 ### `clean/animals.R`
 
 -   [x] Resolve the inline comment "include donkeys?" in the `flag_milk_animal` derivation — confirm against domain knowledge before the flag feeds into milk analysis. → not included
@@ -170,14 +266,17 @@ Updated to match the revised pipeline structure. In the current convention, clea
 
 ### `clean/milk.R`
 
--   [ ] Confirm `milk_support` join logic: `flag_milk_support_missing` and `flag_section_mismatch_milked_gt_owned` should be reviewed together because both come from the same cross-reference step.
--   [ ] Check whether `milk <- milk[is.na(milkable) | milkable == 1]` is truly a clean-stage filter or an exclusion; if it removes rows, that needs to be justified in the clean-stage notes.
--   [ ] Resolve `flag_manual_av_fix_needed` row list (`1001-001`, `1002-001`, `2943-001`) and decide whether those are manual clean-stage fixes or should move into `impute/milk.R` as explicit repair cases.
--   [ ] Profile overlap among `flag_av_missing`, `flag_disposition_present_but_av_missing`, and `flag_zero_milked_with_output`; they likely describe the same family of inconsistencies from different angles.
--   [ ] Check whether `flag_fix_processing_input` is merely a diagnostic on `processed_raw < psold_raw` or a value-changing repair rule disguised as a clean-stage flag.
--   [ ] Confirm `flag_daily_output_implausible` threshold (`av_raw > 6` with `milked == 1`) against domain expectations; if this is just an exploratory heuristic, label it as such.
--   [ ] Decide whether `flag_disposition_exceeds_production` is a hard contradiction or a diagnostic that should be retained until imputation logic is finalized.
--   [ ] Confirm the script no longer contains imputation-only concepts in comments: uncertainty, feed requirement, unit conversion, and fallback should stay out of clean-stage language.
+Here’s the deduplicated version:
+
+- [x] Confirm `milk_support` join logic: `flag_milk_support_missing` and `flag_section_mismatch_milked_gt_owned` should be reviewed together because both come from the same cross-reference step.
+- [x] Check whether `milk <- milk[is.na(milkable) | milkable == 1]` is truly a clean-stage filter or an exclusion; if it removes rows, that needs to be justified in the clean-stage notes.
+- [x] Resolve `flag_manual_av_fix_needed` row list (`1001-001`, `1002-001`, `2943-001`) and decide whether those are manual clean-stage fixes or should move into `impute/milk.R` as explicit repair cases. -> these are explicit repair cases but they can be reviewed at impute
+- [x] Profile overlap among `flag_av_missing`, `flag_disposition_present_but_av_missing`, and `flag_zero_milked_with_output`; they likely describe the same family of inconsistencies from different angles. -> yes some duplication
+- [x] Check whether `flag_fix_processing_input` is merely a diagnostic on `processed_raw < psold_raw` or a value-changing repair rule disguised as a clean-stage flag.-> repair for imputation
+- [x] Confirm `flag_daily_output_implausible` threshold (`av_raw > 6` with `milked == 1`) against domain expectations; if this is just an exploratory heuristic, label it as such. -> no more than 5.5 l
+- [x] Decide whether `flag_disposition_exceeds_production` is a hard contradiction or a diagnostic that should be retained until imputation logic is finalized. -> imputation
+- [x] Confirm the script no longer contains imputation-only concepts in comments: uncertainty, feed requirement, unit conversion, and fallback should stay out of clean-stage language.
+
 
 ### Cross-script overlaps to check
 
@@ -185,19 +284,6 @@ Updated to match the revised pipeline structure. In the current convention, clea
 -   `flag_animal_only` and `flag_true_na_feed1` (`clean/animals.R`) — profile to confirm they are not identical.
 -   `flag_quantity_missing` and `flag_consumed_no_but_quantity` (`clean/recall.R`) — review together as mirror-image gate/quantity mismatches.
 -   The eight gateway-zero flags in `clean/animals.R` follow the same logic as `gateway_no_structural_zero_rule` in `impute/animal_products.R`; confirm the imputation-stage equivalent exists or will be added in `impute/animals.R`.
-
-### `clean/milk.R`
-
--   [ ] Confirm `milk_support` join logic: `flag_milk_support_missing` and `flag_section_mismatch_milked_gt_owned` should be reviewed together because both come from the same cross-reference step.
--   [ ] Check whether `milk <- milk[is.na(milkable) | milkable == 1]` is truly a clean-stage filter or an exclusion; if it removes rows, that needs to be justified in the clean-stage notes.
--   [ ] Resolve `flag_manual_av_fix_needed` row list (`1001-001`, `1002-001`, `2943-001`) and decide whether those are manual clean-stage fixes or should move into `impute/milk.R` as explicit repair cases.
--   [ ] Profile overlap among `flag_av_missing`, `flag_disposition_present_but_av_missing`, and `flag_zero_milked_with_output`; they likely describe the same family of inconsistencies from different angles.
--   [ ] Check whether `flag_fix_processing_input` is merely a diagnostic on `processed_raw < psold_raw` or a value-changing repair rule disguised as a clean-stage flag.
--   [ ] Confirm `flag_daily_output_implausible` threshold (`av_raw > 6` with `milked == 1`) against domain expectations; if this is just an exploratory heuristic, label it as such.
--   [ ] Decide whether `flag_disposition_exceeds_production` is a hard contradiction or a diagnostic that should be retained until imputation logic is finalized.
--   [ ] Confirm the script no longer contains imputation-only concepts in comments: uncertainty, feed requirement, unit conversion, and fallback should stay out of clean-stage language.
-
-### Cross-script overlaps to check
 
 -   `flag_av_missing` (`clean/milk.R`) overlaps conceptually with `flag_disposition_present_but_av_missing`; profile both together before any manual repair.
 -   `flag_fix_processing_input` (`clean/milk.R`) is the clean-stage analogue of the imputation rule `processed < psold` in `impute/milk.R`; confirm there is no silent move to impute still hiding in the clean script.
