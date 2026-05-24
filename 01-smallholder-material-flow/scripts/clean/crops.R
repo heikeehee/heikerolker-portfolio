@@ -368,23 +368,30 @@ saveRDS(plots_full, here::here("data", "processed", "01", "clean", "plot_details
 # =============================================================================
 # FLAG SUMMARY
 # =============================================================================
-
 flag_summary_obj <- function(x, obj_name) {
   flag_cols <- names(x)[grepl("^flag_", names(x))]
   if (length(flag_cols) == 0) return(NULL)
+  
   flag_summary <- data.table(
     flag = flag_cols,
-    n = vapply(flag_cols, function(col) x[get(col) == 1L, .N], integer(1))
+    n = vapply(flag_cols, function(col) sum(x[[col]] == 1L, na.rm = TRUE), integer(1))
   )[order(-n)]
+  
   message("----- Flag summary: ", obj_name, " -----")
   print(flag_summary)
+  
   readr::write_csv(
     as.data.frame(flag_summary),
     here::here("data", "processed", "01", "clean", paste0(obj_name, "_flag_summary.csv"))
   )
+  
   invisible(flag_summary)
 }
 
+flag_summary_obj(plots, "plots")
 flag_summary_obj(crops, "crops")
 flag_summary_obj(pc, "pc")
+flag_summary_obj(trees, "trees")
+flag_summary_obj(pt, "pt")
+flag_summary_obj(prelost, "prelost")
 flag_summary_obj(plots_full, "plot_details")
