@@ -83,7 +83,7 @@ ag_produce[, flag_sold_gt_quant_raw := fifelse(
   1L, 0L
 )]
 
-message("flag_sales_gate_no: ", ag_produce[flag_sales_gate_no == 1L, .N],
+message("flag_sales_gate_yes: ", ag_produce[flag_sales_gate_yes == 1L, .N],
         " rows where sales gateway is no")
 message("flag_sales_gate_yes: ", ag_produce[flag_sales_gate_yes == 1L, .N],
         " rows where sales gateway is yes")

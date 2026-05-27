@@ -107,7 +107,7 @@ crop_disp[, flag_manual_hh_fix_needed := fifelse(y4_hhid == "8659-001" & cropid 
 
 message("flag_sale_gate_yes: ", crop_disp[flag_sale_gate_yes == 1L, .N],
         " rows where sale gateway is yes")
-message("flag_storage_gate_no: ", crop_disp[flag_storage_gate_no == 1L, .N],
+message("flag_storage_gate_yes: ", crop_disp[flag_storage_gate_yes == 1L, .N],
         " rows where storage gateway is yes")
 message("flag_loss_gate_yes: ", crop_disp[flag_loss_gate_yes == 1L, .N],
         " rows where loss gateway is yes")
@@ -117,11 +117,11 @@ message("flag_true_na_stored: ", crop_disp[flag_true_na_stored == 1L, .N],
         " rows where storage is yes but stored_raw is missing")
 message("flag_true_na_losses: ", crop_disp[flag_true_na_losses == 1L, .N],
         " rows where loss is yes but losses_pct_raw is missing")
-message("flag_consumed_gate_yes: ", crop_disp[flag_consumed_missing == 1L, .N],
+message("flag_consumed_gate_yes: ", crop_disp[flag_consumed_gate_yes == 1L, .N],
         " rows where consumed_raw is missing")
-message("flag_feed_gate_yes: ", crop_disp[flag_feed_missing == 1L, .N],
+message("flag_feed_gate_yes: ", crop_disp[flag_feed_gate_yes == 1L, .N],
         " rows where feed_raw is missing")
-message("flag_seed_gate_yes: ", crop_disp[flag_seed_missing == 1L, .N],
+message("flag_seed_gate_yes: ", crop_disp[flag_seed_gate_yes == 1L, .N],
         " rows where seed_raw is missing")
 message("flag_manual_hh_fix_needed: ", crop_disp[flag_manual_hh_fix_needed == 1L, .N],
         " rows where maize consumption needs household-specific repair")

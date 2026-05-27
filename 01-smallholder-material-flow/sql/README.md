@@ -1,137 +1,145 @@
-# SQL Analytical Layer — Project 01: Smallholder Material Flow Analysis
+# SQL Audit Layer — Project 01: Smallholder Material Flow Analysis
 
 ## Purpose
 
-This SQL layer is the **analytical interface** to a research pipeline built in R. It does not replicate the R cleaning scripts — it builds on their outputs.
+This SQL layer is the **audit and validation interface** to the Project 01 R pipeline. It does not replicate the R cleaning scripts and it does not replace the household-build logic in R.
 
-The R pipeline (`scripts/clean/*.R`, `scripts/04_build_households.R`) handles all domain logic: unit conversions, documented assumptions, codebook decoding, structural zero guards, and imputation. Those decisions are encoded in R because they require researcher judgment and must be traceable for publication.
+The R pipeline remains the source of truth for domain decisions: codebook decoding, unit handling, structural-zero rules, exclusions, and any imputation or value-changing repair. The SQL layer sits on top of exported clean-stage outputs and is used to inspect table structure, household coverage, and routing mismatches across modules.
 
-This SQL layer answers analytical questions against the clean, household-level output (`households.parquet`). It is designed to be queryable by any team member without running the R pipeline.
+In practice, this SQL layer answers questions such as:
 
-**Engine:** DuckDB (all queries tested against `households.parquet` via `read_parquet()`). Minor syntax adjustments needed for PostgreSQL or BigQuery.
+-   What is the natural grain of each cleaned output table?
 
-------------------------------------------------------------------------
+-    Which households appear in which modules?
+
+-   Which households are missing from modules they were expected to enter based on roster participation flags?
+
+-   Where should follow-up audit work focus before downstream aggregation or reporting?
+
+## Engine
+
+Engine: **DuckDB**
+
+Queries are written for DuckDB and run directly against CSV exports in:
+
+`data/processed/01/sql_input/`
+
+This keeps the SQL layer lightweight, portable, and easy to review in Git without rebuilding the full R pipeline every time a diagnostic query changes. DuckDB is a good fit because it can query flat files directly.
 
 ## Architecture
 
-```         
-Stage 1–2   Load + clean        → R only (domain logic)
-Stage 2b    Impute              → R only (statistical decisions)
-Stage 3     Build households    → R (joins) → households.parquet ← SQL reads here
-Stage 4     Exclusions audit    → R + SQL (02_crop_summary.sql adds value here)
-Stage 5     MFA input           → R (06_mfa_input.R) → mfa_input.parquet ← SQL reads here too
-Stage 6–8   MFA + outputs       → R only
+| Stage | Responsibility                                     | Tool   |
+|-------|----------------------------------------------------|--------|
+| 1     | Load raw survey data                               | R      |
+| 2     | Clean individual survey modules                    | R      |
+| 3     | Export SQL audit inputs (`sql_input/*.csv`)        | R      |
+| 4     | Audit table grain, coverage, and expected presence | SQL    |
+| 5     | Build household-level analytical outputs           | R      |
+| 6     | MFA inputs and downstream modelling                | Python |
+
+### Key distinction
+
+The SQL layer currently works on **module-level clean outputs**, not just household-level outputs.
+
+That means `y4_hhid` is the common household key across modules, but it is **not the grain of most tables**. Depending on the module, the natural grain may be: - `y4_hhid` - `y4_hhid + plotnum` - `y4_hhid + cropid + plotnum` - `y4_hhid + lvstckid` - `y4_hhid + productid` [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/152915217/e01cf9f2-8cb7-47b4-a614-c23e6b08eafc/crops.R)
+
+This is intentional. The first SQL scripts are designed to audit how the cleaned module outputs behave **before** collapsing everything to household level.
+
+## Current SQL files
+
+### `01_module_grain_audit.sql`
+
+**Business question:**\
+Which outputs are household-level versus repeated-record tables, and which households are missing from modules they were expected to enter?
+
+This script does three things:
+
+1.  Builds `module_grain_summary` to show row counts, distinct households, and expected grain by module.
+2.  Builds `household_module_presence` to show whether each household appears in key downstream modules at least once.
+3.  Builds `expected_but_missing_households` to flag households that should appear in a module based on roster participation flags but do not.
+
+This is a data-quality and routing audit, not a final analytical summary.
+
+### `02_crop_audit.sql`
+
+**Business question:**\
+Where do crop-module records show missingness, contradiction, or coverage gaps that may affect harvest reporting?
+
+Planned focus:
+
+-   crop-module presence versus roster crop participation,
+
+-   key gate and quantity fields,
+
+-   household–plot–crop grain checks,
+
+-   exceptions relevant to exclusions and backlog review.
+
+### `03_animal_audit.sql`
+
+**Business question:**\
+Where do livestock and animal-product modules show routing gaps, missingness, or structural mismatches?
+
+Planned focus: - livestock participation versus animal-module presence, - animal ownership versus milk/product module presence, - row-level grain checks for animals, milk, eggs, and hides, - follow-up targets for clean/impute review. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/152915217/47e7263d-8ef1-4ea0-a2a9-e98c77ecf5de/animals.R)
+
+## Design decisions
+
+### Why SQL reads exported clean CSVs
+
+The goal is to audit the pipeline at the level where structure and routing problems are visible. By querying module-level clean outputs, SQL can inspect household coverage and table grain without duplicating the full R cleaning logic. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/152915217/a47f9f0c-8d95-4d1a-a71b-9dc477f5be45/animal_products.R)
+
+### Why this is not a household-only SQL layer
+
+A household-only SQL layer would hide many of the problems this audit is meant to surface. Repeated-record tables are expected in crop, livestock, and product modules, so the SQL layer keeps those tables at their natural grain and documents that grain explicitly. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/152915217/47e7263d-8ef1-4ea0-a2a9-e98c77ecf5de/animals.R)
+
+### Why left joins are used from the roster outward
+
+For household coverage checks, the roster is the spine. `LEFT JOIN` preserves all households in the roster and allows missing module presence to be interpreted as a real audit signal rather than silently dropping records. [duckdb](https://duckdb.org/docs/current/sql/query_syntax/from.html)
+
+### Why module presence is not the same as question completeness
+
+A household appearing in a module means it has at least one record in that table. It does **not** mean all downstream fields are populated. Completeness and gate-logic checks are handled separately in later module-specific SQL audits and in the R pipeline. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/152915217/a47f9f0c-8d95-4d1a-a71b-9dc477f5be45/animal_products.R)
+
+## Running the queries
+
+### From DuckDB CLI
+
+``` sql
+.read 01-smallholder-material-flow/sql/01_module_grain_audit.sql
 ```
 
-**Key:** `y4_hhid` is the household join key throughout. It is consistent across all sections but not unique within raw section tables — aggregation to household level is performed in R before this SQL layer is reached.
-
-------------------------------------------------------------------------
-
-## File Reference
-
-### `01_household_spine.sql` — Coverage Diagnostics
-
-**Research question:** Which sections cover which households? Where is data sparse?
-
-Builds a household spine from `households.parquet` and profiles section coverage. Identifies households present in the spine but missing from specific sections (recall-only households, crops-only households, etc.).
-
-**Key output:** Coverage matrix showing which households appear in which data sections. Directly supports the attrition and exclusion audit in `05_exclusions_audit.R`.
-
-*R equivalent for spine construction:* `scripts/04_build_households.R §2`
-
-------------------------------------------------------------------------
-
-### `02_crop_summary.sql` — Crop Production and Destination Audit
-
-**Research question:** How much of recorded harvest is accounted for in destination records? Where is the misalignment?
-
-Queries household-level crop totals and destination flows, computing the unaccounted fraction (`harvest - (sold + consumed + stored + seed + feed + gifts)`). Profiles the crops–destinations misalignment flagged in the R pipeline.
-
-**Key output:** Per-household harvest balance and unaccounted residual. Flags households where destinations exceed recorded harvest (data quality issue documented in `backlog.md`).
-
-*R equivalent:* `scripts/clean/crops.R` + `scripts/04_build_households.R §4` (C05 dependency)
-
-------------------------------------------------------------------------
-
-### `03_animal_summary.sql` — Livestock and Animal Product Summaries
-
-**Research question:** What is the distribution of livestock ownership and animal product flows across households?
-
-Queries livestock counts by type, slaughter quantities, and animal product outputs (eggs, milk, hides). Includes structural zero guards consistent with those applied in R: households with `n_cattle = 0` are expected to have `milk_total_kg = 0`, not NULL.
-
-**Key output:** Livestock ownership profiles and animal product flow summaries. Supports the animal component of the household material flow balance.
-
-*R equivalent:* `scripts/clean/animals.R` + `scripts/clean/animal_products.R` + `scripts/clean/milk.R` + `scripts/04_build_households.R §3.5–3.8`
-
-------------------------------------------------------------------------
-
-### `04_flow_allocation.sql` — Material Flow Proportions
-
-**Research question:** What share of each household's biomass production flows to each destination (food, feed, sold, waste)?
-
-Computes destination proportions as a share of total household biomass output. These proportions feed directly into the Material Flow Analysis (MFA) described in the methods appendix.
-
-**Key output:** Flow allocation ratios per household. NULL-safe division via `NULLIF` throughout — households with zero production are excluded from ratio calculations, not assigned zero ratios, to avoid distorting the distribution.
-
-*R equivalent:* `scripts/06_mfa_input.R`
-
-------------------------------------------------------------------------
-
-## Design Decisions
-
-**Why left joins, never inner joins.** Every join uses `LEFT JOIN` from `household_spine` outward. An inner join that silently drops households with missing section data would distort population-level estimates. NULL in an output column means "this household had no record in this section" — a meaningful research finding, not a data error.
-
-**Why `NULLIF` for ratio denominators.** Division by zero in SQL returns an error or NULL depending on the engine. `NULLIF(denominator, 0)` makes the intent explicit: a household with zero harvest has no meaningful destination ratio, and NULL correctly propagates that absence downstream.
-
-**Why `UNION` not `UNION ALL` for the spine.** The spine must contain each `y4_hhid` exactly once. `UNION ALL` would produce duplicates if a household appears in multiple sections (which is the norm), inflating all downstream counts.
-
-**Why this is not a dbt project.** The R pipeline is the transformation layer. SQL here is an analytical and validation interface, not a data engineering pipeline. dbt would be appropriate if SQL replaced the R aggregation steps — which it does not in this project.
-
-------------------------------------------------------------------------
-
-## Running the Queries
-
-From R using DuckDB:
+### From R
 
 ``` r
-library(duckdb)
 library(DBI)
+library(duckdb)
+library(readr)
+library(here)
 
 con <- dbConnect(duckdb::duckdb())
 
-# Point DuckDB at the parquet output
-dbExecute(con, "
-  CREATE VIEW households AS
-  SELECT * FROM read_parquet('data/processed/01/households.parquet')
-")
-
-# Run any query file
-query <- readr::read_file(here::here("sql", "02_crop_summary.sql"))
-dbGetQuery(con, query)
+query <- read_file(here("01-smallholder-material-flow", "sql", "01_module_grain_audit.sql"))
+dbExecute(con, query)
 
 dbDisconnect(con, shutdown = TRUE)
 ```
 
-From the DuckDB CLI:
+## Relationship to R scripts
 
-``` bash
-duckdb
-D CREATE VIEW households AS SELECT * FROM read_parquet('data/processed/01/households.parquet');
-D .read sql/02_crop_summary.sql
-```
+The R scripts remain the **source of truth** for methodological decisions. SQL does not re-implement those decisions. It audits the outputs those decisions produce. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/152915217/4d7824f9-110f-4228-aae0-91ec23fcfd23/household_roster.R)
 
-------------------------------------------------------------------------
-
-## Relationship to R Scripts
-
-The R scripts are the **source of truth** for all methodological decisions. Every assumption, exclusion, and flag is documented there. SQL queries here reference those decisions but do not re-implement them.
-
-| What is documented in R | What SQL builds on top |
+| What is handled in R | What SQL does with it |
 |------------------------------------|------------------------------------|
-| Unit conversion factors (kg/litre, acres→ha) | Household-level totals already in kg and ha |
-| Structural zero guards (`n_cattle = 0 → milk = 0`) | Ownership flags available as columns for filtering |
-| Exclusion flags (E01–E06) | Clean records only; exclusions already applied |
-| Imputed values (yield gap, animal feed) | Imputed columns present with `_imputed` suffix |
-| `🚩 FLAG` assumptions | Documented in `backlog.md`; SQL queries assume they are resolved |
+| Codebook decoding and cleaning rules | Audits resulting module structure |
+| Structural-zero logic | Checks whether expected module presence exists |
+| Exclusions and anti-joins | Highlights households for review, not automatic exclusion |
+| Imputation and value-changing repair | Assumes those steps remain in R |
+| Household aggregation | Audits modules before and around that step |
 
-For full methodology, see the R scripts and `backlog.md`. For exclusion counts and profiling, see `05_exclusions_audit.R`.
+## Scope and limits
+
+This SQL layer is currently best suited for: - module coverage diagnostics, - table grain checks, - household-level expected-versus-observed presence checks,
+
+It is **not yet** the final analytical layer for: - MFA household outputs, - full flow allocation, - or business-facing KPI reporting.
+
+Those will come later, but the current priority is a robust audit layer that supports trustworthy downstream aggregation.
