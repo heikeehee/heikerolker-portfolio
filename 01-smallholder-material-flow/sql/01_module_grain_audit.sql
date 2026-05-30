@@ -39,58 +39,72 @@
 -- These are exported from the R clean stage and queried directly in DuckDB.
 -- -----------------------------------------------------------------------------
 
+DROP TABLE IF EXISTS household_roster;
 CREATE OR REPLACE TABLE household_roster AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/household_roster.csv');
 
+DROP TABLE IF EXISTS plots;
 CREATE OR REPLACE TABLE plots AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/plots.csv');
 
+DROP TABLE IF EXISTS plot_details;
 CREATE OR REPLACE TABLE plot_details AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/plot_details.csv');
 
+DROP TABLE IF EXISTS crops;
 CREATE OR REPLACE TABLE crops AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/crops.csv');
 
+DROP TABLE IF EXISTS crop_disp;
 CREATE OR REPLACE TABLE crop_disp AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/crop_disp.csv');
 
+DROP TABLE IF EXISTS trees;
 CREATE OR REPLACE TABLE trees AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/trees.csv');
 
+DROP TABLE IF EXISTS tree_disp;
 CREATE OR REPLACE TABLE tree_disp AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/tree_disp.csv');
 
+DROP TABLE IF EXISTS ag_produce;
 CREATE OR REPLACE TABLE ag_produce AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/ag_produce.csv');
 
+DROP TABLE IF EXISTS animals;
 CREATE OR REPLACE TABLE animals AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/animals.csv');
 
+DROP TABLE IF EXISTS animals_fin;
 CREATE OR REPLACE TABLE animals_fin AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/animals_fin.csv');
 
+DROP TABLE IF EXISTS crop_disp;
 CREATE OR REPLACE TABLE produce AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/produce.csv');
 
+DROP TABLE IF EXISTS hides;
 CREATE OR REPLACE TABLE hides AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/hides.csv');
 
+DROP TABLE IF EXISTS mass_eggs;
 CREATE OR REPLACE TABLE mass_eggs AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/mass_eggs.csv');
 
+DROP TABLE IF EXISTS milk;
 CREATE OR REPLACE TABLE milk AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/milk.csv');
@@ -101,7 +115,7 @@ FROM read_csv_auto('data/processed/01/sql_input/milk.csv');
 -- Purpose: show whether each module behaves like a household table or a repeated
 -- operational table.
 -- -----------------------------------------------------------------------------
-
+DROP TABLE IF EXISTS module_grain_summary;
 CREATE OR REPLACE TABLE module_grain_summary AS
 SELECT
     'household_roster' AS module_name,
@@ -208,7 +222,7 @@ ORDER BY module_name;
 -- Purpose: map whether each household appears in key downstream modules at least
 -- once. This is a module-entry check, not a response-completeness check.
 -- -----------------------------------------------------------------------------
-
+DROP TABLE IF EXISTS household_module_presence;
 CREATE OR REPLACE TABLE household_module_presence AS
 WITH plots_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_plots
@@ -303,7 +317,7 @@ LIMIT 20;
 -- - did_process = should appear in ag_produce
 -- - owned_animals = should appear in animals
 -- -----------------------------------------------------------------------------
-
+DROP TABLE IF EXISTS expected_but_missing_households;
 CREATE OR REPLACE TABLE expected_but_missing_households AS
 WITH crops_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_crops

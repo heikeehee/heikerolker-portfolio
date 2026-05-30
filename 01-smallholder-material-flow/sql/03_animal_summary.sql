@@ -38,23 +38,27 @@
 -- Household-level routing checks come first.
 -- Structural mismatches are flagged for review rather than silently repaired.
 -- =============================================================================
-
+DROP TABLE IF EXISTS household_roster;
 CREATE OR REPLACE TABLE household_roster AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/household_roster.csv');
 
+DROP TABLE IF EXISTS animals_fin;
 CREATE OR REPLACE TABLE animals_fin AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/animals_fin.csv');
 
+DROP TABLE IF EXISTS milk;
 CREATE OR REPLACE TABLE milk AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/milk.csv');
 
+DROP TABLE IF EXISTS produce;
 CREATE OR REPLACE TABLE produce AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/produce.csv');
 
+DROP TABLE IF EXISTS animal_grain_summary;
 CREATE OR REPLACE TABLE animal_grain_summary AS
 SELECT
     'animals_fin' AS module_name,
@@ -85,6 +89,7 @@ SELECT
 FROM produce
 ORDER BY module_name;
 
+DROP TABLE IF EXISTS animal_household_presence;
 CREATE OR REPLACE TABLE animal_household_presence AS
 WITH animals_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_animals
@@ -99,6 +104,7 @@ FROM household_roster hr
 LEFT JOIN animals_hh ah
     ON hr.y4_hhid = ah.y4_hhid;
 
+DROP TABLE IF EXISTS milk_household_presence;
 CREATE OR REPLACE TABLE milk_household_presence AS
 WITH milk_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_milk
@@ -113,6 +119,7 @@ FROM household_roster hr
 LEFT JOIN milk_hh mh
     ON hr.y4_hhid = mh.y4_hhid;
 
+DROP TABLE IF EXISTS animal_product_household_presence;
 CREATE OR REPLACE TABLE animal_product_household_presence AS
 WITH prod_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_animal_products
@@ -127,6 +134,7 @@ FROM household_roster hr
 LEFT JOIN prod_hh ph
     ON hr.y4_hhid = ph.y4_hhid;
 
+DROP TABLE IF EXISTS milkable_animal_support;
 CREATE OR REPLACE TABLE milkable_animal_support AS
 SELECT
     y4_hhid,
@@ -137,6 +145,7 @@ FROM animals_fin
 WHERE COALESCE(flag_milk_animal, 0) = 1
 GROUP BY y4_hhid;
 
+DROP TABLE IF EXISTS poultry_support;
 CREATE OR REPLACE TABLE poultry_support AS
 SELECT
     y4_hhid,
@@ -146,6 +155,7 @@ FROM animals_fin
 WHERE type = 'poultry'
 GROUP BY y4_hhid;
 
+DROP TABLE IF EXISTS milk_summary;
 CREATE OR REPLACE TABLE milk_summary AS
 SELECT
     y4_hhid,
@@ -166,6 +176,7 @@ SELECT
 FROM milk
 GROUP BY y4_hhid;
 
+DROP TABLE IF EXISTS egg_product_summary;
 CREATE OR REPLACE TABLE egg_product_summary AS
 SELECT
     y4_hhid,
@@ -181,6 +192,7 @@ FROM produce
 WHERE productid = 'eggs'
 GROUP BY y4_hhid;
 
+DROP TABLE IF EXISTS hides_product_summary;
 CREATE OR REPLACE TABLE hides_product_summary AS
 SELECT
     y4_hhid,
@@ -193,6 +205,7 @@ FROM produce
 WHERE productid = 'skin / hides'
 GROUP BY y4_hhid;
 
+DROP TABLE IF EXISTS expected_but_missing_milk;
 CREATE OR REPLACE TABLE expected_but_missing_milk AS
 SELECT
     s.y4_hhid,
@@ -208,6 +221,7 @@ LEFT JOIN milk_summary m
 WHERE s.has_milkable_animal_row = 1
   AND m.y4_hhid IS NULL;
 
+DROP TABLE IF EXISTS expected_but_missing_eggs;
 CREATE OR REPLACE TABLE expected_but_missing_eggs AS
 SELECT
     p.y4_hhid,
@@ -222,6 +236,7 @@ LEFT JOIN egg_product_summary e
 WHERE p.poultry_supported > 0
   AND e.y4_hhid IS NULL;
 
+DROP TABLE IF EXISTS expected_but_missing_hides;
 CREATE OR REPLACE TABLE expected_but_missing_hides AS
 SELECT
     a.y4_hhid,
@@ -237,6 +252,7 @@ GROUP BY a.y4_hhid, h.y4_hhid
 HAVING SUM(COALESCE(a.slaughter, 0)) > 0
    AND h.y4_hhid IS NULL;
 
+DROP TABLE IF EXISTS animal_alignment_flags;
 CREATE OR REPLACE TABLE animal_alignment_flags AS
 WITH livestock_support AS (
     SELECT
@@ -318,6 +334,7 @@ FULL OUTER JOIN egg_product_summary e
 FULL OUTER JOIN hides_product_summary h
     ON COALESCE(ls.y4_hhid, m.y4_hhid, e.y4_hhid) = h.y4_hhid;
 
+DROP TABLE IF EXISTS animal_review_targets;
 CREATE OR REPLACE TABLE animal_review_targets AS
 SELECT
     y4_hhid,

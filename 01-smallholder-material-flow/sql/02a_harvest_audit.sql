@@ -34,27 +34,32 @@
 -- Disposition is collapsed from source modules to household-item grain, with
 -- overlap across crop_disp and tree_disp checked separately in diagnostics.
 -- =============================================================================
-
+DROP TABLE IF EXISTS household_roster;
 CREATE OR REPLACE TABLE household_roster AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/household_roster.csv');
 
+DROP TABLE IF EXISTS crops;
 CREATE OR REPLACE TABLE crops AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/crops.csv');
 
+DROP TABLE IF EXISTS trees;
 CREATE OR REPLACE TABLE trees AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/trees.csv');
 
+DROP TABLE IF EXISTS crop_disp;
 CREATE OR REPLACE TABLE crop_disp AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/crop_disp.csv');
 
+DROP TABLE IF EXISTS tree_disp;
 CREATE OR REPLACE TABLE tree_disp AS
 SELECT *
 FROM read_csv_auto('data/processed/01/sql_input/tree_disp.csv');
 
+DROP TABLE IF EXISTS production_grain_summary;
 CREATE OR REPLACE TABLE production_grain_summary AS
 SELECT
     'crops' AS module_name,
@@ -75,6 +80,7 @@ SELECT
 FROM trees
 ORDER BY module_name;
 
+DROP TABLE IF EXISTS disposition_grain_summary;
 CREATE OR REPLACE TABLE disposition_grain_summary AS
 SELECT
     'crop_disp' AS module_name,
@@ -95,6 +101,7 @@ SELECT
 FROM tree_disp
 ORDER BY module_name;
 
+DROP TABLE IF EXISTS production_household_presence;
 CREATE OR REPLACE TABLE production_household_presence AS
 WITH crops_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_crops FROM crops
@@ -126,6 +133,7 @@ LEFT JOIN trees_hh th
 LEFT JOIN production_hh ph
     ON hr.y4_hhid = ph.y4_hhid;
 
+DROP TABLE IF EXISTS disposition_household_presence;
 CREATE OR REPLACE TABLE disposition_household_presence AS
 WITH crop_disp_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_crop_disp FROM crop_disp
@@ -157,6 +165,7 @@ LEFT JOIN tree_disp_hh tdh
 LEFT JOIN disposition_hh dh
     ON hr.y4_hhid = dh.y4_hhid;
 
+DROP TABLE IF EXISTS expected_but_missing_disposition;
 CREATE OR REPLACE TABLE expected_but_missing_disposition AS
 WITH production_hh AS (
     SELECT DISTINCT y4_hhid, 1 AS in_production
@@ -196,6 +205,7 @@ WHERE COALESCE(ph.in_production, 0) = 1
   AND COALESCE(dh.in_disposition, 0) = 0
 ORDER BY hr.y4_hhid;
 
+DROP TABLE IF EXISTS production_item_summary;
 CREATE OR REPLACE TABLE production_item_summary AS
 WITH production_items AS (
     SELECT
@@ -231,6 +241,7 @@ SELECT
 FROM production_items
 GROUP BY y4_hhid, cropid;
 
+DROP TABLE IF EXISTS disposition_item_summary;
 CREATE OR REPLACE TABLE disposition_item_summary AS
 WITH disposition_items AS (
     SELECT
@@ -293,6 +304,7 @@ SELECT
 FROM disposition_items
 GROUP BY y4_hhid, cropid;
 
+DROP TABLE IF EXISTS harvest_alignment_flags;
 CREATE OR REPLACE TABLE harvest_alignment_flags AS
 SELECT
     COALESCE(p.y4_hhid, d.y4_hhid) AS y4_hhid,
