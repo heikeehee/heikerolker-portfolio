@@ -98,12 +98,6 @@ milk <- milk[is.na(milkable) | milkable == 1]
 # =============================================================================
 # SECTION 3: CLEAN-STAGE FLAGS
 # =============================================================================
-
-milk[, flag_manual_av_fix_needed := fifelse(
-  y4_hhid %in% c("1001-001", "1002-001", "2943-001") & is.na(av_raw),
-  1L, 0L
-)]
-
 milk[, flag_hh_milking := fifelse(milked > 0, 1L, 0L)]
 milk[, flag_av_missing := fifelse(milked > 0 & is.na(av_raw), 1L, 0L)]
 milk[, flag_hi_missing := fifelse(milked > 0 & is.na(hi_raw), 1L, 0L)]

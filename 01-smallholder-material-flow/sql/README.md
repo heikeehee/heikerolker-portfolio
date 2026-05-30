@@ -80,7 +80,7 @@ Planned focus:
 **Business question:**\
 Where do livestock and animal-product modules show routing gaps, missingness, or structural mismatches?
 
-Planned focus: - livestock participation versus animal-module presence, - animal ownership versus milk/product module presence, - row-level grain checks for animals, milk, eggs, and hides, - follow-up targets for clean/impute review. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/152915217/47e7263d-8ef1-4ea0-a2a9-e98c77ecf5de/animals.R)
+Planned focus: - livestock participation versus animal-module presence, - animal ownership versus milk/product module presence, - row-level grain checks for animals, milk, eggs, and hides, - follow-up targets for clean/impute review.
 
 ## Design decisions
 

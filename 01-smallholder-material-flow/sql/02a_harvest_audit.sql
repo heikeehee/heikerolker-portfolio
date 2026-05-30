@@ -30,6 +30,9 @@
 --
 -- This script audits alignment at household-item grain first. It does not force
 -- row-level equality across source modules with different natural grains.
+-- Production is first collapsed from plot-level records to household-item grain.
+-- Disposition is collapsed from source modules to household-item grain, with
+-- overlap across crop_disp and tree_disp checked separately in diagnostics.
 -- =============================================================================
 
 CREATE OR REPLACE TABLE household_roster AS
@@ -375,13 +378,8 @@ FULL OUTER JOIN disposition_item_summary d
     ON p.y4_hhid = d.y4_hhid
    AND p.cropid = d.cropid;
 
-SELECT *
-FROM production_grain_summary
-ORDER BY module_name;
-
-SELECT *
-FROM disposition_grain_summary
-ORDER BY module_name;
+SELECT * FROM production_grain_summary ORDER BY module_name;
+SELECT * FROM disposition_grain_summary ORDER BY module_name;
 
 SELECT
     SUM(flag_production_without_disposition) AS n_households_production_without_disposition
@@ -393,79 +391,3 @@ SELECT
     SUM(flag_disposition_gt_production) AS n_disposition_gt_production,
     SUM(flag_zero_recorded_disposition) AS n_zero_recorded_disposition
 FROM harvest_alignment_flags;
-
-WITH prod_raw AS (
-    SELECT y4_hhid, cropid, 'crops' AS source
-    FROM crops
-    UNION ALL
-    SELECT y4_hhid, cropid, 'trees' AS source
-    FROM trees
-),
-disp_raw AS (
-    SELECT y4_hhid, cropid, 'crop_disp' AS source
-    FROM crop_disp
-    UNION ALL
-    SELECT y4_hhid, cropid, 'tree_disp' AS source
-    FROM tree_disp
-)
-SELECT
-    side,
-    COUNT(*) AS n_rows,
-    COUNT(DISTINCT y4_hhid || '|' || cropid) AS n_distinct_keys,
-    COUNT(*) - COUNT(DISTINCT y4_hhid || '|' || cropid) AS n_duplicate_rows
-FROM (
-    SELECT 'production' AS side, y4_hhid, cropid FROM prod_raw
-    UNION ALL
-    SELECT 'disposition' AS side, y4_hhid, cropid FROM disp_raw
-) x
-GROUP BY side;
-
-WITH prod_raw AS (
-    SELECT y4_hhid, cropid, 'crops' AS source
-    FROM crops
-    UNION ALL
-    SELECT y4_hhid, cropid, 'trees' AS source
-    FROM trees
-),
-disp_raw AS (
-    SELECT y4_hhid, cropid, 'crop_disp' AS source
-    FROM crop_disp
-    UNION ALL
-    SELECT y4_hhid, cropid, 'tree_disp' AS source
-    FROM tree_disp
-)
-SELECT
-    'production' AS side,
-    y4_hhid,
-    cropid,
-    COUNT(*) AS n_rows
-FROM prod_raw
-GROUP BY y4_hhid, cropid
-HAVING COUNT(*) > 1
-ORDER BY n_rows DESC
-LIMIT 25;
-
-WITH prod_raw AS (
-    SELECT y4_hhid, cropid, 'crops' AS source
-    FROM crops
-    UNION ALL
-    SELECT y4_hhid, cropid, 'trees' AS source
-    FROM trees
-),
-disp_raw AS (
-    SELECT y4_hhid, cropid, 'crop_disp' AS source
-    FROM crop_disp
-    UNION ALL
-    SELECT y4_hhid, cropid, 'tree_disp' AS source
-    FROM tree_disp
-)
-SELECT
-    'disposition' AS side,
-    y4_hhid,
-    cropid,
-    COUNT(*) AS n_rows
-FROM disp_raw
-GROUP BY y4_hhid, cropid
-HAVING COUNT(*) > 1
-ORDER BY n_rows DESC
-LIMIT 25;
