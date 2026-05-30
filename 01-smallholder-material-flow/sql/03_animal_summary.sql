@@ -1,8 +1,8 @@
 -- =============================================================================
 -- 03_animal_audit.sql
 -- PURPOSE:
--- Audit livestock ownership and animal-product reporting across animals, milk,
--- and animal product modules.
+-- Audit livestock ownership and animal-product reporting across animals_fin,
+-- milk, and produce modules.
 --
 -- BUSINESS QUESTION:
 -- Where do livestock and animal-product modules show routing gaps, missingness,
@@ -12,7 +12,7 @@
 -- DuckDB
 --
 -- INPUT:
--- data/processed/01/clean/*.rds or exported CSV equivalents
+-- data/processed/01/sql_input/*.csv
 --
 -- OUTPUT TABLES:
 -- - animal_grain_summary
@@ -158,10 +158,10 @@ SELECT
     SUM(COALESCE(processed_raw, 0)) AS total_processed_raw_litres_per_day,
     SUM(COALESCE(psold_raw, 0)) AS total_psold_raw_litres_per_day,
     MAX(COALESCE(flag_milk_support_missing, 0)) AS flag_milk_support_missing,
-    MAX(COALESCE(flag_section_mismatch_milked_gt_owned, 0)) AS flag_milked_gt_owned,
+    MAX(COALESCE(flag_section_mismatch_milked_gt_owned, 0)) AS flag_section_mismatch_milked_gt_owned,
     MAX(COALESCE(flag_av_missing, 0)) AS flag_av_missing,
-    MAX(COALESCE(flag_disposition_present_but_av_missing, 0)) AS flag_disp_present_but_av_missing,
-    MAX(COALESCE(flag_disposition_exceeds_production, 0)) AS flag_disp_exceeds_production,
+    MAX(COALESCE(flag_disposition_present_but_av_missing, 0)) AS flag_disposition_present_but_av_missing,
+    MAX(COALESCE(flag_disposition_exceeds_production, 0)) AS flag_disposition_exceeds_production,
     MAX(COALESCE(flag_zero_milked_with_output, 0)) AS flag_zero_milked_with_output
 FROM milk
 GROUP BY y4_hhid;
@@ -187,8 +187,8 @@ SELECT
     COUNT(*) AS n_hides_rows,
     SUM(COALESCE(produced_raw, 0)) AS hides_produced_raw,
     SUM(COALESCE(sold_raw, 0)) AS hides_sold_raw,
-    MAX(COALESCE(flaghidessectionpresent, 0)) AS flag_hides_section_present,
-    MAX(COALESCE(flaghidestruena, 0)) AS flag_hides_true_na
+    MAX(COALESCE(flag_hides_section_present, 0)) AS flag_hides_section_present,
+    MAX(COALESCE(flag_hides_true_na, 0)) AS flag_hides_true_na
 FROM produce
 WHERE productid = 'skin / hides'
 GROUP BY y4_hhid;
