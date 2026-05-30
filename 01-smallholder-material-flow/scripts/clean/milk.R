@@ -1,18 +1,15 @@
 # =============================================================================
 # clean/milk.R
-# PURPOSE: Clean milk production and destination survey section
+# PURPOSE: Clean milk production survey section and create diagnostic outputs
 # INPUT:   raw$milk from 01_load_raw.R
 #          clean/animals_fin.rds (for cross-referencing milking numbers)
-#          clean/feed_short.rds  (for feed requirement calculation)
-# OUTPUT:  data/processed/clean/milk.rds        (cleaned milk, cleaned estimates)
-#          data/processed/clean/mass_milk.rds   (annualised milk with uncertainty)
-#          data/processed/clean/excl_milk.csv   (exclusion flags)
+# OUTPUT:  data/processed/01/clean/milk.rds
+#          data/processed/01/clean/excl_milk.csv
 # SECTION: lf_sec_06 — livestock milk production (Section 6)
-# NOTE:    Feed requirement imputation uses FAO factors — see impute/animals.R
-#          for the canonical feed table. The feed calculation in this script
-#          uses the same logic; consider refactoring to share that table.
+# NOTE:    Clean stage only. Standardise, derive diagnostics, and flag issues.
+#          Any repair, fallback, uncertainty, feed requirement, or unit conversion
+#          belongs in impute/milk.R.
 # =============================================================================
-
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
@@ -24,271 +21,152 @@ dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE,
 # =============================================================================
 
 lf_sec_06 <- raw$milk$lf_sec_06
-milk       <- clean_up(lf_sec_06)
+milk <- clean_up(lf_sec_06)
 
-# Manual fixes for three households with missing average milk production
-# 🚩 FLAG EXCLUSION: Three households with missing average (lf06_03) filled
-# by inspection of raw data — hardcoded by design.
-# Replace code below with flag when average is missing for exclusion/imputation
-milk <- milk %>%
-  mutate(
-    # 1001-001: only lowest value reported — use lo as average
-    lf06_03 = ifelse(y4_hhid == "1001-001", lf06_05_2, lf06_03),
-    # 1002-001: no average but hi and lo exist — use midpoint
-    lf06_03 = ifelse(y4_hhid == "1002-001", (lf06_05_2 + lf06_04_2) / 2, lf06_03),
-    # 2943-001: only consumption reported — derive average from sum
-    lf06_03 = ifelse(y4_hhid == "2943-001", lf06_07 + lf06_08 + lf06_10, lf06_03)
-  )
-
-milk <- upData(milk,
+milk <- upData(
+  milk,
   rename = .q(
-    lf06_01  = milked,
-    lf06_02  = length,
-    lf06_03  = av,
-    lf06_04_2 = hi,
-    lf06_05_2 = lo,
-    lf06_07  = consumed,
-    lf06_08  = sold,
-    lf06_09  = processed,
-    lf06_10  = psold,
-    lf06_11  = value,
+    lf06_01   = milked,
+    lf06_02   = length,
+    lf06_03   = av_raw,
+    lf06_04_2 = hi_raw,
+    lf06_05_2 = lo_raw,
+    lf06_07   = consumed_raw,
+    lf06_08   = sold_raw,
+    lf06_09   = processed_raw,
+    lf06_10   = psold_raw,
+    lf06_11   = value_raw,
     lf06_12_1 = buyer1,
     lf06_12_2 = buyer2
   ),
-
-  # Derived annualised quantities
-  # 🚩 FLAG UNIT: 30.437 days/month — standard average, not Tanzania-specific.
-  period      = length * 30.437,        # days milked per production period
-  milk        = period * av,            # total annual milk (using average)
-  milk_lo     = period * lo,
-  milk_hi     = period * hi,
-  consumed_a  = consumed  * period,
-  sold_a      = sold      * period,
-  processed_a = processed * period,
-  psold_a     = psold     * period,
-  output      = milk / milked,          # milk per animal
-  ava         = av / milked,            # average per animal
-  value_a     = value * period,
-
   labels = .q(
-    milked      = "Number of animals milked in past 12 mo",
-    length      = "Average number of mo animals were milked for",
-    av          = "Average milk production per day per type of animal",
-    hi          = "Highest milk production",
-    lo          = "Lowest milk production",
-    consumed    = "Quantity consumed per day",
-    sold        = "Quantity sold per day",
-    processed   = "Quantity of milk converted into produce per day",
-    psold       = "Quantity of milk products sold per day",
-    period      = "Period of milking",
-    milk        = "Total annual quantity of milk produced",
-    milk_lo     = "Total estimate with lowest month",
-    milk_hi     = "Total estimate with highest month",
-    consumed_a  = "Annual consumption based on milking period",
-    sold_a      = "Annual sales based on milking period",
-    output      = "Estimate of milk per animal",
-    ava         = "Average quantity per animal"
-  ),
-  units = .q(
-    av          = `l/day`,
-    hi          = `l/day`,
-    lo          = `l/day`,
-    consumed    = `l/day`,
-    sold        = `l/day`,
-    processed   = `l/day`,
-    psold       = `l/day`,
-    milk        = l,
-    consumed_a  = l,
-    sold_a      = l,
-    ava         = l
+    milked        = "Number of animals milked in past 12 mo",
+    length        = "Average number of months animals were milked for",
+    av_raw        = "Average milk production per day per type of animal, as reported",
+    hi_raw        = "Highest milk production, as reported",
+    lo_raw        = "Lowest milk production, as reported",
+    consumed_raw  = "Quantity consumed per day, as reported",
+    sold_raw      = "Quantity sold per day, as reported",
+    processed_raw = "Quantity processed per day, as reported",
+    psold_raw     = "Quantity of milk products sold per day, as reported",
+    value_raw     = "Value of milk sales, as reported"
   )
 )
 
-# Keep only milkable species (large and small ruminants)
-# EXCLUSION E06: non-ruminant livestock categories dropped from milk section
-# Type: structural zero (non-ruminants do not produce milk in this context)
-# Profiled in: 05_exclusions_audit.R
-milk <- milk[lvstckcat == "large ruminants" | lvstckcat == "small ruminants"]
+# =============================================================================
+# SECTION 2: CROSS-REFERENCE MILKABLE ANIMALS
+# animals_sub is assumed to contain the milkability flag
+# =============================================================================
+
+animals_sub <- readRDS(here::here("data", "processed", "01", "clean", "animals_fin.rds"))
+
+milk_support <- unique(
+  animals_sub[, .(
+    y4_hhid,
+    lvstckcat = type,
+    max_owned,
+    flag_milk_animal
+  )]
+)
+
+milk_support <- milk_support[flag_milk_animal == 1,
+                            .(milkable = sum(max_owned, na.rm = TRUE)),
+                            by = .(y4_hhid, lvstckcat)
+]
+
+milk <- merge(
+  milk,
+  milk_support,
+  by = c("y4_hhid", "lvstckcat"),
+  all.x = TRUE
+)
+
+milk[, flag_milk_support_missing := fifelse(is.na(milkable) & milked > 0, 1L, 0L)]
+milk[, flag_section_mismatch_milked_gt_owned := fifelse(
+  !is.na(milked) & !is.na(milkable) & milked > milkable,
+  1L, 0L
+)]
+
+message("flag_milk_support_missing: ", milk[flag_milk_support_missing == 1L, .N],
+        " rows where milk section record has no matching animal support row")
+message("flag_section_mismatch_milked_gt_owned: ", milk[flag_section_mismatch_milked_gt_owned == 1L, .N],
+        " rows where milked animals exceed max owned for category")
+
+# Keep only records flagged as milkable
+milk <- milk[is.na(milkable) | milkable == 1]
+
+# =============================================================================
+# SECTION 3: CLEAN-STAGE FLAGS
+# =============================================================================
+milk[, flag_hh_milking := fifelse(milked > 0, 1L, 0L)]
+milk[, flag_av_missing := fifelse(milked > 0 & is.na(av_raw), 1L, 0L)]
+milk[, flag_hi_missing := fifelse(milked > 0 & is.na(hi_raw), 1L, 0L)]
+milk[, flag_lo_missing := fifelse(milked > 0 & is.na(lo_raw), 1L, 0L)]
+milk[, flag_length_missing := fifelse(milked > 0 & is.na(length), 1L, 0L)]
+milk[, flag_fix_processing_input := fifelse(processed_raw < psold_raw, 1L, 0L)]
+milk[, flag_daily_output_implausible := fifelse(milked == 1 & av_raw > 6, 1L, 0L)]
+
+milk[, flag_processed_value_missing := fifelse(
+  (!is.na(psold_raw) | psold_raw > 0) & (is.na(value_raw) | value_raw == 0),
+  1L, 0L
+)]
+
+milk[, disposition_raw := rowSums(.SD, na.rm = TRUE), .SDcols = c("consumed_raw", "sold_raw", "processed_raw")]
+milk[, flag_disposition_present_but_av_missing := fifelse(
+  is.na(av_raw) & disposition_raw > 0,
+  1L, 0L
+)]
+
+milk[, flag_disposition_exceeds_production := fifelse(disposition_raw > av_raw, 1L, 0L)]
+milk[, flag_period_implausible := fifelse(!is.na(length) & length > 10 & milked == 1, 1L, 0L)]
+milk[, flag_zero_milked_with_output := fifelse(
+  !is.na(milked) & milked == 0 &
+    rowSums(.SD, na.rm = TRUE) > 0,
+  1L, 0L
+), .SDcols = c("av_raw", "consumed_raw", "sold_raw", "processed_raw", "psold_raw")]
+
+message("flag_hh_milking: ", milk[flag_hh_milking == 1L, .N],
+        " rows with households milking animals")
+message("flag_manual_av_fix_needed: ", milk[flag_manual_av_fix_needed == 1L, .N],
+        " rows where av_raw will need household-specific repair in impute")
+message("flag_av_missing: ", milk[flag_av_missing == 1L, .N],
+        " rows where av_raw is missing")
+message("flag_hi_missing: ", milk[flag_hi_missing == 1L, .N],
+        " rows where hi_raw is missing")
+message("flag_lo_missing: ", milk[flag_lo_missing == 1L, .N],
+        " rows where lo_raw is missing")
+message("flag_length_missing: ", milk[flag_length_missing == 1L, .N],
+        " rows where length is missing")
+message("flag_processed_value_missing: ", milk[flag_processed_value_missing == 1L, .N],
+        " rows where processed sold value is missing")
+message("flag_disposition_present_but_av_missing: ", milk[flag_disposition_present_but_av_missing == 1L, .N],
+        " rows where dispositions exist but av_raw is missing")
+message("flag_period_implausible: ", milk[flag_period_implausible == 1L, .N],
+        " rows where milking length exceeds 12 months")
+message("flag_zero_milked_with_output: ", milk[flag_zero_milked_with_output == 1L, .N],
+        " rows where no animals milked are reported but milk outputs exist")
+message("flag_fix_processing_input: ", milk[flag_fix_processing_input == 1L, .N],
+        " rows where processed_raw is lower than psold_raw")
+message("flag_daily_output_implausible: ", milk[flag_daily_output_implausible == 1L, .N],
+        " rows where milked = 1 and average milk output above 6l")
+message("flag_disposition_exceeds_production: ", milk[flag_disposition_exceeds_production == 1L, .N],
+        " rows where sum of disposition exceeds average production")
 
 saveRDS(milk, here::here("data", "processed", "01", "clean", "milk.rds"), compress = TRUE)
 
-# =============================================================================
-# SECTION 2: MILK QUANTITY RECONCILIATION AND UNCERTAINTY
-# Derive a representative average production estimate using av, hi, lo, and
-# the sum of reported dispositions (consumed + sold + processed)
-# =============================================================================
+flag_cols <- names(milk)[grepl("^flag_", names(milk))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) milk[get(col) == 1L, .N], integer(1))
+)[order(-n)]
 
-cleaned_data <- milk %>%
-  mutate(
-    # Replace processed with psold if processed < psold (sold > what was processed — data inconsistency)
-    # ASSUMPTION REMOVED — see impute/milk.R (A19)
-    processed_new    = ifelse(processed < psold, psold, processed),
-    processed_new    = replace_na(processed_new, 0),
-    smd1             = consumed + sold + processed_new,   # sum of all dispositions
+message("----- Flag summary: milk -----")
+print(flag_summary)
 
-    # Fallback average: use smd1 when av is missing
-    av_with_fallback = ifelse(is.na(av), smd1, av),
-
-    # Multiple average estimates (documented for transparency)
-    simple_av    = (av_with_fallback + hi + lo) / 3,
-    weighted_av  = ifelse(is.na(av), smd1, 0.8 * av + 0.2 * smd1),
-    geo_av       = ifelse(is.na(av), sqrt(smd1 * smd1), sqrt(av * smd1)),
-
-    # Constrain average to plausible range [lo, hi]
-    corrected_avg = ifelse(
-      is.na(av_with_fallback) | is.na(lo) | is.na(hi),
-      av_with_fallback,
-      pmin(pmax(av_with_fallback, lo), hi)
-    ),
-    corrected_min = ifelse(is.na(lo) | is.na(corrected_avg), lo, pmin(lo, corrected_avg)),
-    corrected_max = ifelse(is.na(hi) | is.na(corrected_avg), hi, pmax(hi, corrected_avg)),
-
-    # Uncertainty: range / 4 approximation (assumes normal distribution)
-    # ASSUMPTION REMOVED — see impute/milk.R (A20)
-    range = ifelse(is.na(corrected_max) | is.na(corrected_min), NA, corrected_max - corrected_min),
-    SD    = ifelse(is.na(range), NA, range / 4),
-
-    # Representative production value
-    # ASSUMPTION REMOVED — see impute/milk.R (A21)
-    new_av = ifelse(
-      av == smd1, av,
-      0.2 * corrected_min + 0.6 * corrected_avg + 0.2 * corrected_max
-    )
-  )
-
-# Exclusion flags
-excl_milk <- cleaned_data %>%
-  mutate(
-    processed_new = ifelse(processed < psold, psold, processed),
-    processed_new = replace_na(processed_new, 0),
-    smd1          = consumed + sold + processed_new
-  ) %>%
-  filter(milked > 0) %>%
-  select(y4_hhid, lvstckcat, corrected_avg, corrected_min, corrected_max,
-         ends_with("av"), av_with_fallback, SD, consumed, sold, processed, psold, period, milked) %>%
-  dplyr::rename(mean = new_av) %>%
-  mutate(
-    processed_new = ifelse(processed < psold, psold, processed),
-    processed_new = replace_na(processed_new, 0),
-    smd1          = consumed + sold + processed_new
-  ) %>%
-  mutate(
-    excl = fcase(
-      # EXCLUSION E07: exclusion rules for milk — thresholds based on physiological plausibility
-      # Type: unclear — FLAG (thresholds not codebook-specified)
-      # Profiled in: 05_exclusions_audit.R
-      period > 310 & milked == 1,                                          "Implausible",
-      smd1 > 7    & milked == 1,                                           "Implausible",
-      mean * 1.2 < consumed | mean * 1.2 < sold | mean * 1.2 < processed_new, "Data inconsistent",
-      smd1 > mean * 1.5,                                                   "Excessive milk use",
-      smd1 <= mean * 0.5,                                                  "Milk unaccounted"
-    ),
-    item = paste("milk", lvstckcat, sep = " - ")
-  ) %>%
-  select(y4_hhid, item, excl)
-
-write.csv(excl_milk,
-          here::here("data", "processed", "01", "clean", "excl_milk.csv"),
-          row.names = FALSE)
-
-# =============================================================================
-# SECTION 3: ANNUALISED MASS MILK
-# =============================================================================
-
-mass_milk <- cleaned_data %>%
-  mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>%
-  dplyr::rename(type = lvstckcat) %>%
-  mutate(
-    milkwa      = av * period,             # unadjusted annual milk (for comparison)
-    milk        = new_av * period,         # adjusted annual milk using new_av
-    SD          = SD * period,
-    consumed    = consumed  * period,
-    sold        = sold      * period,
-    psold       = psold     * period,
-    processed   = processed * period,
-    processed_new = ifelse(processed < psold, psold, processed),
-    smd1        = consumed + sold + processed_new,
-    # If milk estimate is 0 but dispositions exist, use dispositions as floor
-    milk        = ifelse(milk == 0 & smd1 > 0, smd1, milk),
-    missing     = milk - smd1
-  )
-
-saveRDS(mass_milk, here::here("data", "processed", "01", "clean", "mass_milk.rds"), compress = TRUE)
-
-# =============================================================================
-# SECTION 4: MILK FEED REQUIREMENTS
-# ⚠️ CROSS-SECTION DEPENDENCY
-# This script uses feed_short from clean/animals.R.
-# This should move to 04_build_households.R when that script is written.
-# Retained here temporarily to keep pipeline runnable.
-# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
-# =============================================================================
-
-f <- readRDS(here::here("data", "processed", "01", "clean", "feed_short.rds"))
-
-# Feed fractions by animal type and feeding practice
-# Source: @Opio.2013 p.119 (small ruminants), p.117 (dairy cattle)
-# ASSUMPTION REMOVED — see impute/milk.R (A22)
-smrum <- data.table(
-  feed1  = c("only feeding (no grazing/scavenging)",
-             "mainly grazing/scavenging w/ some feeding",
-             "only grazing/scavenging",
-             "mainly feeding w/ some grazing/scavenging",
-             "tethering"),
-  feed   = c(1, 0.35, 0, 0.65, 0.5),
-  grazed = c(0, 0.65, 1, 0.35, 0.5),
-  type   = "small ruminants"
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "milk_flag_summary.csv")
 )
 
-lgrum <- data.table(
-  feed1  = c("only feeding (no grazing/scavenging)",
-             "mainly grazing/scavenging w/ some feeding",
-             "only grazing/scavenging",
-             "mainly feeding w/ some grazing/scavenging",
-             "tethering"),
-  feed   = c(1, 0.25, 0, 0.75, 0.5),
-  grazed = c(0, 0.75, 1, 0.25, 0.5),
-  type   = "large ruminants"
-)
-
-milkfeed <- bind_rows(smrum, lgrum)
-
-milk3    <- setDT(mass_milk)
-mf       <- f[milk3, on = c("y4_hhid", "type")]
-mf       <- milkfeed[mf, on = c("type", "feed1")]
-
-# 🚩 FLAG ASSUMPTION: Feed conversion ratio 0.7 kg DM / kg milk from @Alexander.2016.
-# Applied uniformly to small and large ruminants — no differentiation.
-mass_milk_final <- upData(mf,
-  need   = milk * 0.7,
-  feed   = need * feed,
-  grazed = need * grazed,
-  labels = .q(
-    feed   = "Quantity of feed consumed in DM",
-    grazed = "Quantity grazed/scavenged in DM",
-    need   = "Quantity DM needed to produce milk"
-  ),
-  units = .q(
-    feed   = "kg DM",
-    grazed = "kg DM",
-    need   = "kg DM",
-    milk   = kg
-  ),
-  drop = .q(feed1)
-)
-
-# --- UNIT CONVERSION: milk litres → kg ---
-# Conversion factor: 1.03 kg per litre (density of fresh whole milk)
-# Source: FAO Food Balance Sheet conventions / Codex Alimentarius
-# 🚩 FLAG [ASSUMPTION]: density value 1.03 assumed — confirm against LSMS-ISA documentation
-# 🚩 FLAG [UNIT]: all milk quantities downstream are in kg after this point — verify no double conversion
-mass_milk_final <- mass_milk_final |>
-  mutate(across(c(milk, milkwa, SD, consumed, sold, psold, processed, processed_new, smd1, missing),
-                ~ . * 1.03, .names = "{.col}_kg"))
-# milkwa = "unadjusted" milk estimate (av × period); milk = adjusted estimate (new_av × period)
-# NOTE: drop original litre columns after confirming conversion is correct
-
-saveRDS(mass_milk_final, here::here("data", "processed", "01", "clean", "mass_milk_final.rds"),
-        compress = TRUE)
 
 message("clean/milk.R: milk outputs saved.")

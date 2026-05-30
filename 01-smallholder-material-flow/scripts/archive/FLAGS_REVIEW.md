@@ -48,6 +48,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 |----|----|----|----|----|
 | E01 | clean/crops.R | harvest values set to 0 when harvested == "no" | structural zero \| missing data — FLAG | Profile vs included on region, land size, wealth |
 | E02 | clean/crops.R | 2 records where area_planted is NA → replaced with area_harvested_new | missing data | Identify affected HH/crop; confirm replacement is valid |
+| E03.1 | clean/crops.R | area harvested exceeds composite plotsize |  | double check with expert if exclusion necessary/plausible |
 | E03 | clean/crops.R | ag3b_01b == 2 filters short-season plots | plots listed for long and short season, means some are double counted and used all year long | No action |
 | E04 | clean/animals.R | sentinel 0 applied when gateway question == "no" | structural zero \| missing data — FLAG | Profile proportion of zeros vs NAs; flag possible recall fatigue |
 | E05 | clean/animal_products.R | hides[produced == 0] dropped | structural zero \| missing data — FLAG | Confirm all zeros correspond to zero slaughter; count records |
@@ -142,7 +143,7 @@ Generated after clean/ extraction pass. All items below require a decision befor
 |----|----|----|
 | All clean/ scripts | `# 🚩 FLAG [ASSUMPTION]: ...` comment blocks | Replaced with `# ASSUMPTION REMOVED — see impute/[script].R (A##)`; assumption documented in impute/ |
 | All clean/ scripts | `# 🚩 FLAG [EXCLUSION]: ...` comment blocks | Replaced with standardised `# EXCLUSION E##:` block; placeholder added to 05_exclusions_audit.R |
-| All clean/ scripts | `# 🚩 FLAG [CROSS-SECTION]: ...` single-line comments | Replaced with full `# ⚠️ CROSS-SECTION DEPENDENCY` block |
+| All clean/ scripts | `# 🚩 FLAG [CROSS-SECTION]: ...` single-line comments | Replaced with full `# ⚠️ CROSS-SECTION DEPENDENCY` block \| |
 | FLAGS_REVIEW.md C01–C06 | `Move to: 04_build_households.R` | ✅ Moved — all six cross-section dependencies resolved in 04_build_households.R |
 | clean/milk.R line 280 | `# 🚩 FLAG UNIT: milk quantities still need conversion from litres, use factor 1.08.` | ✅ Resolved — conversion added using factor 1.03 (FAO/Codex convention); see U01/U02 above |
 | FLAGS_REVIEW.md B02 | "Household roster not yet a dedicated clean script" | ✅ Resolved — `clean/household_roster.R` created; sourced first in 00_run_pipeline.R |

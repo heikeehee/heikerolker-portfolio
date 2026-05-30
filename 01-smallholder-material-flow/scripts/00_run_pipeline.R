@@ -30,27 +30,41 @@ source(here::here("01-smallholder-material-flow", "scripts", "01_load_raw.R"))
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "household_roster.R"))  # SPINE — run first
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "crops.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "recall.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "crops.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "destinations.R"))   # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R"))     # dependency on crops.R & destinations.R
 source(here::here("01-smallholder-material-flow", "scripts", "clean", "animals.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "animal_products.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "destinations.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "animal_products.R")) # dependency on animals.R 
+source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))            # dependency on animals.R
 
 # =============================================================================
-# STAGE 2b: Imputation
+# STAGE 2b: Export clean outputs for SQL audit scripts
+# Reads canonical clean .rds files and writes SQL-friendly CSV copies
+# to data/processed/01/sql_input/
+# =============================================================================
+
+source(here::here("01-smallholder-material-flow", "scripts", "02_export_sql_inputs.R"))
+
+# =============================================================================
+# STAGE 3: Imputation
 # Assumption-based estimation steps that extend the cleaned section outputs.
 # Documentation registries (crops, recall, ag_produce, animal_products, milk,
 # destinations) have been moved to scripts/archive/ — see README.md there.
 # =============================================================================
 
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "yield_gap.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "crops.R")).          # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "yield_gap.R"))       # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinations.R"))    # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "ag_produce.R"))      # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "processed_crops.R")) # dependency on ag_produce.R & destinations.R
 source(here::here("01-smallholder-material-flow", "scripts", "impute", "animals.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "processed_crops.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "milk.R"))            # dependency on animals.R
+source(here::here("01-smallholder-material-flow", "scripts", "impute", "animal_products.R")) # dependency on animals.R
+
 
 # =============================================================================
-# STAGE 3: Build household-level dataset
+# STAGE 4: Build household-level dataset
 # Joins all section outputs into one row per household.
 # Resolves cross-section dependencies (C02–C06).
 # Applies structural zero guards.
@@ -59,35 +73,35 @@ source(here::here("01-smallholder-material-flow", "scripts", "impute", "processe
 source(here::here("01-smallholder-material-flow", "scripts", "04_build_households.R"))
 
 # =============================================================================
-# STAGE 4: Exclusions audit
+# STAGE 5: Exclusions audit
 # Profile all exclusions from clean/ and 04_build_households.R with counts and reasons.
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "05_exclusions_audit.R"))
 
 # =============================================================================
-# STAGE 5: MFA input preparation
+# STAGE 6: MFA input preparation
 # Prepare household-level input matrix (flow allocation, residue, mass balance).
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "06_mfa_input.R"))
 
 # =============================================================================
-# STAGE 6: MFA analysis
+# STAGE 7: MFA analysis
 # Run Multiple Factor Analysis; extract factor scores, loadings, variance.
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "07_mfa_analysis.R"))
 
 # =============================================================================
-# STAGE 7: Uncertainty quantification
+# STAGE 8: Uncertainty quantification
 # Monte Carlo simulation over key parameter assumptions.
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "08_uncertainty.R"))
 
 # =============================================================================
-# STAGE 8: Outputs
+# STAGE 9: Outputs
 # Generate all tables, charts, and export files.
 # =============================================================================
 

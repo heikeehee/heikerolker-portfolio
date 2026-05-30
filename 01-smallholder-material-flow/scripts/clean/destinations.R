@@ -1,19 +1,15 @@
 # =============================================================================
 # clean/destinations.R
-# PURPOSE: Clean crop and tree product disposition survey sections;
-#          estimate crop residue flows
+# PURPOSE: Clean crop and tree product disposition survey sections
 # INPUT:   raw$destinations from 01_load_raw.R
-#          raw$ref$rpr, raw$ref$cropmap (via 01_load_raw.R)
 #          clean/pc.rds, clean/pt.rds (from clean/crops.R)
-# OUTPUT:  data/processed/clean/crop_disp.rds     (crop disposition, cleaned)
-#          data/processed/clean/tree_disp.rds     (tree disposition, cleaned)
-#          data/processed/clean/mass_crops.rds    (crops + disposition)
-#          data/processed/clean/mass_trees.rds    (trees + disposition)
-#          data/processed/clean/mass_allcrops.rds (crops + trees combined)
-#          data/processed/clean/excl_crops.csv    (exclusion flags, crops)
-#          data/processed/clean/excl_trees.csv    (exclusion flags, trees)
-#          data/processed/clean/mass_residue.rds  (crop residue flows)
+# OUTPUT:  data/processed/01/clean/crop_disp.rds
+#          data/processed/01/clean/tree_disp.rds
 # SECTION: ag_sec_5a/5b (crop disposition), ag_sec_7a/7b (tree disposition)
+# NOTE:    Clean stage only. Standardise, rename, and flag issues.
+#          Gateway zeros, household repairs, merge-based diagnostics,
+#          exclusion thresholds, and RPR allocation all belong in
+#          impute/destinations.R.
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
@@ -25,8 +21,8 @@ dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE,
 # SECTION 1: CROP DISPOSITION (ag_sec_5a / ag_sec_5b)
 # =============================================================================
 
-ag_sec_5a <- raw$destinations$ag_sec_5a  # long rainy season
-ag_sec_5b <- raw$destinations$ag_sec_5b  # short rainy season
+ag_sec_5a <- raw$destinations$ag_sec_5a
+ag_sec_5b <- raw$destinations$ag_sec_5b
 
 long  <- prep(ag_sec_5a, season = "long")
 short <- ag_sec_5b %>%
@@ -38,92 +34,120 @@ disp <- long %>% bind_dt(short)
 
 setnames(disp, "zaocode", "cropid")
 disp <- disp %>% clean_names(list = crops_list, "cropid")
-
 label(disp) <- as.list(labs[match(names(disp), names(labs))])
 
-crop_disp <- upData(disp,
+crop_disp <- upData(
+  disp,
   rename = .q(
     ag5a_01  = sale,
-    ag5a_02  = sold,
+    ag5a_02  = sold_raw,
     ag5a_03  = value_sale,
     ag5a_04  = b1,
-    ag5a_05  = soldb1,
+    ag5a_05  = soldb1_raw,
     ag5a_06  = value_b1,
     ag5a_08  = n_int1,
     ag5a_11  = b2,
-    ag5a_12  = soldb2,
+    ag5a_12  = soldb2_raw,
     ag5a_13  = value_b2,
     ag5a_15  = n_int2,
     ag5a_23  = storage,
-    ag5a_24  = stored,
+    ag5a_24  = stored_raw,
     ag5a_28  = storage_purpose,
     ag5a_29  = lost,
     ag5a_30  = loss_cause,
+    ag5a_31  = losses_pct_raw,
     ag5a_32  = value_losses,
-    ag5a_32a = consumed,
-    ag5a_32b = seed,
-    ag5a_32c = payment,
-    ag5a_32d = gifts,
-    ag5a_32e = feed,
+    ag5a_32a = consumed_raw,
+    ag5a_32b = seed_raw,
+    ag5a_32c = payment_raw,
+    ag5a_32d = gifts_raw,
+    ag5a_32e = feed_raw,
     ag5a_33  = residue_use,
-    ag5a_34  = residue,
+    ag5a_34  = residue_raw,
     ag5a_35  = value_residue
   ),
-
-  # Convert losses from percentage to fraction
-  losses = ag5a_31 / 10,
-
-  # Replace NA with structural 0 where gateway question was "no"
-  # EXCLUSION E08: zeros applied where sale/storage/loss gateway == "no"
-  # Type: structural zero | missing data — FLAG
-  # Profiled in: 05_exclusions_audit.R
-  sold    = ifelse(sale    == "no", 0, sold),
-  soldb1  = ifelse(sale    == "no", 0, soldb1),
-  soldb2  = ifelse(sale    == "no", 0, soldb2),
-  stored  = ifelse(storage == "no", 0, stored),
-  losses  = ifelse(lost    == "no", 0, losses),
-
   labels = .q(
-    sale            = "Item was sold",
-    sold            = "Quantity sold",
-    soldb1          = "Quantity sold to main buyer",
-    soldb2          = "Quantity sold to second largest buyer",
-    storage         = "Item is being stored",
-    stored          = "Quantity of item in storage",
-    losses          = "Proportion of harvest lost post-harvest",
-    loss_cause      = "Cause of ph losses",
-    consumed        = "Quantity of item consumed",
-    seed            = "Quantity stored for seed",
-    payment         = "Quantity of item given as payment",
-    gifts           = "Quantity of item given as gifts",
-    feed            = "Quantity of item used as animal feed",
-    residue         = "Quantity of residue sold"
+    sale           = "Item was sold",
+    sold_raw       = "Quantity sold, as reported",
+    soldb1_raw     = "Quantity sold to main buyer, as reported",
+    soldb2_raw     = "Quantity sold to second buyer, as reported",
+    storage        = "Item is being stored",
+    stored_raw     = "Quantity in storage, as reported",
+    losses_pct_raw = "Post-harvest loss percentage, as reported",
+    consumed_raw   = "Quantity consumed, as reported",
+    seed_raw       = "Quantity kept for seed, as reported",
+    payment_raw    = "Quantity given as payment, as reported",
+    gifts_raw      = "Quantity given as gifts, as reported",
+    feed_raw       = "Quantity used as animal feed, as reported",
+    residue_raw    = "Quantity of residue sold, as reported"
   ),
   units = .q(
-    sold       = kg, value_sales = `T shilling`,
-    soldb1     = kg, value_b1    = `T shilling`,
-    soldb2     = kg, value_b2    = `T shilling`,
-    stored     = kg, losses      = percentage,
-    consumed   = kg, seed        = kg,
-    payment    = kg, gifts       = kg,
-    feed       = kg, residue     = kg,
-    value_residue = `T shilling`
+    sold_raw       = kg, value_sale    = `T shilling`,
+    soldb1_raw     = kg, value_b1      = `T shilling`,
+    soldb2_raw     = kg, value_b2      = `T shilling`,
+    stored_raw     = kg, losses_pct_raw = percentage,
+    consumed_raw   = kg, seed_raw      = kg,
+    payment_raw    = kg, gifts_raw     = kg,
+    feed_raw       = kg, residue_raw   = kg,
+    value_residue  = `T shilling`
   )
 )
 
-# ASSUMPTION REMOVED — see impute/destinations.R (A24)
-crop_disp[y4_hhid == "8659-001" & cropid == "maize", consumed := 480]
+crop_disp[, flag_sale_gate_yes := fifelse(sale == "yes" & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_storage_gate_yes := fifelse(storage == "yes" & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_loss_gate_yes := fifelse(lost == "yes" & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_consumed_gate_yes := fifelse(!is.na(consumed_raw) & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_feed_gate_yes := fifelse(!is.na(feed_raw) & !is.na(cropid), 1L, 0L)]
+crop_disp[, flag_seed_gate_yes := fifelse(!is.na(seed_raw) & !is.na(cropid), 1L, 0L)]
 
-saveRDS(crop_disp,
-        here::here("data", "processed", "01", "clean", "crop_disp.rds"),
-        compress = TRUE)
+crop_disp[, flag_true_na_sold := fifelse(sale == "yes" & is.na(sold_raw), 1L, 0L)]
+crop_disp[, flag_true_na_stored := fifelse(storage == "yes" & is.na(stored_raw), 1L, 0L)]
+crop_disp[, flag_true_na_losses := fifelse(lost == "yes" & is.na(losses_pct_raw), 1L, 0L)]
+crop_disp[, flag_manual_hh_fix_needed := fifelse(y4_hhid == "8659-001" & cropid == "maize", 1L, 0L)]
+
+message("flag_sale_gate_yes: ", crop_disp[flag_sale_gate_yes == 1L, .N],
+        " rows where sale gateway is yes")
+message("flag_storage_gate_yes: ", crop_disp[flag_storage_gate_yes == 1L, .N],
+        " rows where storage gateway is yes")
+message("flag_loss_gate_yes: ", crop_disp[flag_loss_gate_yes == 1L, .N],
+        " rows where loss gateway is yes")
+message("flag_true_na_sold: ", crop_disp[flag_true_na_sold == 1L, .N],
+        " rows where sale is yes but sold_raw is missing")
+message("flag_true_na_stored: ", crop_disp[flag_true_na_stored == 1L, .N],
+        " rows where storage is yes but stored_raw is missing")
+message("flag_true_na_losses: ", crop_disp[flag_true_na_losses == 1L, .N],
+        " rows where loss is yes but losses_pct_raw is missing")
+message("flag_consumed_gate_yes: ", crop_disp[flag_consumed_gate_yes == 1L, .N],
+        " rows where consumed_raw is missing")
+message("flag_feed_gate_yes: ", crop_disp[flag_feed_gate_yes == 1L, .N],
+        " rows where feed_raw is missing")
+message("flag_seed_gate_yes: ", crop_disp[flag_seed_gate_yes == 1L, .N],
+        " rows where seed_raw is missing")
+message("flag_manual_hh_fix_needed: ", crop_disp[flag_manual_hh_fix_needed == 1L, .N],
+        " rows where maize consumption needs household-specific repair")
+
+saveRDS(crop_disp, here::here("data", "processed", "01", "clean", "crop_disp.rds"), compress = TRUE)
+
+flag_cols <- names(crop_disp)[grepl("^flag_", names(crop_disp))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) crop_disp[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+message("----- Flag summary: crop_disp -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "crop_disp_flag_summary.csv")
+)
 
 # =============================================================================
 # SECTION 2: TREE DISPOSITION (ag_sec_7a / ag_sec_7b)
 # =============================================================================
 
-ag_sec_7a <- raw$destinations$ag_sec_7a  # fruit trees
-ag_sec_7b <- raw$destinations$ag_sec_7b  # permanent crops
+ag_sec_7a <- raw$destinations$ag_sec_7a
+ag_sec_7b <- raw$destinations$ag_sec_7b
 
 fruit <- prep(ag_sec_7a, season = "fruit")
 perm  <- ag_sec_7b %>%
@@ -135,297 +159,90 @@ disp <- fruit %>% bind_dt(perm)
 
 setnames(disp, "zaocode", "cropid")
 disp <- disp %>% clean_names(list = crops_list, "cropid")
-
 label(disp) <- as.list(labs[match(names(disp), names(labs))])
 
-tree_disp <- upData(disp,
+tree_disp <- upData(
+  disp,
   rename = .q(
     ag7a_02 = sale,
-    ag7a_03 = sold,
+    ag7a_03 = sold_raw,
     ag7a_04 = value_sale,
     ag7a_07_1 = b1,
     ag7a_07_2 = b2,
     ag7a_08 = storage,
-    ag7a_09 = stored,
+    ag7a_09 = stored_raw,
     ag7a_13 = lost,
     ag7a_14 = loss_cause,
+    ag7a_15 = losses_pct_raw,
     ag7a_16 = value_losses,
-    ag7a_17 = consumed,
-    ag7a_18 = seed,
-    ag7a_19 = payment,
-    ag7a_20 = gifts,
-    ag7a_21 = feed
+    ag7a_17 = consumed_raw,
+    ag7a_18 = seed_raw,
+    ag7a_19 = payment_raw,
+    ag7a_20 = gifts_raw,
+    ag7a_21 = feed_raw
   ),
-  losses  = ag7a_15 / 10,
-  sold    = ifelse(sale    == "no", 0, sold),
-  stored  = ifelse(storage == "no", 0, stored),
-  losses  = ifelse(lost    == "no", 0, losses),
   labels = .q(
-    sale        = "Item was sold",
-    sold        = "Quantity sold",
-    b1          = "Buyer 1",
-    b2          = "Buyer 2",
-    storage     = "Item is being stored",
-    stored      = "Quantity of item in storage",
-    losses      = "Proportion of harvest lost post-harvest",
-    loss_cause  = "Cause of ph losses",
-    consumed    = "Quantity of item consumed",
-    seed        = "Quantity stored for seed",
-    payment     = "Quantity of item given as payment",
-    gifts       = "Quantity of item given as gifts",
-    feed        = "Quantity of item used as animal feed"
+    sale           = "Item was sold",
+    sold_raw       = "Quantity sold, as reported",
+    storage        = "Item is being stored",
+    stored_raw     = "Quantity in storage, as reported",
+    losses_pct_raw = "Post-harvest loss percentage, as reported",
+    consumed_raw   = "Quantity consumed, as reported",
+    seed_raw       = "Quantity kept for seed, as reported",
+    payment_raw    = "Quantity given as payment, as reported",
+    gifts_raw      = "Quantity given as gifts, as reported",
+    feed_raw       = "Quantity used as animal feed, as reported"
   ),
   units = .q(
-    sold       = kg, value_sale    = `T Shilling`,
-    stored     = kg, consumed      = kg,
-    losses     = percentage,
-    seed       = kg, payment       = kg,
-    gifts      = kg, feed          = kg
+    sold_raw       = kg, value_sale = `T Shilling`,
+    stored_raw     = kg, losses_pct_raw = percentage,
+    consumed_raw   = kg, seed_raw = kg,
+    payment_raw    = kg, gifts_raw = kg,
+    feed_raw       = kg
   )
 )
 
-saveRDS(tree_disp,
-        here::here("data", "processed", "01", "clean", "tree_disp.rds"),
-        compress = TRUE)
+tree_disp[, flag_sale_gate_yes := fifelse(sale == "yes" & !is.na(cropid), 1L, 0L)]
+tree_disp[, flag_storage_gate_yes := fifelse(storage == "yes" & !is.na(cropid), 1L, 0L)]
+tree_disp[, flag_loss_gate_yes := fifelse(lost == "yes", 1L, 0L)]
+tree_disp[, flag_true_na_sold := fifelse(sale == "yes" & is.na(sold_raw), 1L, 0L)]
+tree_disp[, flag_true_na_stored := fifelse(storage == "yes" & is.na(stored_raw), 1L, 0L)]
+tree_disp[, flag_true_na_losses := fifelse(lost == "yes" & is.na(losses_pct_raw), 1L, 0L)]
+tree_disp[, flag_consumed_missing := fifelse(is.na(consumed_raw) & !is.na(cropid), 1L, 0L)]
 
-# =============================================================================
-# SECTION 3: MERGE PRODUCTION WITH DISPOSITION
-# ⚠️ CROSS-SECTION DEPENDENCY
-# This script uses pc and pt from clean/crops.R.
-# This should move to 04_build_households.R when that script is written.
-# Retained here temporarily to keep pipeline runnable.
-# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
-# =============================================================================
+message("flag_sale_gate_yes: ", tree_disp[flag_sale_gate_yes == 1L, .N],
+        " rows where sale gateway is 'yes'")
+message("flag_storage_gate_yes: ", tree_disp[flag_storage_gate_yes == 1L, .N],
+        " rows where storage gateway is 'yes'")
+message("flag_loss_gate_yes: ", tree_disp[flag_loss_gate_yes == 1L, .N],
+        " rows where loss gateway is 'yes'")
+message("flag_true_na_sold: ", tree_disp[flag_true_na_sold == 1L, .N],
+        " rows where sale is 'yes' but sold_raw is missing")
+message("flag_true_na_stored: ", tree_disp[flag_true_na_stored == 1L, .N],
+        " rows where storage is 'yes' but stored_raw is missing")
+message("flag_true_na_losses: ", tree_disp[flag_true_na_losses == 1L, .N],
+        " rows where loss is 'yes' but losses_pct_raw is missing")
+message("flag_consumed_missing: ", tree_disp[flag_consumed_missing == 1L, .N],
+        " rows where consumed_raw is missing")
 
-pc <- readRDS(here::here("data", "processed", "01", "clean", "pc.rds"))
-pt <- readRDS(here::here("data", "processed", "01", "clean", "pt.rds"))
+for (nm in grep("^flag_", names(tree_disp), value = TRUE)) {
+  message(nm, ": ", tree_disp[get(nm) == 1L, .N], " rows")
+}
 
-# --- Crops ---
-pn_crops <- pc %>%
-  select(y4_hhid, plotnum, cropid) %>%
-  count(y4_hhid, cropid) %>%
-  dplyr::rename(nplots = n)
+saveRDS(tree_disp, here::here("data", "processed", "01", "clean", "tree_disp.rds"), compress = TRUE)
 
-pm_crops <- pc %>%
-  group_by(y4_hhid, cropid) %>%
-  summarise(mismatch = sum(mismatch), .groups = "drop") %>%
-  setDT()
+flag_cols <- names(tree_disp)[grepl("^flag_", names(tree_disp))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) tree_disp[get(col) == 1L, .N], integer(1))
+)[order(-n)]
 
-pn_crops <- merge(pn_crops, pm_crops, by = c("y4_hhid", "cropid"), all = TRUE)
+message("----- Flag summary: tree_disp -----")
+print(flag_summary)
 
-chh <- pc[, .(
-  harvest          = sum(quant_harvest),
-  quant_unharvested = sum(quant_unharvested),
-  total_harvest    = sum(total_harvest),
-  area_planted     = sum(area_planted_new)
-), by = .(y4_hhid, type, cropid)]
-
-chh[, yield := total_harvest / area_planted]
-chh <- merge(chh, pn_crops, by = c("y4_hhid", "cropid"), all = TRUE)
-
-cd <- copy(crop_disp)
-cd <- cd[, .(y4_hhid, type, cropid,
-             sold, stored, losses, consumed, seed, payment, gifts, feed, residue)]
-cd <- cd[, lapply(.SD, sm), .SDcols = is.numeric, by = .(y4_hhid, type, cropid)]
-
-crops_merged <- merge(chh, cd, by = c("y4_hhid", "type", "cropid"), all = TRUE)
-
-# Convert losses from fraction to kg
-crops_merged <- upData(crops_merged,
-  losses = losses * harvest,
-  labels = .q(
-    sold     = "Quantity sold", stored   = "Quantity of item in storage",
-    consumed = "Quantity of item consumed", seed = "Quantity stored for seed",
-    payment  = "Quantity of item given as payment", gifts = "Quantity of item given as gifts",
-    feed     = "Quantity of item used as animal feed", losses  = "Quantity lost ph",
-    residue  = "Quantity residue sold", harvest = "Annual quantity harvested",
-    nplots   = "Number of plots crop planted on"
-  ),
-  units = .q(
-    sold = kg, stored = kg, consumed = kg, losses = kg,
-    seed = kg, payment = kg, gifts = kg, feed = kg, residue = kg
-  ),
-  drop = .q(area_planted, total_harvest, nplots, mismatch)
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "tree_disp_flag_summary.csv")
 )
 
-crops_merged[, smd := sold + stored + losses + consumed + payment + gifts + feed]
-crops_merged[, smd := adlab(smd, "Sum of all disposition")]
-
-saveRDS(crops_merged, here::here("data", "processed", "01", "clean", "mass_crops.rds"),
-        compress = TRUE)
-
-# Exclusion flags: crops
-crops_excl <- copy(crops_merged)
-top2_fn    <- function(x) quantile(x, probs = 0.99, na.rm = TRUE)
-crops_excl[, top := top2_fn(yield), by = cropid]
-
-cropnums   <- crops_excl %>% group_by(cropid) %>% summarise(nums = n()) %>% setDT()
-crops_excl <- cropnums[crops_excl, on = .(cropid)]
-crops_excl[, yield := as.numeric(yield)]
-crops_excl[, diff  := harvest - smd]
-crops_excl[, diffp := diff * 100 / harvest]
-
-crops_excl <- crops_excl[, excl := fcase(
-  is.na(sold),         "Data missing",
-  is.na(yield),        "Data missing",
-  # EXCLUSION E09: ±30% tolerance on disposition vs harvest
-  # Type: unclear — FLAG (threshold not codebook-derived)
-  # Profiled in: 05_exclusions_audit.R
-  smd > harvest * 1.3, "Harvest insufficient",
-  smd < harvest * 0.7, "Harvest unaccounted"
-)]
-
-ex_crops <- crops_excl %>%
-  clear.labels() %>%
-  filter(is.na(excl)) %>%
-  filter_at(vars(sold:residue), any_vars(. > harvest * 1.2)) %>%
-  mutate(excl = "Data inconsistent")
-
-crops_excl    <- crops_excl[!ex_crops, on = .(y4_hhid, cropid)]
-crops_excl    <- clear.labels(crops_excl)
-excl_crops    <- bind_rows(crops_excl, ex_crops) %>% select(y4_hhid, item = cropid, excl)
-write.csv(excl_crops, here::here("data", "processed", "01", "clean", "excl_crops.csv"),
-          row.names = FALSE)
-
-# --- Trees ---
-pn_trees <- pt %>%
-  select(y4_hhid, plotnum, cropid) %>%
-  count(y4_hhid, cropid) %>%
-  dplyr::rename(nplots = n)
-
-thh <- pt[, .(harvest = sum(harvest), ntrees = sum(ntrees)),
-          by = .(y4_hhid, type, cropid)]
-thh[, yield := harvest / ntrees]
-thh <- merge(thh, pn_trees, by = c("y4_hhid", "cropid"), all = TRUE)
-
-td <- copy(tree_disp)
-td <- td[, .(y4_hhid, type, cropid,
-             sold, stored, losses, consumed, seed, payment, gifts, feed)]
-td <- td[, lapply(.SD, sm), .SDcols = is.numeric, by = .(y4_hhid, type, cropid)]
-
-trees_merged <- merge(thh, td, by = c("y4_hhid", "type", "cropid"), all = TRUE)
-trees_merged <- upData(trees_merged,
-  losses = losses * harvest,
-  labels = .q(
-    sold = "Quantity sold", stored = "Quantity of item in storage",
-    consumed = "Quantity of item consumed", seed = "Quantity stored for seed",
-    payment = "Quantity of item given as payment", gifts = "Quantity of item given as gifts",
-    feed = "Quantity of item used as animal feed", losses = "Quantity lost ph",
-    harvest = "Annual quantity harvested", yield = "Yield (kg) per tree"
-  ),
-  units = .q(
-    sold = kg, stored = kg, consumed = kg, losses = kg,
-    seed = kg, payment = kg, gifts = kg, feed = kg
-  )
-)
-
-trees_merged[, smd := sold + stored + losses + consumed + payment + gifts + feed]
-trees_merged[, smd := adlab(smd, "Sum of all disposition")]
-
-saveRDS(trees_merged, here::here("data", "processed", "01", "clean", "mass_trees.rds"),
-        compress = TRUE)
-
-# Exclusion flags: trees
-trees_excl <- copy(trees_merged)
-trees_excl[, top := top2_fn(yield), by = cropid]
-trees_excl[, `:=` (harvest = as.numeric(harvest), ntrees = as.numeric(ntrees))]
-
-trees_excl <- trees_excl[, excl := fcase(
-  is.na(sold),            "Incomplete",
-  is.na(yield),           "Incomplete",
-  ntrees == 0 & harvest > 0, "Non-match",
-  smd > harvest * 1.3,    "Harvest insufficient",
-  smd < harvest * 0.7,    "Harvest unaccounted"
-)]
-
-ex_trees   <- trees_excl %>%
-  clear.labels() %>%
-  filter(is.na(excl)) %>%
-  filter_at(vars(sold:feed), any_vars(. > harvest * 1.2)) %>%
-  mutate(excl = "Data inconsistent")
-
-trees_excl <- trees_excl[!ex_trees, on = .(y4_hhid, cropid)]
-excl_trees <- trees_excl %>% clear.labels() %>% bind_rows(ex_trees) %>%
-  select(y4_hhid, item = cropid, excl)
-write.csv(excl_trees, here::here("data", "processed", "01", "clean", "excl_trees.csv"),
-          row.names = FALSE)
-
-# --- Combine crops + trees ---
-ct <- crops_merged[, .(y4_hhid, type, cropid, harvest, sold, stored, seed, losses,
-                       consumed, payment, gifts, feed, residue, smd)]
-tc <- trees_merged[, .(y4_hhid, type, cropid, harvest, sold, stored, seed, losses,
-                       consumed, payment, gifts, feed, smd)]
-tc[, residue := NA]
-
-tc <- upData(tc,
-  harvest = as.integer(harvest),
-  residue = as.integer(residue),
-  labels  = .q(residue = "Quantity residue sold", harvest = "Annual quantity harvested"),
-  units   = .q(residue = kg, harvest = kg)
-)
-
-allcrops <- rbindlist(list(ct, tc), fill = TRUE)
-saveRDS(allcrops, here::here("data", "processed", "01", "clean", "mass_allcrops.rds"),
-        compress = TRUE)
-
-# =============================================================================
-# SECTION 4: CROP RESIDUE ESTIMATION (from 06a_Residue.Rmd)
-# Uses RPR ratios from FAOSTAT and crop name mapping
-# ⚠️ CROSS-SECTION DEPENDENCY
-# This script uses mass_crops.rds produced earlier in Section 3 of this script.
-# This should move to 04_build_households.R when that script is written.
-# Retained here temporarily to keep pipeline runnable.
-# 🚩 FLAG [CROSS-SECTION]: move to 04_build_households.R at stage 3
-# =============================================================================
-
-# Load inputs (from clean/ and reference data loaded in 01_load_raw.R)
-residue  <- readRDS(here::here("data", "processed", "01", "clean", "crop_disp.rds")) %>%
-  select(y4_hhid, cropid, residue_use, residue, value_residue) %>%
-  as.data.table()
-
-prod <- readRDS(here::here("data", "processed", "01", "clean", "pc.rds")) %>%
-  select(cropid, y4_hhid, type, harvest = quant_harvest, total_harvest, quant_unharvested) %>%
-  as.data.table()
-
-# Join residue info to production
-res_hh <- prod[residue, on = .(y4_hhid, cropid)]
-
-# 🚩 FLAG EXCLUSION: Crops reporting "crop produces no residue" dropped.
-# No-residue a survey category but can be erroneous or implausible
-# Profile count in 05_exclusions_audit.R.
-res_hh <- res_hh[residue_use != "crop produces no  residue"]
-
-# Match to FAOSTAT RPR and DM ratios via crop name mapping
-rpr_ref <- raw$ref$rpr %>%
-  filter(AreaName == "Tanzania, United Rep. of")
-
-cropmap    <- raw$ref$cropmap
-res_hh_matched <- cropmap[res_hh, on = .(cropid)]
-res_full       <- rpr_ref[res_hh_matched, on = .(Item)]
-
-# Residue sold is recorded in DM
-res_full[, residue_sold_DM := residue / Dry_matter]
-
-# Estimate residue flows
-# ASSUMPTION REMOVED — see impute/destinations.R (A25)
-res_full[, `:=` (
-  Residues_DM     = harvest * Dry_matter * RPR * UsedRes,                           # main estimate (DM)
-  Residues_wet    = harvest * RPR * UsedRes,                                        # wet weight
-  Residues_DM_alt = (harvest + quant_unharvested) * Dry_matter * RPR * UsedRes      # incl. unharvested
-)]
-
-# Output table
-res_out <- res_full[, .(y4_hhid, cropid, type, harvest, Dry_matter, residue_use,
-                        residue, Residues_DM, Residues_DM_alt, Residues_wet)]
-
-# Mark residue allocated to animals
-res_out[, grazing_res := ifelse(
-  residue_use %in% c("for grazing own animals", "feeding own animals", "residue was left in field"),
-  Residues_DM, 0
-)]
-
-saveRDS(res_out,  here::here("data", "processed", "01", "clean", "mass_residue.rds"),
-        compress = TRUE)
-readr::write_csv(res_out, here::here("data", "processed", "01", "clean", "mass_residue.csv"))
-
-message("clean/destinations.R: all destination and residue outputs saved.")
+message("clean/destinations.R: crop and tree disposition outputs saved.")

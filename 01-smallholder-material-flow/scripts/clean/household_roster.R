@@ -3,7 +3,7 @@
 # PURPOSE: Clean household roster and agricultural participation filters
 # INPUT:   raw$hh_sec_a   — household section A (identification, location)
 #          raw$ag_filters — agricultural participation module
-# OUTPUT:  data/processed/clean/household_roster.rds
+# OUTPUT:  data/processed/01/clean/household_roster.rds
 #
 # This is the SPINE of the pipeline — all other sections join to this.
 # y4_hhid must be unique here — one row per household.
@@ -25,6 +25,13 @@ dir.create(here::here("data", "processed", "01", "clean"), showWarnings = FALSE,
 
 hh_sec_a <- raw$hh_sec_a
 
+# FLAG F1: duplicate y4_hhid in hh_sec_a
+n_flag_dup_roster <- sum(duplicated(hh_sec_a$y4_hhid))
+if (n_flag_dup_roster > 0) {
+  message("flag_dup_roster: ", n_flag_dup_roster,
+          " rows where y4_hhid is duplicated in hh_sec_a")
+}
+
 roster <- hh_sec_a |>
   clean_up() |>
   rename(
@@ -36,12 +43,7 @@ roster <- hh_sec_a |>
   select(y4_hhid, region, district, stratum, urban_rural, clusterid, y4_weights) |>
   distinct(y4_hhid, .keep_all = TRUE)
 
-# 🚩 FLAG [EXCLUSION]: duplicate y4_hhid in hh_sec_a — profile in 05_exclusions_audit.R
-n_dup_roster <- sum(duplicated(hh_sec_a$y4_hhid))
-if (n_dup_roster > 0) {
-  message("clean/household_roster.R: ", n_dup_roster,
-          " duplicate y4_hhid in hh_sec_a — first occurrence retained")
-}
+stopifnot("y4_hhid not unique in roster after hh_sec_a clean" = !anyDuplicated(roster$y4_hhid))
 
 # =============================================================================
 # SECTION 2: AGRICULTURAL PARTICIPATION FLAGS (ag_filters)
@@ -50,10 +52,17 @@ if (n_dup_roster > 0) {
 
 ag_filters <- raw$ag_filters
 
+# FLAG F2: duplicate y4_hhid in ag_filters
+n_flag_dup_ag_filters <- sum(duplicated(ag_filters$y4_hhid))
+if (n_flag_dup_ag_filters > 0) {
+  message("flag_dup_ag_filters: ", n_flag_dup_ag_filters,
+          " rows where y4_hhid is duplicated in ag_filters")
+}
+
 ag_flags <- ag_filters |>
   clean_up() |>
   mutate(
-    grew_crops  = dplyr::case_when(
+    grew_crops = dplyr::case_when(
       ag2a_01 == "yes" ~ TRUE,
       ag2a_01 == "no"  ~ FALSE,
       TRUE             ~ NA
@@ -64,29 +73,35 @@ ag_flags <- ag_filters |>
       TRUE             ~ NA
     )
   ) |>
-  select(y4_hhid, grew_crops, did_process)
+  select(y4_hhid, grew_crops, did_process) |>
+  distinct(y4_hhid, .keep_all = TRUE)
+
+stopifnot("y4_hhid not unique in ag_flags" = !anyDuplicated(ag_flags$y4_hhid))
 
 # =============================================================================
 # SECTION 3: LIVESTOCK FLAGS (lf_filters)
 # Ground truth for structural zero classification throughout the pipeline
 # =============================================================================
+
 lf_filters <- raw$lf_filters
 
-# 🚩 FLAG [DATA]: lf08_09 uses character coding ("yes"/"no"); lf12_01/lf13_01 use
-# numeric coding (1 = yes, 2 = no). Inconsistent within the same module.
+# FLAG F3: mixed coding within lf_filters module
+# lf08_09, lf13_01 are character ("yes"/"no"); lf12_01 is numeric (1 = yes, 2 = no)
 # Confirm against NPS4 codebook before publication.
+
+# FLAG F4: duplicate y4_hhid in lf_filters
+n_flag_dup_lf_filters <- sum(duplicated(lf_filters$y4_hhid))
+if (n_flag_dup_lf_filters > 0) {
+  message("flag_dup_lf_filters: ", n_flag_dup_lf_filters,
+          " rows where y4_hhid is duplicated in lf_filters")
+}
 
 lf_flags <- lf_filters |>
   clean_up() |>
   mutate(
-    # Recode sentinel values — numeric columns only
     across(where(is.numeric), ~ if_else(. %in% c(99, 999, -9, -99), NA_real_, .))
   ) |>
   mutate(
-    # 🚩 FLAG [DATA]: mixed coding within lf_filters module.
-    # lf08_09, lf13_01 → character ("yes"/"no")
-    # lf12_01          → numeric (1 = yes, 2 = no)
-    # Confirmed against count() output — verify against NPS4 codebook before publication.
     owned_animals = case_when(
       lf08_09 == "yes" ~ TRUE,
       lf08_09 == "no"  ~ FALSE,
@@ -103,7 +118,10 @@ lf_flags <- lf_filters |>
       TRUE             ~ NA
     )
   ) |>
-  select(y4_hhid, owned_animals, caught_fish, traded_fish)
+  select(y4_hhid, owned_animals, caught_fish, traded_fish) |>
+  distinct(y4_hhid, .keep_all = TRUE)
+
+stopifnot("y4_hhid not unique in lf_flags" = !anyDuplicated(lf_flags$y4_hhid))
 
 # =============================================================================
 # SECTION 4: STRUCTURAL ZERO RULE
@@ -113,31 +131,35 @@ lf_flags <- lf_filters |>
 # If grew_crops    == FALSE → harvest quantities = 0 (structural zero, not missing)
 # If owned_animals == FALSE → animal quantities  = 0 (structural zero, not missing)
 # If did_process   == FALSE → processing quantities = 0 (structural zero, not missing)
-# expand for livestock and fish
+# Expand for livestock and fish.
 
-# 🚩 FLAG [ASSUMPTION]: participation = FALSE implies structural zero — confirm no cases
-#    where participation flag = FALSE but quantities > 0 (would indicate data error).
-#    Profile in 05_exclusions_audit.R: E_structural_zero_guard.
+# FLAG F5: participation flag is FALSE but later quantities should be zero
+# This is a downstream consistency check, not a clean-stage repair.
 
 # =============================================================================
-# SECTION 4: JOIN ROSTER AND PARTICIPATION FLAGS
+# SECTION 5: JOIN ROSTER AND PARTICIPATION FLAGS
 # =============================================================================
 
 roster_full <- roster |>
-  left_join(ag_flags, by = "y4_hhid") %>% 
+  left_join(ag_flags, by = "y4_hhid") %>%
   left_join(lf_flags, by = "y4_hhid")
 
-# 🚩 FLAG [EXCLUSION]: households in hh_sec_a with no ag_filters match —
-#    profile in 05_exclusions_audit.R.
-n_no_match <- sum(is.na(roster_full$grew_crops))
-message("clean/household_roster.R: ", n_no_match,
+# FLAG F6: households in hh_sec_a with no ag_filters match
+n_flag_no_match_ag <- sum(is.na(roster_full$grew_crops))
+message("flag_no_match_ag: ", n_flag_no_match_ag,
         " households in hh_sec_a with no ag_filters match (grew_crops = NA)")
 
+# FLAG F7: households in hh_sec_a with no lf_filters match
+n_flag_no_match_lf <- sum(is.na(roster_full$owned_animals) &
+                            is.na(roster_full$caught_fish) &
+                            is.na(roster_full$traded_fish))
+message("flag_no_match_lf: ", n_flag_no_match_lf,
+        " households in hh_sec_a with no lf_filters match")
+
 # =============================================================================
-# SECTION 5: VALIDATE AND SAVE
+# SECTION 6: VALIDATE AND SAVE
 # =============================================================================
 
-# y4_hhid must be unique — one row per household (pipeline spine requirement)
 stopifnot("y4_hhid not unique in household_roster" = !anyDuplicated(roster_full$y4_hhid))
 
 saveRDS(roster_full,
@@ -148,6 +170,38 @@ message("clean/household_roster.R: Household roster saved")
 message("  Total households:  ", nrow(roster_full))
 message("  Grew crops:        ", sum(roster_full$grew_crops,    na.rm = TRUE))
 message("  Owned animals:     ", sum(roster_full$owned_animals, na.rm = TRUE))
-message("  Caught fish:     ", sum(roster_full$caught_fish, na.rm = TRUE))
-message("  Traded fish:     ", sum(roster_full$traded_fish, na.rm = TRUE))
+message("  Caught fish:       ", sum(roster_full$caught_fish, na.rm = TRUE))
+message("  Traded fish:       ", sum(roster_full$traded_fish, na.rm = TRUE))
 message("  Did process:       ", sum(roster_full$did_process,   na.rm = TRUE))
+
+# =============================================================================
+# FLAG SUMMARY
+# =============================================================================
+
+roster[, flag_dup_roster := as.integer(duplicated(y4_hhid))]
+ag_flags[, flag_dup_ag_filters := as.integer(duplicated(y4_hhid))]
+lf_flags[, flag_dup_lf_filters := as.integer(duplicated(y4_hhid))]
+
+roster_full <- roster |>
+  left_join(ag_flags, by = "y4_hhid") |>
+  left_join(lf_flags, by = "y4_hhid")
+
+flag_cols <- names(roster_full)[grepl("^flag_", names(roster_full))]
+flag_summary <- data.table(
+  flag = flag_cols,
+  n = vapply(flag_cols, function(col) roster_full[get(col) == 1L, .N], integer(1))
+)[order(-n)]
+
+
+message("----- Flag summary: household_roster -----")
+print(flag_summary)
+
+readr::write_csv(
+  as.data.frame(flag_summary),
+  here::here("data", "processed", "01", "clean", "household_roster_flag_summary.csv")
+)
+
+# Still missing:
+# Whether flag_dup_roster, flag_dup_ag_filters, and flag_dup_lf_filters should stay as review flags or become review-log items only.
+# Whether flag_no_match_ag and flag_no_match_lf should be tracked separately in FLAGS_REVIEW.md.
+# Whether flag_short_code-style mixed-code conditions need a similar pattern in other modules.

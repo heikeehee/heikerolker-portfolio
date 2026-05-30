@@ -1,18 +1,30 @@
-# SQL Translation — Project 01
+# SQL Audit & Query Layer — Project 01
 
-Portfolio demonstration of key data wrangling steps in SQL. R scripts are the source of truth — see scripts/ for full methodology. Assumptions and flags: see R equivalent scripts and backlog.md.
+This SQL folder is the **audit/query layer** for cleaned outputs in Project 01.
 
-## Mapping to R scripts
+-   **R scripts are the canonical transformation pipeline** (`scripts/`).
+-   SQL is used for **validation, profiling, anti-joins, and recruiter-facing querying examples**.
+-   SQL here is intentionally **not** a full duplication of cleaning/imputation/MFA allocation logic.
 
-| SQL file | R equivalent |
+## Scope
+
+The SQL scripts in this folder are meant to show:
+
+-   practical querying of cleaned module outputs,
+-   coverage and grain checks,
+-   mismatch detection patterns (e.g., anti-joins),
+-   concise, rerunnable SQL artifacts.
+
+## Mapping to R context
+
+| SQL file | R context |
 |----|----|
-| 01_household_spine.sql | scripts/04_build_households.R — spine construction |
-| 02_crop_summary.sql | scripts/clean/crops.R + 04_build_households.R — crop aggregation |
-| 03_animal_summary.sql | scripts/clean/animals.R + scripts/clean/animal_products.R + scripts/clean/milk.R — animal aggregation |
-| 04_flow_allocation.sql | scripts/06_mfa_input.R — destination flow proportions |
+| 01_household_spine.sql | `scripts/04_build_households.R` |
+| 02_crop_summary.sql | `scripts/clean/crops.R` + `scripts/04_build_households.R` |
+| 03_animal_summary.sql | `scripts/clean/animals.R` + `scripts/clean/animal_products.R` + `scripts/clean/milk.R` |
 
 ## Notes
 
--   Written for PostgreSQL syntax — minor adjustments needed for SQLite or BigQuery
--   Demonstrates anti-join pattern for exclusion profiling (crops-destinations misalignment)
--   y4_hhid is the household join key throughout
+-   Primary target dialect: PostgreSQL-style SQL (minor syntax changes may be needed for DuckDB/SQLite/BigQuery).
+-   Scripts should be **idempotent/rerunnable**.
+-   Household key: `y4_hhid`.
