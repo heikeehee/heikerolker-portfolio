@@ -127,8 +127,6 @@ milk[, flag_zero_milked_with_output := fifelse(
 
 message("flag_hh_milking: ", milk[flag_hh_milking == 1L, .N],
         " rows with households milking animals")
-message("flag_manual_av_fix_needed: ", milk[flag_manual_av_fix_needed == 1L, .N],
-        " rows where av_raw will need household-specific repair in impute")
 message("flag_av_missing: ", milk[flag_av_missing == 1L, .N],
         " rows where av_raw is missing")
 message("flag_hi_missing: ", milk[flag_hi_missing == 1L, .N],

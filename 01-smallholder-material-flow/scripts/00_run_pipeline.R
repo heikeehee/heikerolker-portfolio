@@ -44,7 +44,7 @@ source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))
 # to data/processed/01/sql_input/
 # =============================================================================
 
-source(here::here("01-smallholder-material-flow", "scripts", "02_export_sql_inputs.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "export_sql_inputs.R"))
 
 # =============================================================================
 # STAGE 3: Imputation

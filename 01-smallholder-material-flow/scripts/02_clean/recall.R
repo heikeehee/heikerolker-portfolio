@@ -55,22 +55,6 @@ recall <- recall %>%
     flag_unit_gifts_missing = dplyr::if_else(consumed == "yes" & gifts > 0 & is.na(u_gifts), 1L, 0L)
   )
 
-missing_conversions <- recall %>%
-  dplyr::filter(consumed == "yes") %>%
-  dplyr::filter(
-    (!is.na(quantity)   & quantity   != 0 & !paste(unit, itemcode) %in% paste(food_conv$unit, food_conv$itemcode)) |
-      (!is.na(purchases)  & purchases  != 0 & !paste(u_bought, itemcode) %in% paste(food_conv$unit, food_conv$itemcode)) |
-      (!is.na(production) & production != 0 & !paste(u_produced, itemcode) %in% paste(food_conv$unit, food_conv$itemcode)) |
-      (!is.na(gifts)      & gifts      != 0 & !paste(u_gifts, itemcode) %in% paste(food_conv$unit, food_conv$itemcode))
-  ) %>%
-  dplyr::distinct(itemcode, unit, .keep_all = TRUE) %>%
-  dplyr::select(itemcode, unit, starts_with("u_"),
-                quantity, purchases, production, gifts)
-
-readr::write_csv(
-  missing_conversions,
-  here::here("data", "processed", "01", "clean", "recall_missing_conversions.csv")
-)
 
 flag_cols <- names(recall)[grepl("^flag_", names(recall))]
 flag_summary <- data.table(

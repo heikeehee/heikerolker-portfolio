@@ -11,7 +11,7 @@
 #      URL: https://www.yieldgap.org/tanzania
 #      Downloaded: 2024-01-19 (update comment if file re-downloaded)
 #   2. Irrigated rice = "Irrigated rice" in GYGA; Rainfed crops = all other GYGA rows
-#   3. Yield calculated as total_harvest (kg) / area_planted_new (ha), converted to t/ha
+#   3. Yield calculated as total_harvest (kg) / area_planted_ha (ha), converted to t/ha
 #   4. Yield gap (YG) = YP - yield (GYGA potential minus observed)
 #   5. Negative YG (yield > potential) not excluded here — flag for review
 #   6. Rainfed millet mapped to "finger millet" (GYGA "Rainfed millet") — bulrush millet
@@ -77,17 +77,18 @@ irrigated <- plots_full %>%
   left_join(pc,       by = c("y4_hhid", "plotnum")) %>%
   left_join(ref_irr,  by = "cropid") %>%
   mutate(
-    yield      = (total_harvest / 1000) / area_planted_new,  # t/ha
+    total_harvest = quant_harvest + harvest_remain,
+    yield      = (total_harvest / 1000) / area_planted_ha,  # t/ha
     yield_gap  = YP - yield                                   # t/ha gap
   )
 
 yg_irrigated <- irrigated %>%
   mutate(
     harvest_t = total_harvest / 1000,
-    yield     = harvest_t / area_planted_new
+    yield     = harvest_t / area_planted_ha
   ) %>%
   select(y4_hhid, type, cropid, plotnum, preharvest_losses, loss_cause,
-         area_planted_new, total_harvest, yield, YP, lessharvest) %>%
+         area_planted_ha, total_harvest, yield, YP, lessharvest) %>%
   mutate(
     YG       = YP - yield,
     irr_type = "irrigated"
@@ -110,17 +111,17 @@ rainfed <- plots_full %>%
   right_join(pc,       by = c("y4_hhid", "plotnum")) %>%
   left_join(ref_rain,  by = "cropid") %>%
   mutate(
-    yield      = (total_harvest / 1000) / area_planted_new,
+    yield      = (total_harvest / 1000) / area_planted_ha,
     yield_gap  = YP - yield
   )
 
 yg_rainfed <- rainfed %>%
   mutate(
     harvest_t = total_harvest / 1000,
-    yield     = harvest_t / area_planted_new
+    yield     = harvest_t / area_planted_ha
   ) %>%
   select(y4_hhid, type, cropid, plotnum, preharvest_losses, loss_cause,
-         area_planted_new, total_harvest, yield, YP, lessharvest) %>%
+         area_planted_ha, total_harvest, yield, YP, lessharvest) %>%
   mutate(
     YG       = YP - yield,
     irr_type = "rainfed"

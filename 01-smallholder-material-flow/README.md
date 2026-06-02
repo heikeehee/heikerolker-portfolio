@@ -1,68 +1,88 @@
 # 01 — Smallholder Resource Flow Analysis
 
-**Tracking agricultural production through to household consumption using Tanzania national survey data**
+**Tracking how agricultural production moves through smallholder households in Tanzania, from harvest to consumption**
 
----
+## Overview
 
-## Business Relevance
+This project maps household-level food and biomass flows using Tanzania National Panel Survey data from the World Bank LSMS-ISA programme. It shows crop and animal production, processing, storage, processing, loss and consumption transformed into a clear, auditable material-flow picture.
 
-Understanding how food moves from farm to household — and where losses occur along the way — is a core question for organisations working in food security, agricultural development, and supply chain sustainability. This type of resource flow analysis provides a transparent, auditable account of material flows at population scale, and supports evidence-based decision-making for programme design, procurement planning, and impact measurement. The probabilistic approach makes uncertainty explicit rather than hidden, which is increasingly expected in policy-facing and ESG-relevant reporting.
+The project is designed to be useful for food security, agricultural development, and sustainability analysis. It makes uncertainty explicit through probabilistic modelling, to improve decision-making.
 
----
+This is the first project in my portfolio and the third Chapter of my PhD thesis entitled _Understanding Food Waste: A Systems Approach to Evidence, Uncertainty, and Action_. I successfully defended my thesis in November 2025 at the University of Bristol.
 
-## Data Sources
+## My approach
 
-Data is sourced from the **World Bank Living Standards Measurement Study — Integrated Surveys on Agriculture (LSMS-ISA)**, Tanzania National Panel Survey (TNPS). This is a publicly available household panel dataset covering agricultural production, consumption, and socioeconomic indicators.
+I build from reproducible code and documented assumptions, so that every major step can be checked and repeated. I keep data issues visible rather than silently fixing them, which is why flags, exclusions, and imputation rules are tracked separately.
 
-- Source: [https://www.worldbank.org/en/programs/lsms/initiatives/lsms-ISA](https://www.worldbank.org/en/programs/lsms/initiatives/lsms-ISA)
-- Data is **not stored in this repository** — see `data/README.md` for download and setup instructions.
+I write with both technical and non-technical audiences in mind. The goal is to keep the analysis defensible enough for research, but readable enough for a policy, sustainability, or data manager audience.
 
----
+## Data
 
-## Analytical Approach
+The analysis uses the **LSMS-ISA Tanzania National Panel Survey** household dataset.
 
-The analysis tracks food commodities from production (what smallholder households grow) through a series of documented flow stages — on-farm losses, storage, processing, and home consumption — to estimate net availability at household level. This approach, known in academic literature as Material Flow Analysis (MFA), is here implemented as a structured data pipeline with clearly defined inputs, transformation rules, and outputs at each stage.
+-   Source: World Bank LSMS-ISA programme.
+-   Raw data is not stored in this repository.
+-   Setup and download instructions are in `data/README.md`.
 
-Because many of the conversion factors used in this pipeline (processing yields, storage loss rates) are reported with ranges rather than single values, the analysis uses **probabilistic uncertainty modelling** (Monte Carlo simulation). This means each flow stage is run thousands of times with values drawn from realistic ranges, producing an output distribution rather than a single-point estimate. The result is an honest account of what is known and what is uncertain — a standard expectation in risk-aware reporting.
+## What this project does
 
----
+The pipeline: 
 
-## Key Outputs
+-   builds a reproducible household-level dataset from raw survey modules, 
+-   standardises and audits crop, livestock, and household flow information, 
+-   prepares MFA inputs, 
+-   runs Monte Carlo simulation to show uncertainty ranges, 
+-   and generates flow outputs suitable for reporting and visualisation.
 
-- Household-level estimates of food availability by commodity, with uncertainty ranges
-- Flow diagrams showing movement of food through production and consumption stages
-- Summary tables suitable for reporting to programme managers or policy audiences
+## Analytical approach
 
----
+This project uses **Material Flow Analysis (MFA)** to trace agricultural commodities through the household system. Instead of treating outputs as fixed, single numbers, it uses probabilistic uncertainty modelling to reflect the fact that many conversion factors and allocation rules come from ranges or literature values and to account for reporting bias.
 
-## Tools Used
+That means the project is not just estimating totals. It is also showing where the data is strong, where it is uncertain, and which assumptions drive the results.
 
-- **SQL** — in progress
-- **R** — primary language for data cleaning, pipeline construction, and Monte Carlo simulation
-- **Python** — translation in progress
+## Current status
 
----
+**Core pipeline complete and reproducible.** The R workflow is documented and runs end to end.
 
-## Project Status
+Ongoing work includes:
 
-**Complete.** R pipeline is fully documented and reproducible. Python translation of core analytical steps and SQL translation of key data wrangling steps are included. See `backlog.md` for known limitations and planned improvements.
+-   reviewing and revising imputation logic,
 
----
+-   adding SQL audit queries on clean outputs,
 
-## Outputs
+-   and finalising translated Python steps for selected analytical components.
 
-Generated figures and tables are not stored in this repository.
-Run `00_run_pipeline.R` to reproduce all outputs in `outputs/`.
-Interactive Sankey diagrams are available at: <!-- TABLEAU LINK -->
+See `backlog.md` and `FLAGS_REVIEW.md` for limitations, assumptions, and planned improvements.
 
----
+## Key outputs
 
-**GitHub Copilot** — Copilot Agents used for structural refactoring passes 
-(path cleanup, script restructuring, flag insertion); all analytical decisions, 
-assumptions, and exclusions are the author's own (see FLAGS_REVIEW.md)
+-   Household-level food availability estimates by commodity.
+-   Flow summaries showing production, processing, losses, and consumption.
+-   Uncertainty ranges from Monte Carlo simulation.
+-   Sankey-style visualisations of household resource flows.
+-   Summary tables for policy, programme, or sustainability reporting.
 
-## How This Builds on Other Projects
+## Tools
 
-This is the first project in the sequence and provides the production-side data used in:
-- `02-survey-harmonisation` — which links this production data to a separate consumption recall instrument
-- `03-food-system-segmentation` — which uses outputs from both projects to classify household food system types
+-   **R** — primary pipeline, cleaning, imputation, MFA, and simulation.
+-   **SQL** — audit and summary queries on clean outputs.
+-   **Python** — selected analytical translation for portfolio demonstration.
+
+## Reproducibility
+
+Run `00_run_pipeline.R` to reproduce the main outputs.
+
+Generated tables and figures are written to `outputs/`.\
+Interactive Sankey outputs are available via the project visuals link.
+
+## Method notes
+
+Copilot was used for structural refactoring and code organisation. The analytical decisions, assumptions, flag classifications, and exclusion/imputation logic are documented in the repository and remain my own.
+
+## Related projects
+
+This project provides the production-side data used in: - `02-survey-harmonisation` — links production and consumption survey instruments. - `03-food-system-segmentation` — uses outputs to classify household food-system types.
+
+## Why this project matters
+
+Food security and sustainability questions often depend on data that is messy, incomplete, and inconsistent across survey modules. This project shows how I handle that reality: by keeping the pipeline reproducible, surfacing assumptions openly, and making uncertainty visible instead of hiding it. Furthermore, these data relate to Tanzania yet food supply chains are global, the projects published here show how I construct messy data into a coherent picture for sustainability reporting. 
