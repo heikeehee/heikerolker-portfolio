@@ -14,9 +14,6 @@
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-install.packages("FactoMineR")
-library(FactoMineR)
-
 # =============================================================================
 # SECTION 1: LOAD INPUT
 # =============================================================================

@@ -8,7 +8,7 @@ This project maps household-level food and biomass flows using Tanzania National
 
 The project is designed to be useful for food security, agricultural development, and sustainability analysis. It makes uncertainty explicit through probabilistic modelling, to improve decision-making.
 
-This is the first project in my portfolio and the third Chapter of my PhD thesis entitled _Understanding Food Waste: A Systems Approach to Evidence, Uncertainty, and Action_. I successfully defended my thesis in November 2025 at the University of Bristol.
+This is the first project in my portfolio and the third Chapter of my PhD thesis entitled *Understanding Food Waste: A Systems Approach to Evidence, Uncertainty, and Action*. I successfully defended my thesis in November 2025 at the University of Bristol.
 
 ## My approach
 
@@ -26,12 +26,12 @@ The analysis uses the **LSMS-ISA Tanzania National Panel Survey** household data
 
 ## What this project does
 
-The pipeline: 
+The pipeline:
 
--   builds a reproducible household-level dataset from raw survey modules, 
--   standardises and audits crop, livestock, and household flow information, 
--   prepares MFA inputs, 
--   runs Monte Carlo simulation to show uncertainty ranges, 
+-   builds a reproducible household-level dataset from raw survey modules,
+-   standardises and audits crop, livestock, and household flow information,
+-   prepares MFA inputs,
+-   runs Monte Carlo simulation to show uncertainty ranges,
 -   and generates flow outputs suitable for reporting and visualisation.
 
 ## Analytical approach
@@ -85,4 +85,4 @@ This project provides the production-side data used in: - `02-survey-harmonisati
 
 ## Why this project matters
 
-Food security and sustainability questions often depend on data that is messy, incomplete, and inconsistent across survey modules. This project shows how I handle that reality: by keeping the pipeline reproducible, surfacing assumptions openly, and making uncertainty visible instead of hiding it. Furthermore, these data relate to Tanzania yet food supply chains are global, the projects published here show how I construct messy data into a coherent picture for sustainability reporting. 
+Food security and sustainability questions often depend on data that is messy, incomplete, and inconsistent across survey modules. This project shows how I handle that reality: by keeping the pipeline reproducible, surfacing assumptions openly, and making uncertainty visible instead of hiding it. Furthermore, these data relate to Tanzania yet food supply chains are global, the projects published here show how I construct messy data into a coherent picture for sustainability reporting.

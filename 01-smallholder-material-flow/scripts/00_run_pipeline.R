@@ -29,14 +29,15 @@ source(here::here("01-smallholder-material-flow", "scripts", "01_load_raw.R"))
 # data/processed/clean/<section>.rds
 # =============================================================================
 
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "household_roster.R"))  # SPINE — run first
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "recall.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "crops.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "destinations.R"))   # dependency on crops.R
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "ag_produce.R"))     # dependency on crops.R & destinations.R
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "animals.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "animal_products.R")) # dependency on animals.R 
-source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))            # dependency on animals.R
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "household_roster.R"))  # SPINE — run first
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "recall.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "crops.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "destinations.R"))   # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "ag_produce.R"))     # dependency on crops.R & destinations.R
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "animals.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "animal_products.R")) # dependency on animals.R 
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "milk.R"))            # dependency on animals.R
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "flag_summaries.R")) 
 
 # =============================================================================
 # STAGE 2b: Export clean outputs for SQL audit scripts
@@ -44,7 +45,7 @@ source(here::here("01-smallholder-material-flow", "scripts", "clean", "milk.R"))
 # to data/processed/01/sql_input/
 # =============================================================================
 
-source(here::here("01-smallholder-material-flow", "scripts", "export_sql_inputs.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "export_sql_inputs.R"))
 
 # =============================================================================
 # STAGE 3: Imputation
@@ -53,14 +54,15 @@ source(here::here("01-smallholder-material-flow", "scripts", "export_sql_inputs.
 # destinations) have been moved to scripts/archive/ — see README.md there.
 # =============================================================================
 
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "crops.R")).          # dependency on crops.R
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "yield_gap.R"))       # dependency on crops.R
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "destinations.R"))    # dependency on crops.R
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "ag_produce.R"))      # dependency on crops.R
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "processed_crops.R")) # dependency on ag_produce.R & destinations.R
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "animals.R"))
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "milk.R"))            # dependency on animals.R
-source(here::here("01-smallholder-material-flow", "scripts", "impute", "animal_products.R")) # dependency on animals.R
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "recall.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "crops.R"))          # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "yield_gap.R"))       # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "destinations.R"))    # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "ag_produce.R"))      # dependency on crops.R
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "processed_crops.R")) # dependency on ag_produce.R & destinations.R
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "animals.R"))
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "milk.R"))            # dependency on animals.R
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "animal_products.R")) # dependency on animals.R
 
 
 # =============================================================================

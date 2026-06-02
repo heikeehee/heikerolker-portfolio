@@ -12,8 +12,11 @@ packages_cran <- c(
   # Visualisation
   "ggplot2", "ggimage", "ggthemes", "treemapify",
   "plotly", "RColorBrewer", "viridis", "hrbrthemes", "htmlwidgets",
+  "arrow", "ggalluvial",
   # Reporting
   "bookdown", "tinytex",
+  # Analysis
+  "FactoMineR", "factoextra",
   # Utilities
   "Hmisc", "stringi", "stringr", "pander", "devtools", "lubridate", "naniar", "janitor", "duckdb", "DBI"
 )
