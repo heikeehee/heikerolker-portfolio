@@ -518,16 +518,3 @@ message("Crops–destinations mismatches: ", nrow(crops_no_dest),
 message("Variables with imputed values: yield_gap (yieldgaps_hh), animal feed/carcass (mass_animals_hh)")
 
 
-# ── Connect to an in-memory DuckDB instance ──────────────────────────────────
-con <- dbConnect(duckdb::duckdb())
-
-# ── Register raw section data frames as SQL-queryable views ──────────────────
-# These are the pre-aggregation frames — correct grain for the spine
-duckdb::duckdb_register(con, "pc",              pc)
-duckdb::duckdb_register(con, "pt",              pt)
-duckdb::duckdb_register(con, "animals_fin",     animals_fin)
-duckdb::duckdb_register(con, "mass_eggs",       mass_eggs)
-duckdb::duckdb_register(con, "mass_milk_final", mass_milk_final)
-duckdb::duckdb_register(con, "recall",          recall)
-duckdb::duckdb_register(con, "crop_disp",       crop_disp)
-duckdb::duckdb_register(con, "mass_agprod",     mass_agprod)

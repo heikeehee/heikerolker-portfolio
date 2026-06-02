@@ -19,8 +19,8 @@ The SQL scripts in this folder are meant to show:
 
 | SQL file | R context |
 |----|----|
-| 01_household_spine.sql | `scripts/04_build_households.R` |
-| 02_crop_summary.sql | `scripts/clean/crops.R` + `scripts/04_build_households.R` |
+| 01_module_grain_audit.sql | `scripts/04_build_households.R` |
+| 02a_harvest_audit.sql | `scripts/clean/crops.R` + `scripts/04_build_households.R` |
 | 03_animal_summary.sql | `scripts/clean/animals.R` + `scripts/clean/animal_products.R` + `scripts/clean/milk.R` |
 
 ## Notes
