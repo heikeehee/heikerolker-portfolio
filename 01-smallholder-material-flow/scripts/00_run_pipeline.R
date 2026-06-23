@@ -55,15 +55,20 @@ source(here::here("01-smallholder-material-flow", "scripts", "02_clean", "export
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "recall.R"))
+
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "crops.R"))          # dependency on crops.R
-source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "yield_gap.R"))       # dependency on crops.R
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "destinations.R"))    # dependency on crops.R
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "ag_produce.R"))      # dependency on crops.R
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "processed_crops.R")) # dependency on ag_produce.R & destinations.R
+
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "yield_gap.R"))      
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "tier3_crops.R"))   
+
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "animals.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "milk.R"))            # dependency on animals.R
 source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "animal_products.R")) # dependency on animals.R
 
+source(here::here("01-smallholder-material-flow", "scripts", "03_impute", "tier3_animals.R"))   
 
 # =============================================================================
 # STAGE 4: Build household-level dataset

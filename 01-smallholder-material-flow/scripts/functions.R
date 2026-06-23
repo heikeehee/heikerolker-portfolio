@@ -613,13 +613,13 @@ crops_list <- data.frame(
       "kapok",
       
       # Spices
-      "vanilla", "clove", "cinnemon", "cardamom", "black pepper",
+      "vanilla", "clove", "cinnamon", "cardamom", "black pepper",
       
       # Fruits
       "banana", "plantain", "mango", "avocado", "pineapple", 
       "passion fruit", "watermelon", "coconuts", "water mellon", "lime",
-      "plum", "pawpaw", "orange", "mandarin", "guava", 
-      "pomegranate", "custard apple", "peaces", "malay apple", "jack fruit",
+      "plum", "papaw", "orange", "mandarin", "guava", 
+      "pomegranate", "custard apple", "peaches", "malay apple", "jack fruit",
       "date", "lemon", "bread fruit", "plums", "bilimbi",
       "pears", "rambutan", "grapes", "apples", "coconut", 
       "monkeybread", "tungamaa", "star fruit", "grapefruit", "god fruit",

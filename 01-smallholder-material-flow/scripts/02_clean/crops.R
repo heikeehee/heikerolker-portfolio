@@ -70,7 +70,7 @@ message("flag_gps_area_zero: ", n_flag_gps_area_zero, " rows where gps_area == 0
 
 saveRDS(plots, here::here("data", "processed", "01", "clean", "plots.rds"), compress = TRUE)
 
-p <- plots[, .(y4_hhid, plotnum, area_ha, gps_area_ha)]
+p <- plots[, .(y4_hhid, plotnum, area_ha, gps_area_ha)] |> unique()
 
 # Derived diagnostic only: composite plot size candidate
 p[, plotsize_candidate := ifelse(is.na(gps_area_ha), area_ha, gps_area_ha)]
@@ -171,12 +171,7 @@ message("flag_harvest_remain_missing: ", crops[flag_harvest_remain_missing == 1L
 
 saveRDS(crops, here::here("data", "processed", "01", "clean", "crops.rds"), compress = TRUE)
 
-crops_sub <- crops[, .(
-  y4_hhid, plotnum, type, cropid,
-  preharvest_losses, loss_cause,
-  harvested, lessharvest, harvest_remain, quant_harvest,
-  area_planted, area_harvested_ha
-)]
+crops_sub <- crops %>% select(!starts_with("ag4a"))
 
 pc <- p[crops_sub, on = c("y4_hhid", "plotnum")]
 

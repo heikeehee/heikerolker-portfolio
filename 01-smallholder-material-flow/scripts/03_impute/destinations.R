@@ -1,44 +1,55 @@
 # =============================================================================
 # impute/destinations.R
 # PURPOSE: Apply repair, gateway zeros, harvest/disposition merges,
-#          exclusion review, and residue estimation for crop and tree flows
-# INPUT:   clean/crop_disp.rds, clean/tree_disp.rds,
-#          imputed/pc.rds, imputed/pt.rds,
-#          raw$ref$rpr, raw$ref$cropmap
-# OUTPUT:  data/processed/01/impute/mass_crops.rds
-#          data/processed/01/impute/mass_trees.rds
-#          data/processed/01/impute/mass_allcrops.rds
-#          data/processed/01/impute/mass_residue.rds
-#          data/processed/01/impute/mass_residue.csv
-#          data/processed/01/impute/*_flag_summary.csv
+# exclusion review, and residue estimation for crop and tree flows
+# INPUT: clean/crop_disp.rds, clean/tree_disp.rds,
+# imputed/pc.rds, imputed/pt.rds,
+# raw$ref$rpr, raw$ref$cropmap
+# OUTPUT: data/processed/01/impute/mass_crops.rds
+#         data/processed/01/impute/mass_trees.rds
+#         data/processed/01/impute/mass_allcrops.rds
+#         data/processed/01/impute/mass_residue.rds
+#         data/processed/01/impute/mass_residue.csv
+#         data/processed/01/impute/*_flag_summary.csv
 # =============================================================================
 
 source(here::here("01-smallholder-material-flow", "scripts", "packages.R"))
 source(here::here("01-smallholder-material-flow", "scripts", "functions.R"))
 
-dir.create(here::here("data", "processed", "01", "impute"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data", "processed", "01", "03_impute"), showWarnings = FALSE, recursive = TRUE)
 
 crop_disp <- readRDS(here::here("data", "processed", "01", "clean", "crop_disp.rds"))
 tree_disp <- readRDS(here::here("data", "processed", "01", "clean", "tree_disp.rds"))
-pc        <- readRDS(here::here("data", "processed", "01", "imputed", "pc.rds"))
-pt        <- readRDS(here::here("data", "processed", "01", "imputed", "pt.rds"))
+pc <- readRDS(here::here("data", "processed", "01", "impute", "pc_imputed.rds"))
+pt <- readRDS(here::here("data", "processed", "01", "impute", "pt_imputed.rds"))
 
 flag_summary <- function(dt) {
   fc <- names(dt)[grepl("^flag_", names(dt))]
-  data.table(flag = fc, n = vapply(fc, function(col) dt[get(col) == 1L, .N], integer(1)))[order(-n)]
+  data.table(
+    Variable = fc,
+    Script = "impute/destinations.R",
+    Type = "flag",
+    Description = fc,
+    Tier = "diagnostic",
+    Method = "count rows with flag == 1",
+    Status = "implemented",
+    Notes = "",
+    n = vapply(fc, function(col) dt[get(col) == 1L, .N], integer(1))
+  )[order(-n)]
 }
 
 # =============================================================================
-# SECTION 1: CROP PRODUCTION + DISPOSITION
+# TIER 1: GATEWAY ZERO LOGIC
 # =============================================================================
 
+# Crop disposition zeroing
 pn_crops <- pc[, .(nplots = uniqueN(plotnum)), by = .(y4_hhid, cropid)]
 
 chh <- pc[, .(
-  harvest           = sum(quant_harvest, na.rm = TRUE),
-  harvest_remain    = sum(harvest_remain, na.rm = TRUE),
-  area_planted      = sum(area_planted_ha, na.rm = TRUE),
-  total_harvest     = sum(total_harvest, na.rm = TRUE)
+  harvest = sum(quant_harvest, na.rm = TRUE),
+  harvest_remain = sum(harvest_remain, na.rm = TRUE),
+  area_planted = sum(area_planted_ha, na.rm = TRUE),
+  total_harvest = sum(total_harvest, na.rm = TRUE)
 ), by = .(y4_hhid, type, cropid)]
 
 chh[, yield := fifelse(!is.na(area_planted) & area_planted > 0, total_harvest / area_planted, NA_real_)]
@@ -88,15 +99,12 @@ saveRDS(crops_merged, here::here("data", "processed", "01", "impute", "mass_crop
 readr::write_csv(as.data.frame(flag_summary(crops_merged)),
                  here::here("data", "processed", "01", "impute", "mass_crops_flag_summary.csv"))
 
-# =============================================================================
-# SECTION 2: TREE PRODUCTION + DISPOSITION
-# =============================================================================
-
+# Tree disposition
 pn_trees <- pt[, .(nplots = uniqueN(plotnum)), by = .(y4_hhid, cropid)]
 
 thh <- pt[, .(
   harvest = sum(harvest, na.rm = TRUE),
-  ntrees  = sum(ntrees, na.rm = TRUE)
+  ntrees = sum(ntrees, na.rm = TRUE)
 ), by = .(y4_hhid, type, cropid)]
 
 thh[, yield := fifelse(!is.na(ntrees) & ntrees > 0, harvest / ntrees, NA_real_)]
@@ -141,10 +149,7 @@ saveRDS(trees_merged, here::here("data", "processed", "01", "impute", "mass_tree
 readr::write_csv(as.data.frame(flag_summary(trees_merged)),
                  here::here("data", "processed", "01", "impute", "mass_trees_flag_summary.csv"))
 
-# =============================================================================
-# SECTION 3: COMBINED CROPS + TREES
-# =============================================================================
-
+# Combined crops + trees
 ct <- crops_merged[, .(y4_hhid, type, cropid, harvest, sold, stored, seed,
                        losses, consumed, payment, gifts, feed, residue, smd)]
 tc <- trees_merged[, .(y4_hhid, type, cropid, harvest, sold, stored, seed,
@@ -154,12 +159,9 @@ tc[, residue := NA_real_]
 allcrops <- rbindlist(list(ct, tc), fill = TRUE)
 saveRDS(allcrops, here::here("data", "processed", "01", "impute", "mass_allcrops.rds"), compress = TRUE)
 
-# =============================================================================
-# SECTION 4: CROP RESIDUE ESTIMATION
-# =============================================================================
-
+# Crop residue estimation
 residue_disp <- crop_disp[, .(y4_hhid, cropid, residue_use, residue_raw, value_residue)]
-residue_disp <- residue_disp[residue_use != "crop produces no  residue"]
+residue_disp <- residue_disp[residue_use != "crop produces no residue"]
 residue_disp[, flag_no_residue_category_dropped := 1L]
 
 rpr_ref <- raw$ref$rpr[AreaName == "Tanzania, United Rep. of"]
@@ -201,3 +203,35 @@ readr::write_csv(as.data.frame(flag_summary(res_out)),
                  here::here("data", "processed", "01", "impute", "mass_residue_flag_summary.csv"))
 
 message("impute/destinations.R: all destination and residue outputs saved.")
+
+# =============================================================================
+# TIER 3 ACTIONS / TODO
+# =============================================================================
+# Tier 3 actions:
+# - If any crop/tree disposition repairs depend on cross-section support, move them to tier3_master.R.
+# - If residue allocation needs a broader household-level reconciliation, keep the final decision in the master script.
+# - Reprofile households that were excluded in the thesis before finalising residue allocation rules.
+#
+# Outstanding TODO:
+# - Confirm all downstream joins use the impute-stage pc and pt outputs, not clean-stage inputs.
+# - Check whether pn_crops and pn_trees should be used only as diagnostics or retained as output columns.
+# - Decide whether flag_crop_no_production_match should stay as a repair audit or move to tier3_master.R.
+# - Decide whether flag_crop_no_disposition_match is a true missingness flag or an exclusion candidate.
+# - Review whether flag_crop_yield_missing and flag_crop_area_missing are downstream repair candidates
+#   or only diagnostic outputs for later imputation.
+# - Confirm that sold/stored/losses zeroing when sale/storage/lost == "no" is a valid structural-zero rule.
+# - Check whether the 1.3 threshold in flag_crop_disposition_inconsistent is still defensible.
+# - Review whether tree logic needs the same structural-zero and plausibility handling as crops.
+# - Confirm whether flag_tree_no_production_match and flag_tree_no_disposition_match should remain
+#   in this script or be carried forward as tier3 review items.
+# - Check whether flag_tree_ntrees_zero should be treated as a real zero, missingness issue,
+#   or a special exclusion review case.
+# - Confirm that residue allocation only uses records with a valid residue_use category.
+# - Decide whether residue_use == "crop produces no residue" should be retained as a dropped category
+#   or flagged earlier in clean stage.
+# - Confirm the RPR lookup behaviour when RPR or Dry_matter is missing.
+# - Review whether residue_sold_DM should be calculated only when residue_raw is present and numeric.
+# - Decide whether grazing_res should remain a direct allocation rule or move into a shared tier3 script.
+# - Check whether mass_allcrops should keep residues blank for trees by design.
+# - Confirm that flag_no_residue_category_dropped is enough, or whether a separate exclusion flag is needed.
+# =============================================================================
